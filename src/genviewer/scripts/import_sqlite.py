@@ -20,6 +20,7 @@ import os
 import sqlite3
 from pathlib import Path
 
+from genviewer.scripts import survive_console_encoding
 from genviewer.service import schema
 from genviewer.utils.user import current_user
 
@@ -197,6 +198,7 @@ def import_file(
 
 
 def main() -> int:
+    survive_console_encoding()
     ap = argparse.ArgumentParser(description="sqlite -> PostgreSQL 이관")
     ap.add_argument("--sqlite", required=True, help="원본 .sqlite 파일")
     ap.add_argument("--dsn", default=os.environ.get("MOLGEN_PG_DSN", ""))
@@ -224,7 +226,7 @@ def main() -> int:
     suffix = args.rename_suffix or f"@{current_user()}"
     print(f"원본: {src_path}  정책: {args.on_conflict}")
     if args.dry_run:
-        print("(dry-run — 아무것도 쓰지 않는다)")
+        print("(dry-run - 아무것도 쓰지 않는다)")
     return import_file(src_path, args.dsn, args.on_conflict, suffix, args.dry_run)
 
 

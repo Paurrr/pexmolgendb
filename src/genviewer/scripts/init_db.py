@@ -16,7 +16,7 @@ autocommit)와 DB 단계(스키마 DDL, 트랜잭션) 분리, skip_if 로 멱등
       --create-role molgen --create-database molgen
 
 비밀번호는 MOLGEN_INIT_PASSWORD 환경변수나 프롬프트에서만 받는다.
-argv 로는 절대 받지 않는다 — ps 에 남는다.
+argv 로는 절대 받지 않는다 - ps 에 남는다.
 """
 
 import argparse
@@ -25,6 +25,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from genviewer.scripts import survive_console_encoding
 from genviewer.service import schema
 
 
@@ -128,6 +129,7 @@ def run_plan(steps: list[Step], dsn: str, target_db: str, password: str) -> int:
 
 
 def main() -> int:
+    survive_console_encoding()
     ap = argparse.ArgumentParser(description="molgen PostgreSQL 프로비저닝")
     ap.add_argument("--dsn", default=os.environ.get("MOLGEN_PG_DSN", ""))
     ap.add_argument("--create-role", default="", help="이 이름으로 LOGIN role 생성")
