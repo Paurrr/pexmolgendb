@@ -87,7 +87,22 @@ MOLGEN_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 | `MOLGEN_PG_STATEMENT_TIMEOUT_MS` | 쿼리 한도 (기본 15000) |
 | `MOLGEN_TEST_PG_DSN` | 테스트용 관리 DSN |
 
-## 배포 시 주의
+## 배포 시 주의 — RHEL 8
 
-리눅스에서 PySide6 6.11.1 은 **glibc 2.34 이상**(manylinux_2_34)이 필요하다.
-RHEL 8 / CentOS 7 에는 설치되지 않는다. Python 은 3.13 또는 3.14.
+PySide6 는 **6.9.3** 에 고정돼 있다. 이게 `manylinux_2_28` 휠을 내는 마지막
+릴리스이고, RHEL 8 의 glibc 가 2.28 이다. 6.10 부터는 `manylinux_2_34` 라서
+RHEL 9 이상에서만 설치된다.
+
+그 휠이 `Requires-Python: <3.14` 이므로 인터프리터도 **3.13** 으로 고정된다.
+`.python-version` 과 `requires-python` 이 그렇게 맞춰져 있다. 나머지 의존성은
+RHEL 8 에서 더 조이지 않는다 — pandas/numpy 는 `manylinux_2_28`,
+psycopg-binary 는 `manylinux2014`(glibc 2.17) 휠이다.
+
+올리기 전에 교차 확인:
+
+```sh
+uv pip compile pyproject.toml --python-version 3.13     --python-platform x86_64-manylinux_2_28
+```
+
+배포 호스트에 Python 3.13 이 없으면 `uv python install 3.13` 이 필요하고,
+이건 네트워크나 미리 채워둔 `UV_PYTHON_INSTALL_DIR` 를 쓴다.
