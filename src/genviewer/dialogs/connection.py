@@ -118,13 +118,20 @@ class ConnectionDialog(QDialog):
     def _on_test(self) -> None:
         from genviewer.service.config import load_config
         from genviewer.service.pool import Database
+        from genviewer.utils.background import run_blocking
+
+        def probe() -> bool:
+            db = Database(load_config(self.dsn()))
+            try:
+                return db.ping()
+            finally:
+                db.close()
 
         self.status_label.setText("연결 중...")
         self.test_btn.setEnabled(False)
         try:
-            db = Database(load_config(self.dsn()))
-            ok = db.ping()
-            db.close()
+            # 죽은 호스트를 찍었을 때 이 창까지 같이 얼지 않게 워커에서 돈다.
+            ok = run_blocking(probe, self)
         except Exception as e:
             self.status_label.setText(f"실패: {e}")
             return

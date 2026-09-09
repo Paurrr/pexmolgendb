@@ -6,6 +6,7 @@ from genviewer.dialogs.conflict import OVERWRITE, RELOAD, ask_conflict
 from genviewer.dialogs.tab_selector import TabSelectorDialog
 from genviewer.service.errors import StaleWriteError
 from genviewer.service.repo.parameter import ParameterRepository
+from genviewer.utils.background import run_blocking
 from genviewer.utils.user import current_user
 from genviewer.views.parameter_tab import ParameterTab
 from genviewer.views.tab_section import TabSection
@@ -84,12 +85,17 @@ class ParameterTabController(QObject):
             return False
 
     def _apply(self, payload: dict, *, force: bool = False) -> None:
-        version = self.repo.replace_many_for_device(
-            self.current_device_id,
-            payload,
-            expected_version=self.current_version,
-            actor=current_user(),
-            force=force,
+        # 13개 탭을 한 트랜잭션으로 쓴다. 부모 device 행에 FOR UPDATE 를 걸므로
+        # 다른 사용자 뒤에서 대기할 수 있어 워커 스레드에서 돌린다.
+        version = run_blocking(
+            lambda: self.repo.replace_many_for_device(
+                self.current_device_id,
+                payload,
+                expected_version=self.current_version,
+                actor=current_user(),
+                force=force,
+            ),
+            self,
         )
         # 탭 저장도 device 의 version 을 올린다. 반영하지 않으면 다음 저장이
         # 엉뚱하게 충돌한다.

@@ -13,6 +13,7 @@ from genviewer.service.repo.device import DeviceRepository
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.service.repo.process import ProcessRepository
+from genviewer.utils.background import run_blocking
 from genviewer.utils.dialogs import question
 from genviewer.utils.lisp import to_lisp_list_string
 from genviewer.views.device_tab import DeviceTab
@@ -102,6 +103,15 @@ class DeviceTabController(QObject):
         self.notifyRequested.emit("info", "Saved", "All changes have been saved.")
         self.logRequested.emit("Saved all device/tab changes.")
 
+    @staticmethod
+    def _open_database(dsn: str) -> Database:
+        """워커 스레드에서 도는 부분. ping 이 connect_timeout 만큼 걸릴 수 있다."""
+        db = Database(load_config(dsn))
+        db.open()
+        if not db.ping():
+            raise DbUnavailableError("서버가 응답하지 않는다")
+        return db
+
     def connect_db(self, dsn: str) -> bool:
         """DSN 으로 접속한다. dsn 이 비면 MOLGEN_PG_DSN 환경변수를 쓴다."""
         if self.db is not None:
@@ -109,10 +119,7 @@ class DeviceTabController(QObject):
             self.db = None
 
         try:
-            db = Database(load_config(dsn))
-            db.open()
-            if not db.ping():
-                raise DbUnavailableError("서버가 응답하지 않는다")
+            db = run_blocking(lambda: self._open_database(dsn), self)
         except (RuntimeError, DbUnavailableError) as e:
             self.connected = False
             self.logRequested.emit(f"Database connect failed: {e}")

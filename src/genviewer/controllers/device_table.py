@@ -11,6 +11,7 @@ from genviewer.service.errors import StaleWriteError
 from genviewer.service.repo.device import DeviceRepository
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
+from genviewer.utils.background import run_blocking
 from genviewer.utils.exporter import write_csv, write_xlsx
 from genviewer.utils.menus import build_device_table_menu
 from genviewer.utils.user import current_user
@@ -321,25 +322,30 @@ class DeviceTableController(QObject):
         """저장하고, 충돌하면 사용자에게 물어본다. 저장했으면 True."""
         if not to_save and not deleted:
             return True
-        try:
-            self.repo.upsert_devices(
-                self.current_process_id, to_save, deleted=deleted, actor=current_user()
+
+        def write(force: bool):
+            # 워커 스레드에서 돈다. advisory lock 과 FOR UPDATE 때문에 다른
+            # 사용자 뒤에서 lock_timeout(기본 5초) 까지 기다릴 수 있다.
+            return self.repo.upsert_devices(
+                self.current_process_id,
+                to_save,
+                deleted=deleted,
+                actor=current_user(),
+                force=force,
             )
+
+        try:
+            run_blocking(lambda: write(False), self)
             return True
         except StaleWriteError as e:
+            # 다이얼로그는 run_blocking 이 끝난 뒤 GUI 스레드에서 뜬다.
             choice = ask_conflict(self.ui, e.conflicts)
             if choice == RELOAD:
                 self.refresh_devices()
                 self.logRequested.emit("Save conflict: 서버 내용으로 다시 읽었다.")
                 return False
             if choice == OVERWRITE:
-                self.repo.upsert_devices(
-                    self.current_process_id,
-                    to_save,
-                    deleted=deleted,
-                    actor=current_user(),
-                    force=True,
-                )
+                run_blocking(lambda: write(True), self)
                 self.logRequested.emit("Save conflict: 내 변경으로 덮어썼다.")
                 return True
             self.logRequested.emit("Save conflict: 저장을 취소했다.")
