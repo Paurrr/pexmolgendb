@@ -8,14 +8,14 @@ import sqlite3
 
 import pytest
 
-from service.db_init import _SCHEMA
+from service.schema import sqlite_all_ddl
 
 
 @pytest.fixture
 def conn():
     c = sqlite3.connect(":memory:")
     c.execute("PRAGMA foreign_keys = ON;")
-    for stmt in _SCHEMA:
+    for stmt in sqlite_all_ddl():
         c.execute(stmt)
     yield c
     c.close()
