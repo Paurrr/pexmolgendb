@@ -22,6 +22,17 @@ class ProcessRepository:
             # UNIQUE 충돌 → 이미 존재
             return False
 
+    def count_devices(self, name: str) -> int:
+        """이 process 를 지우면 cascade 로 함께 사라질 device 수."""
+        cur = self.conn.cursor()
+        cur.execute(
+            "SELECT count(*) FROM device d JOIN process p ON p.id = d.process_id "
+            "WHERE p.name = ?",
+            (name,),
+        )
+        row = cur.fetchone()
+        return row[0] if row else 0
+
     def delete(self, name: str) -> bool:
         cur = self.conn.cursor()
         try:

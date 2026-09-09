@@ -140,7 +140,9 @@ class DeviceTableController(QObject):
         for row in rows:
             device_row = model.get_device(row)
             device_id = device_row.get("id")
-            copied_device = {k: v for k, v in device_row.items() if k != "id"}
+            # 표시 컬럼만 복사한다. id/process_id/version 같은 영속 필드가
+            # 붙어 나가면 붙여넣기가 신규 생성이 아니라 기존 행 수정처럼 보인다.
+            copied_device = {c: device_row.get(c, "") for c in model._columns}
             related_data = {}
             for tab_name, tab_info in tab_config.items():
                 fetched_rows = self.parameter_repo.fetch_by_device(

@@ -10,7 +10,8 @@ class ParameterRepository:
     ) -> list[dict]:
         cur = self.conn.cursor()
         cols = ", ".join(columns)
-        sql = f"SELECT {cols} FROM {table_name} WHERE device_id=?"
+        # ORDER BY id 필수: 탭의 행 순서가 곧 CSV 컬럼 순서다.
+        sql = f"SELECT {cols} FROM {table_name} WHERE device_id=? ORDER BY id"
         cur.execute(sql, (device_id,))
         rows = cur.fetchall()
         return [dict(zip(columns, row, strict=True)) for row in rows]

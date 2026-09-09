@@ -76,7 +76,7 @@ class IORepository:
                             try:
                                 values = row[col].strip().split()
                                 if len(values) < n_expected:
-                                    values += [None] * (n_expected - len(values))
+                                    values += [""] * (n_expected - len(values))
                                 else:
                                     values = values[:n_expected]
                                 value_dict = dict(zip(expected_columns, values, strict=True))
@@ -116,8 +116,9 @@ class IORepository:
             self.conn.commit()
             return True
 
-        except Exception:
+        except Exception as e:
             self.conn.rollback()
+            print(f"CSV import failed: {e}")
             return False
 
     def fetch_export_data(
@@ -145,7 +146,11 @@ class IORepository:
                     continue
 
                 column_str = ", ".join(columns) if columns else "*"
-                query = f"SELECT {column_str} FROM {table} WHERE device_id = ?"
+                # ORDER BY id 필수: 자식 행의 순서가 CSV 컬럼 순서이고,
+                # PostgreSQL 은 순서를 보장하지 않는다.
+                query = (
+                    f"SELECT {column_str} FROM {table} WHERE device_id = ? ORDER BY id"
+                )
 
                 try:
                     data = self.conn.execute(query, (device_id,)).fetchall()
@@ -200,6 +205,10 @@ class IORepository:
         rows: list[list[str]] = []
         for info in device_info_sorted:
             device_id = info["id"]
+            process_name = info.get("process_name") or ""
+            if not process_name:
+                # 1패스에서 건너뛴 device 는 2패스에서도 건너뛴다.
+                continue
             celltype = info.get("celltype") or ""
             device_name = info.get("name") or ""
 

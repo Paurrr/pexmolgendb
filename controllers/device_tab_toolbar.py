@@ -1,6 +1,7 @@
 from PySide6.QtCore import QObject, Signal, Slot
 
 from service.repo.process import ProcessRepository
+from utils.dialogs import question
 from views.device_tab_toolbar import DeviceTabToolBar
 
 
@@ -103,6 +104,15 @@ class DeviceTabToolBarController(QObject):
                 "warn", "Not Found", f"Process '{name}' does not exist."
             )
             return
+        n = self.repo.count_devices(name)
+        if not question(
+            self.ui,
+            "Remove Process",
+            f"Process '{name}' 을(를) 삭제하면 device {n}개와 그 파라미터가\n"
+            "모두 함께 삭제됩니다. 계속할까요?",
+        ):
+            return
+
         try:
             if self.repo.delete(name):
                 self.notifyRequested.emit(

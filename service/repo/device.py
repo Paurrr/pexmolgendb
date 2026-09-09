@@ -15,7 +15,8 @@ class DeviceRepository:
         cur = self.conn.cursor()
         sql = (
             "SELECT id, process_id, name, celltype, description "
-            'FROM device WHERE process_id = ? ORDER BY "order"'
+            # "order" 만으로는 전순서가 아니다. 같은 값이면 순서가 불확정이므로 id 를 더한다.
+            'FROM device WHERE process_id = ? ORDER BY "order", id'
         )
         return cur.execute(sql, (process_id,)).fetchall()
 

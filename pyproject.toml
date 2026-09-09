@@ -32,3 +32,5 @@ ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# 평평한 모듈 구조라 프로젝트 루트를 import 경로에 넣어야 한다.
+pythonpath = ["."]
