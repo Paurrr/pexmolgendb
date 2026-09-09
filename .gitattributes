@@ -1,0 +1,5 @@
+# Shell scripts must keep LF endings even when checked out on Windows.
+# They are executed on the Linux side, and a CRLF shebang fails there
+# with "bad interpreter: /bin/sh^M".
+*.sh  text eol=lf
+*.csh text eol=lf

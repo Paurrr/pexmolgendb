@@ -1,0 +1,113 @@
+{
+    "SuffixCellName": {
+        "table": "suffix_cell_name",
+        "headers": ["Suffix Cell Name"],
+        "columns": ["suffix_cell_name"]
+    },
+    "InstTerm": {
+        "table": "inst_terms",
+        "headers": ["Reserved Key", "CDS Inst Term Name"],
+        "columns": ["reserved_key", "cds_inst_term_name"]
+    },
+    "InstSchParam": {
+        "table": "inst_sch_params",
+        "headers": ["Reserved Key", "CDS Inst Parameter Name"],
+        "columns": ["reserved_key", "cds_inst_parameter_name"]
+    },
+    "InstSchParamRange": {
+        "table": "inst_sch_param_ranges",
+        "headers": ["InstSchParam Reserved Key", "Value"],
+        "columns": ["inst_sch_param_reserved_key", "value"]
+    },
+    "PreDefineInstSchParamValue": {
+        "table": "pre_define_inst_sch_param_values",
+        "headers": ["CDS Inst Parameter Name", "Value"],
+        "columns": ["cds_inst_parameter_name", "value"]
+    },
+    "PostDefineInstSchParamValue": {
+        "table": "post_define_inst_sch_param_values",
+        "headers": ["CDS Inst Parameter Name", "Value"],
+        "columns": ["cds_inst_parameter_name", "value"]
+    },
+    "PostDefineInstLayParamValue": {
+        "table": "post_define_inst_lay_param_values",
+        "headers": ["CDS Inst Parameter Name", "Value"],
+        "columns": ["cds_inst_parameter_name", "value"]
+    },
+    "AddLayer": {
+        "table": "add_layers",
+        "headers": [
+            "Layer Name and Purpose",
+            "Reference Layer Name and Purpose",
+            "Value",
+            "Drawn Type"
+        ],
+        "columns": [
+            "layer_name_purpose",
+            "reference_layer_name_purpose",
+            "value",
+            "drawn_type"
+        ]
+    },
+    "AddFGR": {
+        "table": "add_fgrs",
+        "headers": [
+            "FGR Name",
+            "Reference Layer Name and Purpose",
+            "Value",
+            "Term Name",
+            "FGR Parameter Header Name"
+        ],
+        "columns": [
+            "fgr_name",
+            "reference_layer_name_purpose",
+            "value",
+            "term_name",
+            "fgr_parameter_header_name"
+        ]
+    },
+    "AddFGRParam": {
+        "table": "add_fgr_params",
+        "headers": [
+            "Parameter Name",
+            "Value"
+        ],
+        "columns": [
+            "parameter_name",
+            "value"
+        ]
+    },
+    "AddPFGRParam": {
+        "table": "add_pfgr_params",
+        "headers": [
+            "Parameter Name",
+            "Value"
+        ],
+        "columns": [
+            "parameter_name",
+            "value"
+        ]
+    },
+    "AddNFGRParam": {
+        "table": "add_nfgr_params",
+        "headers": [
+            "Parameter Name",
+            "Value"
+        ],
+        "columns": [
+            "parameter_name",
+            "value"
+        ]
+    },
+    "AddFGRFirstMetal": {
+        "table": "add_fgr_first_metals",
+        "headers": [
+            "Layer Name",
+            "Purpose"
+        ],
+        "columns": [
+            "layer_name",
+            "purpose"
+        ]
+    }
+}
