@@ -1,0 +1,32 @@
+[project]
+name = "molgenviewer"
+version = "0.1.0"
+description = "Editor for the genMOLDB device database (Cadence Virtuoso SKILL suite)"
+requires-python = ">=3.13,<3.15"
+dependencies = [
+    "PySide6==6.11.1",
+    "pandas>=3.0,<4",
+    "openpyxl>=3.1",
+    "psycopg[binary,pool]>=3.3,<4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.14",
+]
+
+[tool.uv]
+# 평평한 모듈 구조(main.py + 형제 패키지들)이므로 가상 프로젝트로 둔다.
+# 루트를 설치하지 않으며, 실행은 `uv run python main.py`.
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
