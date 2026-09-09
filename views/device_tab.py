@@ -1,18 +1,19 @@
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QSplitter,
-)
 from PySide6.QtCore import Qt, Signal, Slot
-from views.device_tab_toolbar import DeviceTabToolBar
-from views.device_state_table import VirtuosoDeviceTableView, FilteredDeviceTableView
-from views.device_table import DeviceTableView
-from views.parameter_tab import ParameterTab
+from PySide6.QtWidgets import (
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
+
 from utils.file_dialogs import open_file, save_file
 from utils.table_utils import (
-    setup_tableview,
     build_searchable_labeled_view,
+    setup_tableview,
 )
+from views.device_state_table import FilteredDeviceTableView, VirtuosoDeviceTableView
+from views.device_tab_toolbar import DeviceTabToolBar
+from views.device_table import DeviceTableView
+from views.parameter_tab import ParameterTab
 
 
 class DeviceTab(QWidget):

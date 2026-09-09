@@ -1,15 +1,17 @@
 from pathlib import Path
-from PySide6.QtWidgets import QMenu
-from PySide6.QtCore import Qt, QPoint, Signal, QModelIndex, QObject, Slot
+
+from PySide6.QtCore import QModelIndex, QObject, QPoint, Qt, Signal, Slot
 from PySide6.QtGui import QAction
-from views.device_table import DeviceTableView
+from PySide6.QtWidgets import QMenu
+
 from config.config import delegate_config, tab_config
-from service.repo.device import DeviceRepository
-from service.repo.parameter import ParameterRepository
-from service.repo.io import IORepository
-from utils.menus import build_device_table_menu
 from delegates.combo_box import ComboBoxDelegate
+from service.repo.device import DeviceRepository
+from service.repo.io import IORepository
+from service.repo.parameter import ParameterRepository
 from utils.exporter import write_csv, write_xlsx
+from utils.menus import build_device_table_menu
+from views.device_table import DeviceTableView
 
 
 class DeviceTableController(QObject):

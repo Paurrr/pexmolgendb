@@ -13,7 +13,7 @@ class ParameterRepository:
         sql = f"SELECT {cols} FROM {table_name} WHERE device_id=?"
         cur.execute(sql, (device_id,))
         rows = cur.fetchall()
-        return [dict(zip(columns, row)) for row in rows]
+        return [dict(zip(columns, row, strict=True)) for row in rows]
 
     def replace_all_for_device(
         self, table_name: str, columns: list[str], device_id: int, rows: list[dict]
@@ -23,7 +23,10 @@ class ParameterRepository:
                 f"DELETE FROM {table_name} WHERE device_id=?", (device_id,)
             )
             placeholders = ", ".join(["?"] * (len(columns) + 1))
-            sql = f"INSERT INTO {table_name} (device_id, {', '.join(columns)}) VALUES ({placeholders})"
+            sql = (
+                f"INSERT INTO {table_name} (device_id, {', '.join(columns)}) "
+                f"VALUES ({placeholders})"
+            )
             data = [(device_id, *[row.get(c, "") for c in columns]) for row in rows]
             if data:
                 self.conn.executemany(sql, data)

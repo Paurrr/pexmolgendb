@@ -1,8 +1,10 @@
 import sys
+
 from PySide6.QtWidgets import QApplication
-from views.main_window import MainWindow
+
 from controllers.main_window import MainWindowController
 from utils.palette import apply_theme
+from views.main_window import MainWindow
 
 
 def main():

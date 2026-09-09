@@ -1,5 +1,6 @@
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, Signal
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 from PySide6.QtGui import QColor
+
 from utils.validators import normalize_value
 
 

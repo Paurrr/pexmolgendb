@@ -1,20 +1,22 @@
 from collections import defaultdict
 from pathlib import Path
+
+from PySide6.QtCore import QModelIndex, QObject, Signal, Slot
 from PySide6.QtWidgets import QMessageBox
-from PySide6.QtCore import Slot, QModelIndex, Signal, QObject
-from utils.persistence import save_database
-from utils.lisp import to_lisp_list_string
-from utils.dialogs import question
-from service.db_init import initialize_database
-from service.connection import connect
-from views.device_tab import DeviceTab
-from controllers.device_table import DeviceTableController
+
 from controllers.device_tab_toolbar import DeviceTabToolBarController
+from controllers.device_table import DeviceTableController
 from controllers.parameter_tab import ParameterTabController
+from service.connection import connect
+from service.db_init import initialize_database
 from service.repo.device import DeviceRepository
-from service.repo.process import ProcessRepository
-from service.repo.parameter import ParameterRepository
 from service.repo.io import IORepository
+from service.repo.parameter import ParameterRepository
+from service.repo.process import ProcessRepository
+from utils.dialogs import question
+from utils.lisp import to_lisp_list_string
+from utils.persistence import save_database
+from views.device_tab import DeviceTab
 
 
 class DeviceTabController(QObject):

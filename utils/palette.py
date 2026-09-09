@@ -1,5 +1,4 @@
-from PySide6.QtGui import QPalette, QColor, QFont
-
+from PySide6.QtGui import QColor, QFont, QPalette
 
 THEMES = {
     "mist": {

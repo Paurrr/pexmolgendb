@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QSortFilterProxyModel
+from PySide6.QtCore import QSortFilterProxyModel, Qt
 
 
 class SortingProxyModel(QSortFilterProxyModel):

@@ -1,6 +1,5 @@
 import sqlite3
 
-
 _SCHEMA = [
     """
     CREATE TABLE IF NOT EXISTS process (

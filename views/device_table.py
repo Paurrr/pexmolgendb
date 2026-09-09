@@ -1,17 +1,19 @@
 import re
-from PySide6.QtWidgets import (
-    QTableView,
-    QDialog,
-    QAbstractItemView,
-    QStyledItemDelegate,
-)
+
 from PySide6.QtCore import (
-    Qt,
     QPoint,
     QRegularExpression,
+    Qt,
     Signal,
     Slot,
 )
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QDialog,
+    QStyledItemDelegate,
+    QTableView,
+)
+
 from dialogs.insert import InsertDialog
 from models.device_table import DeviceTableModel
 from models.sorting_proxy import SortingProxyModel

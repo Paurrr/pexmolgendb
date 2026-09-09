@@ -1,8 +1,10 @@
-import sqlite3
-import pandas as pd
 import re
-from pathlib import Path
+import sqlite3
 from collections import defaultdict
+from pathlib import Path
+
+import pandas as pd
+
 from config.config import tab_config
 
 
@@ -77,7 +79,7 @@ class IORepository:
                                     values += [None] * (n_expected - len(values))
                                 else:
                                     values = values[:n_expected]
-                                value_dict = dict(zip(expected_columns, values))
+                                value_dict = dict(zip(expected_columns, values, strict=True))
                                 rows_by_table[table_name].append(
                                     (
                                         device_id,
@@ -114,7 +116,7 @@ class IORepository:
             self.conn.commit()
             return True
 
-        except Exception as e:
+        except Exception:
             self.conn.rollback()
             return False
 
@@ -161,7 +163,7 @@ class IORepository:
         # Build headers
         headers = ["CellType", "CdsLibName", "InstCellName"]
         for tab in tab_names:
-            for i in range(1, tab_max_columns[tab] + 1):
+            for _ in range(1, tab_max_columns[tab] + 1):
                 headers.append(tab)
 
         celltype_priority = [

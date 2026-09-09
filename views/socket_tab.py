@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import (
-    QWidget,
+    QHBoxLayout,
     QLineEdit,
     QPushButton,
-    QHBoxLayout,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
+
 from utils.table_utils import build_labeled_view
 
 

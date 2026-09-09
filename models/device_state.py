@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 
 class DeviceStateModel(QAbstractTableModel):

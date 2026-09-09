@@ -1,24 +1,25 @@
+from PySide6.QtCore import QDateTime, QSize, Qt
 from PySide6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QListWidget,
-    QStackedWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QLabel,
-    QListWidgetItem,
-    QSizePolicy,
-    QWidgetAction,
-    QLineEdit,
-    QToolBar,
-    QStatusBar,
     QApplication,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
     QPushButton,
+    QSizePolicy,
     QSplitter,
+    QStackedWidget,
+    QStatusBar,
     QTextEdit,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
+    QWidgetAction,
 )
-from PySide6.QtCore import Qt, QDateTime, QSize
-from utils.dialogs import info, warning, critical, error
+
+from utils.dialogs import critical, error, info, warning
 from views.device_tab import DeviceTab
 from views.socket_tab import SocketTab
 

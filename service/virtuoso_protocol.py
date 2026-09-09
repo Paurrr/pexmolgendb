@@ -29,8 +29,8 @@ def to_device_state(payload: str) -> dict:
         if not item:
             continue
         parts = (item.split(",") + [None, None, None, None])[:4]
-        name, s, l, lib = parts
-        out[name] = {"S": s, "L": l, "library_name": lib}
+        name, s, layer, lib = parts
+        out[name] = {"S": s, "L": layer, "library_name": lib}
     return out
 
 

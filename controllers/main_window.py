@@ -1,12 +1,13 @@
-from PySide6.QtCore import Slot, Signal, QObject
+from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
-from net.controller import ConnectionController
-from service import virtuoso_protocol
+
 from controllers.device_tab import DeviceTabController
 from controllers.socket_tab import SocketTabController
-from views.main_window import MainWindow
+from net.controller import ConnectionController
+from service import virtuoso_protocol
 from utils.palette import THEMES, apply_theme
+from views.main_window import MainWindow
 
 
 class MainWindowController(QObject):

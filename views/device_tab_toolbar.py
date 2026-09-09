@@ -1,13 +1,14 @@
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
-    QWidget,
+    QComboBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QPushButton,
-    QComboBox,
     QSizePolicy,
-    QInputDialog,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, Slot
+
 from utils.dialogs import question
 
 

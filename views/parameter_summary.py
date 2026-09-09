@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QTableView, QHeaderView
 from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QHeaderView, QTableView
+
 from models.parameter_summary import ParameterSummaryModel
 
 

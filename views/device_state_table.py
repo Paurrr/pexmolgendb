@@ -1,6 +1,8 @@
 import re
+
+from PySide6.QtCore import QRegularExpression, QSortFilterProxyModel, Slot
 from PySide6.QtWidgets import QTableView
-from PySide6.QtCore import QSortFilterProxyModel, QRegularExpression, Slot
+
 from models.device_state import DeviceStateModel
 
 

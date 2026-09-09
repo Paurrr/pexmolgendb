@@ -1,5 +1,7 @@
-from typing import Callable, Optional
-from PySide6.QtCore import Signal, QObject
+from collections.abc import Callable
+
+from PySide6.QtCore import QObject, Signal
+
 from net.client import Client
 from net.workers import ConnectWorker, DisconnectWorker, ReceiveWorker, SendWorker
 
@@ -11,15 +13,15 @@ class ConnectionController(QObject):
     def __init__(
         self,
         client_factory: Callable[[str, int], Client] | None = None,
-        parent: Optional[QObject] = None,
+        parent: QObject | None = None,
     ):
         super().__init__(parent)
         self._client_factory = client_factory or (lambda h, p: Client(h, p))
-        self._client: Optional[Client] = None
-        self._connectWorker: Optional[ConnectWorker] = None
-        self._disconnectWorker: Optional[DisconnectWorker] = None
-        self._receiveWorker: Optional[ReceiveWorker] = None
-        self._sendWorker: Optional[SendWorker] = None
+        self._client: Client | None = None
+        self._connectWorker: ConnectWorker | None = None
+        self._disconnectWorker: DisconnectWorker | None = None
+        self._receiveWorker: ReceiveWorker | None = None
+        self._sendWorker: SendWorker | None = None
 
         self._connected: bool = False
         self._last_status_text: str = "Disconnected"
@@ -29,7 +31,7 @@ class ConnectionController(QObject):
         return self._connected
 
     @property
-    def client(self) -> Optional[Client]:
+    def client(self) -> Client | None:
         return self._client
 
     def connect(self, host: str, port: int):

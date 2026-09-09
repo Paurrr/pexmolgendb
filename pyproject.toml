@@ -27,6 +27,8 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
+# B008: rowCount(self, parent=QModelIndex()) 는 PySide6 모델의 표준 시그니처다.
+ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

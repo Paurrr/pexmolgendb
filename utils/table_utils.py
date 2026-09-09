@@ -1,14 +1,14 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QTableView,
-    QHeaderView,
-    QWidget,
     QHBoxLayout,
-    QVBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
+    QTableView,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
 
 
 def setup_tableview(

@@ -1,10 +1,11 @@
 from PySide6.QtCore import QObject, Signal
+
 from config.config import tab_config
+from controllers.tab_section import TabSectionController
+from dialogs.tab_selector import TabSelectorDialog
+from service.repo.parameter import ParameterRepository
 from views.parameter_tab import ParameterTab
 from views.tab_section import TabSection
-from controllers.tab_section import TabSectionController
-from service.repo.parameter import ParameterRepository
-from dialogs.tab_selector import TabSelectorDialog
 
 
 class ParameterTabController(QObject):
@@ -126,7 +127,7 @@ class ParameterTabController(QObject):
             section_started = False
             for row_idx, row_data in enumerate(model.get_data()):
                 for col_idx, (header, col_name) in enumerate(
-                    zip(ctrl.headers, ctrl.columns)
+                    zip(ctrl.headers, ctrl.columns, strict=True)
                 ):
                     summary_rows.append(
                         {

@@ -1,10 +1,11 @@
-from PySide6.QtCore import QObject, Signal, Slot, QPoint
-from views.tab_section import TabSection
+from PySide6.QtCore import QObject, QPoint, Signal, Slot
+
+from config.config import delegate_config
+from delegates.combo_box import ComboBoxDelegate
+from models.generic_table import GenericTableModel
 from service.repo.parameter import ParameterRepository
 from utils.menus import build_parameter_table_menu
-from models.generic_table import GenericTableModel
-from delegates.combo_box import ComboBoxDelegate
-from config.config import delegate_config
+from views.tab_section import TabSection
 
 
 class TabSectionController(QObject):

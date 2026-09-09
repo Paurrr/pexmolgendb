@@ -1,18 +1,19 @@
+from PySide6.QtCore import QPoint, Qt, Signal, Slot
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
     QDialog,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QSizePolicy,
     QStyledItemDelegate,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, Slot, QPoint
-from models.generic_table import GenericTableModel
-from views.parameter_table import ParameterTableView
+
 from dialogs.insert import InsertDialog
+from models.generic_table import GenericTableModel
 from utils.dialogs import question
+from views.parameter_table import ParameterTableView
 
 
 class TabSection(QWidget):

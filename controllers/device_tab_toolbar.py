@@ -1,6 +1,7 @@
-from PySide6.QtCore import Signal, QObject, Slot
-from views.device_tab_toolbar import DeviceTabToolBar
+from PySide6.QtCore import QObject, Signal, Slot
+
 from service.repo.process import ProcessRepository
+from views.device_tab_toolbar import DeviceTabToolBar
 
 
 class DeviceTabToolBarController(QObject):

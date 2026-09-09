@@ -1,4 +1,5 @@
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, Signal
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
+
 from utils.validators import normalize_value, validate_field_value
 
 

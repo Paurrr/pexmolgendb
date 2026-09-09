@@ -1,6 +1,7 @@
-from PySide6.QtWidgets import QTableView, QHeaderView, QAbstractItemView
-from PySide6.QtGui import QFontMetrics
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFontMetrics
+from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTableView
+
 from models.generic_table import GenericTableModel
 
 

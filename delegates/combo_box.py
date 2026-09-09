@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QStyledItemDelegate, QComboBox, QCompleter
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QComboBox, QCompleter, QStyledItemDelegate
+
 from utils.validators import allowed_items
 
 

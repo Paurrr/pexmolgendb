@@ -1,20 +1,21 @@
+from PySide6.QtCore import QRegularExpression, Qt
+from PySide6.QtGui import (
+    QDoubleValidator,
+    QFontMetrics,
+    QIntValidator,
+    QRegularExpressionValidator,
+)
 from PySide6.QtWidgets import (
+    QComboBox,
+    QCompleter,
     QDialog,
-    QVBoxLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
-    QComboBox,
-    QCompleter,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt, QRegularExpression
-from PySide6.QtGui import (
-    QIntValidator,
-    QDoubleValidator,
-    QFontMetrics,
-    QRegularExpressionValidator,
-)
+
 from config.config import delegate_config
 from utils.validators import allowed_items, validate_field_value
 
@@ -32,7 +33,7 @@ class InsertDialog(QDialog):
     ):
         super().__init__(parent)
         self.setWindowTitle(window_title)
-        self.column_to_label = dict(zip(field_names, headers))
+        self.column_to_label = dict(zip(field_names, headers, strict=True))
         self.device_celltype = device_celltype
         self.field_names = field_names
         self.fields: dict[str, QLineEdit | QComboBox] = {}
