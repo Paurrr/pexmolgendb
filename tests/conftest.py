@@ -1,53 +1,113 @@
-"""SQLite 기반 테스트 픽스처.
+"""PostgreSQL 테스트 픽스처.
 
-Phase 4 에서 PostgreSQL 로 넘어가면 conn 픽스처만 교체하면 되도록,
-테스트는 repo 의 공개 API 만 사용한다.
+MOLGEN_TEST_PG_DSN 이 없으면 DB 가 필요한 테스트는 통째로 skip 한다. 서버가
+없는 사람의 `uv run pytest` 를 막지 않기 위해서다.
+
+  MOLGEN_TEST_PG_DSN="postgresql://user@127.0.0.1:55433/postgres" uv run pytest
+
+세션마다 molgen_test_<pid> 데이터베이스를 만들고 끝나면 지운다.
 """
 
-import sqlite3
+import os
 
 import pytest
 
-from service.schema import sqlite_all_ddl
+TEST_DSN_ENV = "MOLGEN_TEST_PG_DSN"
+
+
+def _admin_dsn() -> str:
+    return os.environ.get(TEST_DSN_ENV, "").strip()
+
+
+requires_pg = pytest.mark.skipif(
+    not _admin_dsn(), reason=f"{TEST_DSN_ENV} 가 설정되지 않았다"
+)
+
+
+@pytest.fixture(scope="session")
+def pg_dsn():
+    """테스트 전용 데이터베이스를 만들고 DSN 을 준다. 세션 끝에 지운다."""
+    admin = _admin_dsn()
+    if not admin:
+        pytest.skip(f"{TEST_DSN_ENV} 가 설정되지 않았다")
+
+    import psycopg
+
+    dbname = f"molgen_test_{os.getpid()}"
+    with psycopg.connect(admin, autocommit=True) as con:
+        con.execute(f'DROP DATABASE IF EXISTS "{dbname}"')
+        con.execute(f'CREATE DATABASE "{dbname}"')
+
+    info = psycopg.conninfo.conninfo_to_dict(admin)
+    info["dbname"] = dbname
+    dsn = psycopg.conninfo.make_conninfo(**info)
+
+    try:
+        yield dsn
+    finally:
+        with psycopg.connect(admin, autocommit=True) as con:
+            con.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                "WHERE datname = %s AND pid <> pg_backend_pid()",
+                (dbname,),
+            )
+            con.execute(f'DROP DATABASE IF EXISTS "{dbname}"')
 
 
 @pytest.fixture
-def conn():
-    c = sqlite3.connect(":memory:")
-    c.execute("PRAGMA foreign_keys = ON;")
-    for stmt in sqlite_all_ddl():
-        c.execute(stmt)
-    yield c
-    c.close()
+def db(pg_dsn):
+    """스키마가 적용된 빈 Database. 테스트마다 모든 행을 지운다."""
+    from service.config import load_config
+    from service.pool import Database
+    from service.schema import child_tables, postgres_all_ddl
+
+    database = Database(load_config(pg_dsn))
+    database.open()
+
+    with database.connection() as conn:
+        for stmt in postgres_all_ddl():
+            conn.execute(stmt)
+
+    with database.connection() as conn:
+        # process 를 지우면 device 와 자식 행까지 cascade 된다.
+        conn.execute("TRUNCATE process RESTART IDENTITY CASCADE")
+        for table in child_tables():
+            conn.execute(f'ALTER SEQUENCE IF EXISTS "{table}_id_seq" RESTART')
+
+    yield database
+    database.close()
 
 
 @pytest.fixture
-def two_processes(conn):
+def two_processes(db):
     """process 2개, 각각 device 1개, 자식 행은 순서가 의미를 갖도록 여러 개.
 
     반환: fetch_export_data 가 받는 형태의 device_info 리스트.
     """
-    cur = conn.cursor()
+    from service.repo.device import DeviceRepository
+    from service.repo.parameter import ParameterRepository
+    from service.repo.process import ProcessRepository
+
+    pr, dr, par = ProcessRepository(db), DeviceRepository(db), ParameterRepository(db)
+    columns = ["reserved_key", "cds_inst_term_name"]
     info = []
-    for pname, dname, celltype in [("sf2p", "nfet_b", "NFET"), ("sf4u", "pfet_b", "PFET")]:
-        cur.execute("INSERT INTO process (name) VALUES (?)", (pname,))
-        pid = cur.lastrowid
-        cur.execute(
-            'INSERT INTO device (process_id, name, celltype, description, "order") '
-            "VALUES (?, ?, ?, ?, ?)",
-            (pid, dname, celltype, "", 0),
+    for pname, dname, celltype in [
+        ("sf2p", "nfet_b", "NFET"),
+        ("sf4u", "pfet_b", "PFET"),
+    ]:
+        pid = pr.get_or_create_id(pname)
+        dev = dr.upsert_device(
+            pid, {"name": dname, "celltype": celltype, "description": "", "order": 0}
         )
-        did = cur.lastrowid
-        # 순서가 뒤섞였는지 확인할 수 있도록 알파벳 역순으로 넣는다.
-        for key, term in [("DRN", "d"), ("GATE", "g"), ("SRC", "s"), ("BULK", "b")]:
-            cur.execute(
-                "INSERT INTO inst_terms (device_id, reserved_key, cds_inst_term_name) "
-                "VALUES (?, ?, ?)",
-                (did, key, term),
-            )
-        info.append(
-            {"id": did, "process_id": pid, "process_name": pname,
-             "name": dname, "celltype": celltype}
+        # 알파벳 순이 아닌 순서로 넣어 정렬이 아니라 삽입 순서가 유지되는지 본다.
+        par.replace_all_for_device(
+            "inst_terms",
+            columns,
+            dev["id"],
+            [
+                {"reserved_key": k, "cds_inst_term_name": v}
+                for k, v in [("DRN", "d"), ("GATE", "g"), ("SRC", "s"), ("BULK", "b")]
+            ],
         )
-    conn.commit()
+        info.append({**dev, "process_id": pid, "process_name": pname})
     return info

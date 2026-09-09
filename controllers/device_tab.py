@@ -1,5 +1,4 @@
 from collections import defaultdict
-from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, QObject, Signal, Slot
 from PySide6.QtWidgets import QMessageBox
@@ -7,15 +6,15 @@ from PySide6.QtWidgets import QMessageBox
 from controllers.device_tab_toolbar import DeviceTabToolBarController
 from controllers.device_table import DeviceTableController
 from controllers.parameter_tab import ParameterTabController
-from service.connection import connect
-from service.db_init import initialize_database
+from service.config import load_config
+from service.errors import DbUnavailableError
+from service.pool import Database
 from service.repo.device import DeviceRepository
 from service.repo.io import IORepository
 from service.repo.parameter import ParameterRepository
 from service.repo.process import ProcessRepository
 from utils.dialogs import question
 from utils.lisp import to_lisp_list_string
-from utils.persistence import save_database
 from views.device_tab import DeviceTab
 
 
@@ -25,10 +24,11 @@ class DeviceTabController(QObject):
     notifyRequested = Signal(str, str, str)
     logRequested = Signal(str)
 
-    def __init__(self, ui: DeviceTab, db_path: str = ""):
+    def __init__(self, ui: DeviceTab, dsn: str = ""):
         super().__init__(ui)
         self.ui = ui
         self.connected: bool | None = None
+        self.db: Database | None = None
         self.client = None
         self.device_state_data: dict = {}
 
@@ -38,9 +38,7 @@ class DeviceTabController(QObject):
         self.device_table = DeviceTableController(self.ui.device_table_view)
         self.parameter_tab = ParameterTabController(self.ui.parameter_tab_view)
 
-        self.ui.dbInitRequested.connect(self._on_init_db)
-        self.ui.dbLoadRequested.connect(self._on_load_db)
-        self.ui.saveAsDbRequested.connect(self.on_save_as_db_requested)
+        self.ui.dbConnectRequested.connect(self._on_connect)
         self.ui.loadCsvRequested.connect(self.on_load_csv_requested)
 
         self.device_tab_toolbar.processChanged.connect(self.on_process_changed)
@@ -61,49 +59,27 @@ class DeviceTabController(QObject):
         self.device_table.logRequested.connect(self.logRequested)
         self.parameter_tab.logRequested.connect(self.logRequested)
 
-        self.load_db(Path(db_path))
+        self.connect_db(dsn)
 
-    def set_repo(self, conn):
-        self.io_repo = IORepository(conn)
+    def set_repo(self, db: Database):
+        self.io_repo = IORepository(db)
         self.device_table.set_repo(
-            DeviceRepository(conn), ParameterRepository(conn), self.io_repo
+            DeviceRepository(db), ParameterRepository(db), self.io_repo
         )
-        self.device_tab_toolbar.set_repo(ProcessRepository(conn))
-        self.parameter_tab.set_repo(ParameterRepository(conn))
+        self.device_tab_toolbar.set_repo(ProcessRepository(db))
+        self.parameter_tab.set_repo(ParameterRepository(db))
 
     def set_client(self, client):
         self.client = client
 
     @Slot(str)
-    def on_save_as_db_requested(self, path: str):
-        try:
-            save_database(self.connected, path)
-            self.notifyRequested.emit("info", "Success", "Database saved successfully.")
-            self.logRequested.emit(f"Saved database as {path}.")
-        except Exception as e:
-            self.notifyRequested.emit("error", "Save DB Failed", str(e))
-
-    @Slot(str)
-    def _on_init_db(self, path: str):
-        if initialize_database(path):
-            self.load_db(Path(path))
-            self.notifyRequested.emit(
-                "info", "Init DB", "Success database initialization"
-            )
-            self.logRequested.emit(f"Initialized database: {path}.")
+    def _on_connect(self, dsn: str):
+        if self.connect_db(dsn):
+            self.notifyRequested.emit("info", "Connected", "데이터베이스에 연결했다.")
         else:
-            self.notifyRequested.emit("error", "Init DB", "Failed initialization")
-
-    @Slot(str)
-    def _on_load_db(self, path: str):
-        try:
-            self.load_db(Path(path))
             self.notifyRequested.emit(
-                "info", "DB Load Success", "Database loaded successfully."
+                "error", "Connect Failed", "데이터베이스에 연결하지 못했다."
             )
-            self.logRequested.emit(f"Loaded database: {path}.")
-        except Exception as e:
-            self.notifyRequested.emit("error", "DB Load Failed", str(e))
 
     def save_db(self):
         try:
@@ -123,18 +99,40 @@ class DeviceTabController(QObject):
         self.notifyRequested.emit("info", "Saved", "All changes have been saved.")
         self.logRequested.emit("Saved all device/tab changes.")
 
-    def load_db(self, path: Path):
-        try:
-            conn = connect(path)
-            self.connected = True
-        except FileNotFoundError:
-            self.connected = False
-            return None
+    def connect_db(self, dsn: str) -> bool:
+        """DSN 으로 접속한다. dsn 이 비면 MOLGEN_PG_DSN 환경변수를 쓴다."""
+        if self.db is not None:
+            self.db.close()
+            self.db = None
 
-        self.set_repo(conn)
+        try:
+            db = Database(load_config(dsn))
+            db.open()
+            if not db.ping():
+                raise DbUnavailableError("서버가 응답하지 않는다")
+        except (RuntimeError, DbUnavailableError) as e:
+            self.connected = False
+            self.logRequested.emit(f"Database connect failed: {e}")
+            return False
+
+        self.db = db
+        self.connected = True
+        self.set_repo(db)
         self.apply_db()
-        self.logRequested.emit(f"Database connected: {path}.")
-        return conn
+        self.logRequested.emit(f"Database connected: {db.cfg.dsn}.")
+        return True
+
+    def close_db(self) -> None:
+        """커넥션 풀을 닫는다.
+
+        닫지 않으면 인터프리터 종료 시 ConnectionPool.__del__ 이 워커 스레드를
+        join 하려다 PythonFinalizationError 로 멈춘다 — 창을 닫아도 프로세스가
+        살아 있는 것처럼 보인다.
+        """
+        if self.db is not None:
+            self.db.close()
+            self.db = None
+        self.connected = False
 
     def apply_db(self):
         self.device_table.device_state_data = (

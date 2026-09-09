@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from utils.file_dialogs import open_file, save_file
+from dialogs.connection import ConnectionDialog
+from utils.file_dialogs import open_file
 from utils.table_utils import (
     build_searchable_labeled_view,
     setup_tableview,
@@ -17,9 +18,7 @@ from views.parameter_tab import ParameterTab
 
 
 class DeviceTab(QWidget):
-    dbInitRequested = Signal(str)
-    dbLoadRequested = Signal(str)
-    saveAsDbRequested = Signal(str)
+    dbConnectRequested = Signal(str)
     loadCsvRequested = Signal(str)
 
     def __init__(self, parent=None):
@@ -77,22 +76,10 @@ class DeviceTab(QWidget):
         self.search_labeled_filter.hide()
 
     @Slot()
-    def _open_load_db(self):
-        path = open_file(self, "Load DB", "SQLite DB (*.sqlite)")
-        if path:
-            self.dbLoadRequested.emit(path)
-
-    @Slot()
-    def _open_init_db(self):
-        path = save_file(self, "Init DB", "SQLite DB (*.sqlite)")
-        if path:
-            self.dbInitRequested.emit(path)
-
-    @Slot()
-    def _ask_save_as_db(self):
-        path = save_file(self, "Save DB", "SQLite DB (*.sqlite)", "")
-        if path:
-            self.saveAsDbRequested.emit(path)
+    def _open_connect(self, initial_dsn: str = ""):
+        dialog = ConnectionDialog(self, initial_dsn)
+        if dialog.exec():
+            self.dbConnectRequested.emit(dialog.dsn())
 
     @Slot()
     def _ask_load_csv(self):

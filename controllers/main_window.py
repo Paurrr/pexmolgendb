@@ -13,14 +13,14 @@ from views.main_window import MainWindow
 class MainWindowController(QObject):
     statusMessageRequested = Signal(str, int)
 
-    def __init__(self, ui: MainWindow, db_path: str):
+    def __init__(self, ui: MainWindow, dsn: str):
         super().__init__()
         self.ui = ui
         self.connection_controller = ConnectionController()
         self.is_connected = False
         self.theme_name = "graphite"
 
-        self.device_tab = DeviceTabController(self.ui.device_tab_view, db_path)
+        self.device_tab = DeviceTabController(self.ui.device_tab_view, dsn)
         self.socket_tab = SocketTabController(self.ui.socket_tab_view)
 
         self.device_tab.sendDataRequested.connect(self.connection_controller.send)
@@ -45,6 +45,10 @@ class MainWindowController(QObject):
 
         self._setup_actions()
 
+    def shutdown(self) -> None:
+        """앱 종료 시 커넥션 풀을 닫는다. main() 이 app.exec() 후에 부른다."""
+        self.device_tab.close_db()
+
     def _setup_actions(self):
         act_save = QAction("Save", self.ui)
         act_save.setShortcut(QKeySequence.Save)
@@ -61,25 +65,19 @@ class MainWindowController(QObject):
         act_redo.triggered.connect(self._on_redo_triggered)
         self.ui.addAction(act_redo)
 
-        file_menu = self.ui.menubar.addMenu("Files")
+        file_menu = self.ui.menubar.addMenu("Database")
 
-        load_action = QAction("Init DB", self.ui)
-        load_action.triggered.connect(self.ui.device_tab_view._open_init_db)
-        file_menu.addAction(load_action)
+        connect_action = QAction("Connect...", self.ui)
+        connect_action.triggered.connect(self.ui.device_tab_view._open_connect)
+        file_menu.addAction(connect_action)
 
         file_menu.addSeparator()
 
-        load_action = QAction("Load DB", self.ui)
-        load_action.triggered.connect(self.ui.device_tab_view._open_load_db)
-        file_menu.addAction(load_action)
-
-        save_action = QAction("Save DB", self.ui)
+        # 이름은 "Save DB" 였지만 실제로는 화면의 변경사항을 쓰는 동작이다.
+        # DB 가 더 이상 파일이 아니므로 이름만 바로잡는다.
+        save_action = QAction("Save", self.ui)
         save_action.triggered.connect(self.device_tab.save_db)
         file_menu.addAction(save_action)
-
-        save_as_action = QAction("Save as DB", self.ui)
-        save_as_action.triggered.connect(self.ui.device_tab_view._ask_save_as_db)
-        file_menu.addAction(save_as_action)
 
         file_menu.addSeparator()
 

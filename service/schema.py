@@ -62,7 +62,12 @@ def sqlite_child_ddl(table: str, columns: list[str]) -> str:
 
 
 def sqlite_all_ddl() -> list[str]:
-    """initialize_database 가 순서대로 실행할 DDL 문 목록."""
+    """레거시 SQLite 스키마.
+
+    앱은 더 이상 SQLite 를 쓰지 않는다. 생성된 스키마가 실제로 배포됐던 것과
+    같다는 것을 증명하는 테스트(tests/test_schema.py)와, 기존 .sqlite 파일을
+    읽어 들이는 임포터의 검증에 쓴다.
+    """
     out = [_SQLITE_PROCESS_DDL, _SQLITE_DEVICE_DDL, *_SQLITE_DEVICE_INDEXES]
     for table, columns in child_tables().items():
         out.append(sqlite_child_ddl(table, columns))

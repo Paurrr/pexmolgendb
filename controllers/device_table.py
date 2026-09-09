@@ -235,45 +235,37 @@ class DeviceTableController(QObject):
             return
 
         if self.current_process_id is None:
-            rows: list[tuple] = []
+            rows: list[dict] = []
         else:
             rows = self.repo.fetch_devices_by_process(self.current_process_id)
 
-        known_names: set[str] = {name for (_, _, name, _, _) in rows}
+        known_names: set[str] = {r["name"] for r in rows}
 
         visible_devices: list[dict] = []
-        if self.device_state_data:
-            for device_id, process_id, db_name, celltype, description in rows:
-                added = False
-                for name, state in self.device_state_data.items():
-                    if state.get("S") != "O":
-                        continue
-                    if name in db_name and not added:
-                        visible_devices.append(
-                            {
-                                "id": device_id,
-                                "process_id": process_id,
-                                "process_name": self.current_process,
-                                "name": db_name,
-                                "celltype": celltype
-                                if state.get("S") == "O"
-                                else "UNKNOWN",
-                                "description": description,
-                            }
-                        )
-                        added = True
-        else:
-            for device_id, process_id, name, celltype, description in rows:
-                visible_devices.append(
-                    {
-                        "id": device_id,
-                        "process_id": process_id,
-                        "process_name": self.current_process,
-                        "name": name,
-                        "celltype": celltype,
-                        "description": description,
-                    }
-                )
+        for r in rows:
+            # repo 가 dict 를 돌려준다. version 도 실려 오는데, 모델의 표시
+            # 컬럼이 아니므로 화면에는 나타나지 않고 저장할 때만 쓰인다.
+            device = {
+                "id": r["id"],
+                "process_id": r["process_id"],
+                "process_name": self.current_process,
+                "name": r["name"],
+                "celltype": r["celltype"],
+                "description": r["description"],
+                "order": r["order"],
+                "version": r["version"],
+            }
+            if not self.device_state_data:
+                visible_devices.append(device)
+                continue
+
+            # Virtuoso 에서 읽어온 device 목록과 이름이 겹치는 것만 보여준다.
+            for name, state in self.device_state_data.items():
+                if state.get("S") != "O":
+                    continue
+                if name in r["name"]:
+                    visible_devices.append(device)
+                    break
 
         model = self.ui.model_safe()
         model.update_devices(visible_devices, known_names)
@@ -281,7 +273,7 @@ class DeviceTableController(QObject):
         self.set_dirty(False)
 
     def save_device(self, device: dict) -> dict:
-        if not self.repo.conn:
+        if self.repo is None:
             return device
         saved = self.repo.upsert_device(self.current_process_id, device)
         saved["process_id"] = self.current_process_id
@@ -289,7 +281,7 @@ class DeviceTableController(QObject):
         return saved
 
     def save_all(self):
-        if not self.repo.conn:
+        if self.repo is None:
             return
 
         valid_celltypes = self._valid_celltypes()
