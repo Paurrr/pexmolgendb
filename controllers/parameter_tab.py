@@ -2,8 +2,11 @@ from PySide6.QtCore import QObject, Signal
 
 from config.config import tab_config
 from controllers.tab_section import TabSectionController
+from dialogs.conflict import OVERWRITE, RELOAD, ask_conflict
 from dialogs.tab_selector import TabSelectorDialog
+from service.errors import StaleWriteError
 from service.repo.parameter import ParameterRepository
+from utils.user import current_user
 from views.parameter_tab import ParameterTab
 from views.tab_section import TabSection
 
@@ -11,12 +14,15 @@ from views.tab_section import TabSection
 class ParameterTabController(QObject):
     notifyRequested = Signal(str, str, str)
     logRequested = Signal(str)
+    deviceVersionChanged = Signal(int, int)
 
     def __init__(self, ui: ParameterTab, repo: ParameterRepository | None = None):
         super().__init__(ui)
         self.ui = ui
         self.repo = repo
         self._sections: dict[str, TabSectionController] = {}
+        self.current_device_id: int | None = None
+        self.current_version: int | None = None
         self.ui.currentChanged.connect(self.ui.on_tab_changed)
         self.ui.tabBarClicked.connect(self.on_tab_clicked)
         self.ui.summaryRequested.connect(self.refresh_summary)
@@ -44,17 +50,51 @@ class ParameterTabController(QObject):
                 yield sec
 
     def save_all(self):
-        saved_table: list[str] = []
-        for sec in self._sections.values():
-            if sec.is_dirty():
-                sec.save()
-                saved_table.append(sec.table_name)
+        dirty = [sec for sec in self._sections.values() if sec.is_dirty()]
+        if not dirty:
+            return
+        if not self._write(dict(sec.payload_fragment() for sec in dirty)):
+            return
 
-        if saved_table:
-            self.notifyRequested.emit(
-                "info", "Saved", f"{', '.join(saved_table)} saved."
-            )
-            self.logRequested.emit(f"Saved tab data: {', '.join(saved_table)}.")
+        for sec in dirty:
+            sec.mark_saved()
+        names = [sec.table_name for sec in dirty]
+        self.notifyRequested.emit("info", "Saved", f"{', '.join(names)} saved.")
+        self.logRequested.emit(f"Saved tab data: {', '.join(names)}.")
+
+    def _write(self, payload: dict) -> bool:
+        """탭들을 한 트랜잭션으로 쓴다. 충돌하면 사용자에게 물어본다."""
+        if self.repo is None or self.current_device_id is None:
+            return False
+        try:
+            self._apply(payload)
+            return True
+        except StaleWriteError as e:
+            choice = ask_conflict(self.ui, e.conflicts)
+            if choice == RELOAD:
+                for sec in self._sections.values():
+                    sec.update_model()
+                self.logRequested.emit("Tab conflict: 서버 내용으로 다시 읽었다.")
+                return False
+            if choice == OVERWRITE:
+                self._apply(payload, force=True)
+                self.logRequested.emit("Tab conflict: 내 변경으로 덮어썼다.")
+                return True
+            self.logRequested.emit("Tab conflict: 저장을 취소했다.")
+            return False
+
+    def _apply(self, payload: dict, *, force: bool = False) -> None:
+        version = self.repo.replace_many_for_device(
+            self.current_device_id,
+            payload,
+            expected_version=self.current_version,
+            actor=current_user(),
+            force=force,
+        )
+        # 탭 저장도 device 의 version 을 올린다. 반영하지 않으면 다음 저장이
+        # 엉뚱하게 충돌한다.
+        self.current_version = version
+        self.deviceVersionChanged.emit(self.current_device_id, version)
 
     def discard_all(self):
         for sec in self._sections.values():
@@ -62,7 +102,14 @@ class ParameterTabController(QObject):
                 sec.update_model()
                 self.logRequested.emit(f"Discarded changes in {sec.ui.title}.")
 
-    def set_device_to_section(self, device_id: int, device_celltype: str | None = None):
+    def set_device_to_section(
+        self,
+        device_id: int,
+        device_celltype: str | None = None,
+        version: int | None = None,
+    ):
+        self.current_device_id = device_id
+        self.current_version = version
         for sec in self._sections.values():
             sec.set_device(device_id, device_celltype)
         self._refresh_summary_if_visible()
@@ -92,12 +139,25 @@ class ParameterTabController(QObject):
             if selected:
                 self.ui.add_tab(selected)
 
-    def paste_payload(self, device_id: int, device_type: str, payload: dict[str, list]):
-        self.set_device_to_section(device_id, device_type)
+    def paste_payload(
+        self,
+        device_id: int,
+        device_type: str,
+        payload: dict[str, list],
+        version: int | None = None,
+    ):
+        self.set_device_to_section(device_id, device_type, version)
+        pasted = []
         for tab_name, rows in payload.items():
             if sec := self._sections.get(tab_name):
                 sec._paste_rows(0, rows)
-                sec.save()
+                pasted.append(sec)
+        if not pasted:
+            return
+        # N번이 아니라 한 번. version 은 한 번만 올라간다.
+        if self._write(dict(sec.payload_fragment() for sec in pasted)):
+            for sec in pasted:
+                sec.mark_saved()
 
     def undo_current(self) -> bool:
         ctrl = self._current_section_controller()

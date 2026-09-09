@@ -58,6 +58,9 @@ class DeviceTabController(QObject):
         self.device_table.pasteRequested.connect(self.on_paste_requested)
         self.device_table.logRequested.connect(self.logRequested)
         self.parameter_tab.logRequested.connect(self.logRequested)
+        self.parameter_tab.deviceVersionChanged.connect(
+            self.device_table.set_device_version
+        )
 
         self.connect_db(dsn)
 
@@ -273,7 +276,12 @@ class DeviceTabController(QObject):
 
     @Slot()
     def on_paste_requested(self, device_id, device_type, payload: dict):
-        self.parameter_tab.paste_payload(device_id, device_type, payload)
+        version = None
+        for dev in self.device_table.ui.model_safe().get_devices():
+            if dev.get("id") == device_id:
+                version = dev.get("version")
+                break
+        self.parameter_tab.paste_payload(device_id, device_type, payload, version)
 
     def undo_current(self) -> bool:
         return self.device_table.undo()
@@ -292,7 +300,7 @@ class DeviceTabController(QObject):
 
         if prev_dev and prev_dev.get("id") == cur_dev.get("id"):
             self.parameter_tab.set_device_to_section(
-                cur_dev["id"], cur_dev.get("celltype")
+                cur_dev["id"], cur_dev.get("celltype"), cur_dev.get("version")
             )
             return
 
@@ -313,4 +321,6 @@ class DeviceTabController(QObject):
             self.parameter_tab._clear_tabs()
             return
 
-        self.parameter_tab.set_device_to_section(cur_dev["id"], cur_dev.get("celltype"))
+        self.parameter_tab.set_device_to_section(
+            cur_dev["id"], cur_dev.get("celltype"), cur_dev.get("version")
+        )

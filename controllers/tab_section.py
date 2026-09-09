@@ -111,15 +111,19 @@ class TabSectionController(QObject):
         if inserted:
             self.logRequested.emit(f"{self.ui.title}: pasted {inserted} row(s).")
 
-    def save(self):
-        if self.device_id is None or self.device_id < 0:
-            return
-        rows = self.get_buffer_rows()
-        self.repo.replace_all_for_device(
-            self.table_name, self.columns, self.device_id, rows
-        )
+    def payload_fragment(self) -> tuple[str, tuple[list[str], list[dict]]]:
+        """이 탭이 저장할 내용. ParameterTabController 가 모아서 한 번에 쓴다.
+
+        탭이 직접 repo 를 부르면 안 된다. version 이 device 단위라서, 첫 탭의
+        저장이 version 을 올리는 순간 두 번째 탭이 자기 검사에 실패한다.
+        """
+        return self.table_name, (self.columns, self.get_buffer_rows())
+
+    def mark_saved(self) -> None:
         self.set_dirty(False)
-        self.logRequested.emit(f"{self.ui.title}: saved {len(rows)} row(s).")
+        self.logRequested.emit(
+            f"{self.ui.title}: saved {len(self.get_buffer_rows())} row(s)."
+        )
 
     @Slot()
     def _on_dirty_changed(self, dirty: bool):

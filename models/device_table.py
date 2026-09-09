@@ -67,6 +67,35 @@ class DeviceTableModel(QAbstractTableModel):
     def get_devices(self):
         return self._devices
 
+    def deleted_devices(self) -> dict[int, int]:
+        """지워진 device 의 {id: 불러올 때의 version}.
+
+        _original_by_id 는 불러온 시점의 행이고 reset_modified 에서 다시 만들어진다.
+        현재 목록과 비교해서 유도하면 undo/redo 에서 자동으로 맞는다 — undo 는
+        _devices 를 통째로 되돌리므로 remove_rows 안에서 따로 기록하면 어긋난다.
+        """
+        live = {d["id"] for d in self._devices if d.get("id") is not None}
+        return {
+            device_id: row.get("version")
+            for device_id, row in self._original_by_id.items()
+            if device_id not in live
+        }
+
+    def set_version(self, device_id: int, version: int) -> None:
+        """저장 후 새 version 을 반영한다.
+
+        탭 저장도 device 의 version 을 올리므로, 반영하지 않으면 다음 device
+        저장이 엉뚱하게 충돌한다.
+        """
+        for row in self._devices:
+            if row.get("id") == device_id:
+                row["version"] = version
+        if device_id in self._original_by_id:
+            self._original_by_id[device_id]["version"] = version
+        for row in self._original_devices:
+            if row.get("id") == device_id:
+                row["version"] = version
+
     def set_devices(self, devices):
         self.beginResetModel()
         self._devices = [row.copy() for row in devices]

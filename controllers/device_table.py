@@ -6,11 +6,14 @@ from PySide6.QtWidgets import QMenu
 
 from config.config import delegate_config, tab_config
 from delegates.combo_box import ComboBoxDelegate
+from dialogs.conflict import OVERWRITE, RELOAD, ask_conflict
+from service.errors import StaleWriteError
 from service.repo.device import DeviceRepository
 from service.repo.io import IORepository
 from service.repo.parameter import ParameterRepository
 from utils.exporter import write_csv, write_xlsx
 from utils.menus import build_device_table_menu
+from utils.user import current_user
 from views.device_table import DeviceTableView
 
 
@@ -275,7 +278,9 @@ class DeviceTableController(QObject):
     def save_device(self, device: dict) -> dict:
         if self.repo is None:
             return device
-        saved = self.repo.upsert_device(self.current_process_id, device)
+        saved = self.repo.upsert_device(
+            self.current_process_id, device, actor=current_user()
+        )
         saved["process_id"] = self.current_process_id
         saved["process_name"] = self.current_process
         return saved
@@ -298,17 +303,51 @@ class DeviceTableController(QObject):
             else:
                 invalid_devices.append(d.get("name", "<Unknown>"))
 
-        if to_save:
-            self.repo.upsert_devices(self.current_process_id, to_save)
-            for d in to_save:
-                d["process_id"] = self.current_process_id
-                d["process_name"] = self.current_process
+        deleted = model.deleted_devices()
+        if not self._write_devices(to_save, deleted):
+            return
+
+        for d in to_save:
+            d["process_id"] = self.current_process_id
+            d["process_name"] = self.current_process
 
         self.notifyRequested.emit(
             "info", "Save Complete", f"{len(to_save)} device(s) saved to DB."
         )
         self.refresh_devices()
         self.logRequested.emit(f"Device Info: saved {len(to_save)} device(s).")
+
+    def _write_devices(self, to_save: list[dict], deleted: dict[int, int]) -> bool:
+        """저장하고, 충돌하면 사용자에게 물어본다. 저장했으면 True."""
+        if not to_save and not deleted:
+            return True
+        try:
+            self.repo.upsert_devices(
+                self.current_process_id, to_save, deleted=deleted, actor=current_user()
+            )
+            return True
+        except StaleWriteError as e:
+            choice = ask_conflict(self.ui, e.conflicts)
+            if choice == RELOAD:
+                self.refresh_devices()
+                self.logRequested.emit("Save conflict: 서버 내용으로 다시 읽었다.")
+                return False
+            if choice == OVERWRITE:
+                self.repo.upsert_devices(
+                    self.current_process_id,
+                    to_save,
+                    deleted=deleted,
+                    actor=current_user(),
+                    force=True,
+                )
+                self.logRequested.emit("Save conflict: 내 변경으로 덮어썼다.")
+                return True
+            self.logRequested.emit("Save conflict: 저장을 취소했다.")
+            return False
+
+    def set_device_version(self, device_id: int, version: int) -> None:
+        """탭 저장 등으로 올라간 version 을 모델에 반영한다."""
+        self.ui.model_safe().set_version(device_id, version)
 
     def export_selected_devices(self, fmt: str):
         selected = self.get_selected_devices()
