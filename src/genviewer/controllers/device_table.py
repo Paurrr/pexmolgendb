@@ -35,6 +35,7 @@ class DeviceTableController(QObject):
         self._cur_proxy_index = QModelIndex()
         self.dirty_by_process_id: dict[int, bool] = {}
         self._copied_rows: list[dict] = []
+        self._etag: dict | None = None
 
         self.ui.headerMenuRequested.connect(self._on_header_menu)
         self.ui.contextMenuRequested.connect(self._on_context_menu)
@@ -275,6 +276,28 @@ class DeviceTableController(QObject):
         model.update_devices(visible_devices, known_names)
         model.clear_dirty()
         self.set_dirty(False)
+        self.remember_etag()
+
+    def remember_etag(self) -> None:
+        """"지금 화면이 서버와 같다" 는 기준점을 다시 잡는다.
+
+        여기가 유일한 통로다. 불러오기, device 저장, CSV 임포트, 붙여넣기가 전부
+        refresh_devices() 로 끝나고, 탭 저장은 set_device_version() 으로 들어온다.
+        기준점을 갱신하지 않으면 내가 방금 한 저장을 보고 "남이 바꿨다" 배너가
+        뜬다.
+        """
+        if self.repo is None or self.current_process_id is None:
+            self._etag = None
+            return
+        try:
+            self._etag = self.repo.etag(self.current_process_id)
+        except Exception:
+            # 기준점을 못 잡으면 폴링이 비교를 건너뛴다. 배너가 안 뜰 뿐이지
+            # 저장은 낙관적 잠금이 따로 막는다.
+            self._etag = None
+
+    def remembered_etag(self) -> dict | None:
+        return self._etag
 
     def save_device(self, device: dict) -> dict:
         if self.repo is None:
@@ -354,6 +377,9 @@ class DeviceTableController(QObject):
     def set_device_version(self, device_id: int, version: int) -> None:
         """탭 저장 등으로 올라간 version 을 모델에 반영한다."""
         self.ui.model_safe().set_version(device_id, version)
+        # 탭 저장은 device 목록을 다시 읽지 않지만 device.version 은 올린다.
+        # 여기서 기준점을 다시 잡지 않으면 내 저장이 남의 변경으로 보인다.
+        self.remember_etag()
 
     def export_selected_devices(self, fmt: str):
         selected = self.get_selected_devices()

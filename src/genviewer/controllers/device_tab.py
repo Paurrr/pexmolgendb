@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from PySide6.QtCore import QModelIndex, QObject, Signal, Slot
+from PySide6.QtCore import QModelIndex, QObject, QTimer, Signal, Slot
 from PySide6.QtWidgets import QMessageBox
 
 from genviewer.controllers.device_tab_toolbar import DeviceTabToolBarController
@@ -9,14 +9,22 @@ from genviewer.controllers.parameter_tab import ParameterTabController
 from genviewer.service.config import load_config
 from genviewer.service.errors import DbUnavailableError
 from genviewer.service.pool import Database
-from genviewer.service.repo.device import DeviceRepository
+from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.service.repo.process import ProcessRepository
-from genviewer.utils.background import run_blocking
+from genviewer.utils.background import Task, is_busy, run_blocking
 from genviewer.utils.dialogs import question
 from genviewer.utils.lisp import to_lisp_list_string
 from genviewer.views.device_tab import DeviceTab
+
+# 변경 감지 폴링 주기. 여러 명이 시간당 몇 번 저장하는 정도의 사용량이라
+# 이보다 자주 볼 이유가 없다.
+POLL_INTERVAL_MS = 10_000
+
+# 연속으로 이만큼 실패하면 폴링을 멈춘다. 서버가 죽었을 때 10초마다 죽은
+# 호스트에 붙으려 드는 것을 막는다. 다시 접속하면 되살아난다.
+POLL_FAILURE_LIMIT = 3
 
 
 class DeviceTabController(QObject):
@@ -32,6 +40,8 @@ class DeviceTabController(QObject):
         self.db: Database | None = None
         self.client = None
         self.device_state_data: dict = {}
+        self._poll_task: Task | None = None
+        self._poll_failures = 0
 
         self.device_tab_toolbar = DeviceTabToolBarController(
             self.ui.device_tab_toolbar_view
@@ -62,6 +72,11 @@ class DeviceTabController(QObject):
         self.parameter_tab.deviceVersionChanged.connect(
             self.device_table.set_device_version
         )
+        self.ui.refresh_banner.refreshRequested.connect(self._on_refresh_requested)
+
+        self._poll_timer = QTimer(self)
+        self._poll_timer.setInterval(POLL_INTERVAL_MS)
+        self._poll_timer.timeout.connect(self._poll_remote_changes)
 
         self.connect_db(dsn)
 
@@ -129,8 +144,73 @@ class DeviceTabController(QObject):
         self.connected = True
         self.set_repo(db)
         self.apply_db()
+        self._poll_failures = 0
+        self._poll_timer.start()
         self.logRequested.emit(f"Database connected: {db.cfg.dsn}.")
         return True
+
+    # ------------------------------------------------------------------
+    # 변경 감지
+    # ------------------------------------------------------------------
+
+    @Slot()
+    def _poll_remote_changes(self) -> None:
+        """남이 이 process 를 바꿨는지 본다. 절대 자동으로 다시 읽지 않는다."""
+        if not self.connected or self._poll_task is not None or is_busy():
+            return
+        repo = self.device_table.repo
+        process_id = self.device_table.current_process_id
+        if repo is None or process_id is None:
+            return
+        if self.device_table.remembered_etag() is None:
+            return
+
+        # run_blocking 이 아니라 진짜 비동기다. 반환값을 기다리는 사람이 없는데
+        # 입력을 막으면, 서버가 느릴 때 10초마다 클릭이 씹힌다.
+        task = Task(lambda: repo.etag(process_id))
+        task.done.connect(self._on_poll_result)
+        task.failed.connect(self._on_poll_failed)
+        task.finished.connect(self._clear_poll_task)
+        self._poll_task = task
+        task.start()
+
+    @Slot()
+    def _clear_poll_task(self) -> None:
+        task, self._poll_task = self._poll_task, None
+        if task is not None:
+            task.deleteLater()
+
+    @Slot(object)
+    def _on_poll_result(self, etag: dict) -> None:
+        self._poll_failures = 0
+        base = self.device_table.remembered_etag()
+        if base is None or etag_key(etag) == etag_key(base):
+            self.ui.hide_refresh_banner()
+            return
+        self.ui.show_refresh_banner(etag.get("who") or "")
+
+    @Slot(object)
+    def _on_poll_failed(self, exc: Exception) -> None:
+        self._poll_failures += 1
+        if self._poll_failures >= POLL_FAILURE_LIMIT:
+            self._poll_timer.stop()
+            self.logRequested.emit(f"변경 감지 폴링을 중단했다: {exc}")
+
+    @Slot()
+    def _on_refresh_requested(self) -> None:
+        self.ui.hide_refresh_banner()
+        if (
+            self.device_table.is_dirty() or self.parameter_tab.is_dirty()
+        ) and not question(
+            self.ui,
+            "Refresh",
+            "저장하지 않은 편집이 있습니다.\n"
+            "서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?",
+        ):
+            return
+        self.device_table.refresh_devices()
+        self.parameter_tab._clear_tabs()
+        self.logRequested.emit("서버 내용으로 다시 읽었다.")
 
     def close_db(self) -> None:
         """커넥션 풀을 닫는다.
@@ -139,6 +219,12 @@ class DeviceTabController(QObject):
         join 하려다 PythonFinalizationError 로 멈춘다 — 창을 닫아도 프로세스가
         살아 있는 것처럼 보인다.
         """
+        self._poll_timer.stop()
+        # 폴링이 아직 커넥션을 들고 있을 수 있다. 그대로 풀을 닫으면 그쪽에서
+        # 예외가 난다.
+        if self._poll_task is not None:
+            self._poll_task.wait()
+            self._poll_task = None
         if self.db is not None:
             self.db.close()
             self.db = None
@@ -261,6 +347,8 @@ class DeviceTabController(QObject):
     def on_process_changed(self, process_name: str):
         self.clear()
         self.ui.hide_views()
+        # 배너는 직전 process 이야기다. 같이 넘어가면 안 된다.
+        self.ui.hide_refresh_banner()
         if not process_name:
             self.device_table.set_current_process("")
             self.device_table.set_current_process_id(None)

@@ -13,6 +13,13 @@ _SELECT_COLUMNS = (
 )
 
 
+def etag_key(etag: dict | None) -> tuple | None:
+    """etag 중 비교에 쓰는 부분만. who 는 표시용이라 뺀다."""
+    if etag is None:
+        return None
+    return (etag["n"], etag["mx"], etag["vs"])
+
+
 class DeviceRepository:
     def __init__(self, db: Database):
         self.db = db
@@ -26,6 +33,34 @@ class DeviceRepository:
                 (process_id,),
             ).fetchall()
         return [dict(r) for r in rows]
+
+    def etag(self, process_id: int) -> dict:
+        """이 process 의 device 상태 요약. 값이 달라졌으면 누군가 바꾼 것이다.
+
+        세 집계가 각각 다른 변화를 잡는다.
+
+          count(*)          삽입과 삭제
+          sum(version)      수정 (자식 테이블 저장도 device.version 을 올린다)
+          max(updated_at)   같은 수만큼 지우고 새로 넣어 앞의 둘이 그대로인 경우
+
+        LISTEN/NOTIFY 대신 이걸 쓰는 이유: NOTIFY 는 풀 밖의 전용 커넥션과
+        블로킹 리더가 필요하고, 14개 테이블에 트리거를 달거나 모든 쓰기 경로에
+        pg_notify 를 넣어야 한다. LAN 에서 몇 명이 시간당 몇 번 저장하는
+        상황이면 10초마다 집계 세 개를 읽는 쪽이 확실히 더 단순하다.
+
+        who 는 배너 문구용이라 비교에는 쓰지 않는다. etag_key() 를 볼 것.
+        """
+        with self.db.connection() as conn:
+            row = conn.execute(
+                "SELECT count(*) AS n, "
+                "       max(updated_at) AS mx, "
+                "       coalesce(sum(version), 0) AS vs, "
+                "       (SELECT updated_by FROM device WHERE process_id = %(pid)s "
+                "         ORDER BY updated_at DESC, id DESC LIMIT 1) AS who "
+                "  FROM device WHERE process_id = %(pid)s",
+                {"pid": process_id},
+            ).fetchone()
+        return dict(row)
 
     def upsert_device(self, process_id: int, device: dict, *, actor: str = "") -> dict:
         """단건 upsert. 붙여넣기처럼 새 행을 하나 만들 때 쓴다."""

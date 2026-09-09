@@ -1,5 +1,9 @@
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -17,6 +21,49 @@ from genviewer.views.device_table import DeviceTableView
 from genviewer.views.parameter_tab import ParameterTab
 
 
+class RefreshBanner(QFrame):
+    """"이 process 가 남의 손에 바뀌었다" 를 알리는 비모달 줄.
+
+    자동으로 다시 읽지 않는다. 편집 중인 내용이 말없이 사라지는 것은 이번
+    작업에서 없애려던 바로 그 부류의 동작이다. 읽을지 말지는 사용자가 정한다.
+    """
+
+    refreshRequested = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("RefreshBanner")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setFrameShape(QFrame.NoFrame)
+
+        self.label = QLabel("")
+        self.label.setObjectName("RefreshBannerText")
+        self.label.setWordWrap(True)
+
+        refresh_btn = QPushButton("새로고침")
+        refresh_btn.setToolTip("서버 내용을 다시 읽는다. 저장하지 않은 편집은 사라진다.")
+        refresh_btn.setFixedWidth(76)
+        refresh_btn.clicked.connect(self.refreshRequested)
+
+        close_btn = QPushButton("닫기")
+        close_btn.setToolTip("알림만 숨긴다. 서버 내용은 여전히 다르다.")
+        close_btn.setFixedWidth(52)
+        close_btn.clicked.connect(self.hide)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 3, 6, 3)
+        layout.setSpacing(6)
+        layout.addWidget(self.label, 1)
+        layout.addWidget(refresh_btn)
+        layout.addWidget(close_btn)
+        self.hide()
+
+    def show_change(self, who: str) -> None:
+        actor = who or "다른 사용자"
+        self.label.setText(f"이 process 가 {actor} 님에 의해 변경되었습니다.")
+        self.show()
+
+
 class DeviceTab(QWidget):
     dbConnectRequested = Signal(str)
     loadCsvRequested = Signal(str)
@@ -24,6 +71,7 @@ class DeviceTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.device_tab_toolbar_view = DeviceTabToolBar(self)
+        self.refresh_banner = RefreshBanner(self)
         self.virtuoso_device_table = VirtuosoDeviceTableView(self)
         self.filtered_device_table = FilteredDeviceTableView(self)
         self.device_table_view = DeviceTableView(self)
@@ -61,6 +109,7 @@ class DeviceTab(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(self.device_tab_toolbar_view)
+        layout.addWidget(self.refresh_banner)
         layout.addWidget(splitter)
         layout.setContentsMargins(1, 1, 1, 1)
         layout.setSpacing(1)
@@ -74,6 +123,12 @@ class DeviceTab(QWidget):
     def hide_views(self):
         self.search_labeled_virtuoso_device.hide()
         self.search_labeled_filter.hide()
+
+    def show_refresh_banner(self, who: str):
+        self.refresh_banner.show_change(who)
+
+    def hide_refresh_banner(self):
+        self.refresh_banner.hide()
 
     @Slot()
     def _open_connect(self, initial_dsn: str = ""):

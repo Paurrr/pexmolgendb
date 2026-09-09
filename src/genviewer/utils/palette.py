@@ -223,6 +223,17 @@ def _build_stylesheet(colors: dict) -> str:
             font-weight: 600;
         }}
 
+        QFrame#RefreshBanner {{
+            background-color: {colors["accent_soft"]};
+            border-top: 1px solid {colors["accent"]};
+            border-bottom: 1px solid {colors["accent"]};
+        }}
+
+        QLabel#RefreshBannerText {{
+            color: {colors["text"]};
+            font-weight: 600;
+        }}
+
         QTableView {{
             background-color: {colors["base"]};
             alternate-background-color: {colors["alternate"]};
