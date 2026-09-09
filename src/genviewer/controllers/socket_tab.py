@@ -1,6 +1,6 @@
 from PySide6.QtCore import QObject, Signal
 
-from views.socket_tab import SocketTab
+from genviewer.views.socket_tab import SocketTab
 
 
 class SocketTabController(QObject):

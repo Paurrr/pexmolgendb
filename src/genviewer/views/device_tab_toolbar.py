@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from utils.dialogs import question
+from genviewer.utils.dialogs import question
 
 
 class DeviceTabToolBar(QWidget):

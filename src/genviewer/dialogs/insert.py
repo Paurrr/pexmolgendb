@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from config.config import delegate_config
-from utils.validators import allowed_items, validate_field_value
+from genviewer.config.config import delegate_config
+from genviewer.utils.validators import allowed_items, validate_field_value
 
 
 class InsertDialog(QDialog):

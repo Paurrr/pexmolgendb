@@ -3,7 +3,7 @@ from queue import Empty, Queue
 
 from PySide6.QtCore import QThread, Signal
 
-from net.client import Client
+from genviewer.net.client import Client
 
 
 class ConnectWorker(QThread):

@@ -14,11 +14,11 @@ from PySide6.QtWidgets import (
     QTableView,
 )
 
-from dialogs.insert import InsertDialog
-from models.device_table import DeviceTableModel
-from models.sorting_proxy import SortingProxyModel
-from utils.dialogs import question
-from utils.file_dialogs import save_file
+from genviewer.dialogs.insert import InsertDialog
+from genviewer.models.device_table import DeviceTableModel
+from genviewer.models.sorting_proxy import SortingProxyModel
+from genviewer.utils.dialogs import question
+from genviewer.utils.file_dialogs import save_file
 
 
 class DeviceTableView(QTableView):

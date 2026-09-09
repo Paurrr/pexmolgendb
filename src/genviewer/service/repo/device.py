@@ -1,8 +1,8 @@
 from psycopg import sql
 
-from service.errors import Conflict, StaleWriteError
-from service.pool import Database
-from service.schema import ADVISORY_LOCK_CLASS
+from genviewer.service.errors import Conflict, StaleWriteError
+from genviewer.service.pool import Database
+from genviewer.service.schema import ADVISORY_LOCK_CLASS
 
 # device 한 행 + 13개 자식 테이블이 한 사용자가 한 화면에서 편집하는 단위다.
 # 그래서 version 은 device 에만 둔다. 자식 테이블에 쓰는 작업도 device 행에

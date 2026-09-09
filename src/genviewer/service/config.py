@@ -10,7 +10,7 @@ DSN 을 받으므로, 환경변수보다 우선하는 값을 넣을 수 있어�
 import os
 from dataclasses import dataclass
 
-from utils.user import current_user
+from genviewer.utils.user import current_user
 
 DSN_ENV = "MOLGEN_PG_DSN"
 

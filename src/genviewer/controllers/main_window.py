@@ -2,12 +2,12 @@ from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
 
-from controllers.device_tab import DeviceTabController
-from controllers.socket_tab import SocketTabController
-from net.controller import ConnectionController
-from service import virtuoso_protocol
-from utils.palette import THEMES, apply_theme
-from views.main_window import MainWindow
+from genviewer.controllers.device_tab import DeviceTabController
+from genviewer.controllers.socket_tab import SocketTabController
+from genviewer.net.controller import ConnectionController
+from genviewer.service import virtuoso_protocol
+from genviewer.utils.palette import THEMES, apply_theme
+from genviewer.views.main_window import MainWindow
 
 
 class MainWindowController(QObject):

@@ -1,8 +1,8 @@
 from PySide6.QtCore import QObject, Signal, Slot
 
-from service.repo.process import ProcessRepository
-from utils.dialogs import question
-from views.device_tab_toolbar import DeviceTabToolBar
+from genviewer.service.repo.process import ProcessRepository
+from genviewer.utils.dialogs import question
+from genviewer.views.device_tab_toolbar import DeviceTabToolBar
 
 
 class DeviceTabToolBarController(QObject):

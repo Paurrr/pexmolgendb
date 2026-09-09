@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from utils.table_utils import build_labeled_view
+from genviewer.utils.table_utils import build_labeled_view
 
 
 class SocketTab(QWidget):

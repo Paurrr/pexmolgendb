@@ -10,10 +10,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dialogs.insert import InsertDialog
-from models.generic_table import GenericTableModel
-from utils.dialogs import question
-from views.parameter_table import ParameterTableView
+from genviewer.dialogs.insert import InsertDialog
+from genviewer.models.generic_table import GenericTableModel
+from genviewer.utils.dialogs import question
+from genviewer.views.parameter_table import ParameterTableView
 
 
 class TabSection(QWidget):

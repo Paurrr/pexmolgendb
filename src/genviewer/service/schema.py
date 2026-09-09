@@ -9,7 +9,7 @@ db_init 이 그 목록을 손으로 한 번 더 적어두고 있었기 때문에
 테이블 구조 자체는 아래 상수로 선언해 둔다.
 """
 
-from config.config import tab_config
+from genviewer.config.config import tab_config
 
 PROCESS_TABLE = "process"
 DEVICE_TABLE = "device"

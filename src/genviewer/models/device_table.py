@@ -1,7 +1,7 @@
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 from PySide6.QtGui import QColor
 
-from utils.validators import normalize_value
+from genviewer.utils.validators import normalize_value
 
 
 class DeviceTableModel(QAbstractTableModel):

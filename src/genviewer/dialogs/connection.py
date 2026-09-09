@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from service.config import DSN_ENV
+from genviewer.service.config import DSN_ENV
 
 _ORG = "molgen"
 _APP = "molgenviewer"
@@ -116,8 +116,8 @@ class ConnectionDialog(QDialog):
         return " ".join(parts)
 
     def _on_test(self) -> None:
-        from service.config import load_config
-        from service.pool import Database
+        from genviewer.service.config import load_config
+        from genviewer.service.pool import Database
 
         self.status_label.setText("연결 중...")
         self.test_btn.setEnabled(False)

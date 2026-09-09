@@ -3,7 +3,7 @@ import re
 from PySide6.QtCore import QRegularExpression, QSortFilterProxyModel, Slot
 from PySide6.QtWidgets import QTableView
 
-from models.device_state import DeviceStateModel
+from genviewer.models.device_state import DeviceStateModel
 
 
 class DeviceStateTableView(QTableView):

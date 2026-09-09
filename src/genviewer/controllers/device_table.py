@@ -4,17 +4,17 @@ from PySide6.QtCore import QModelIndex, QObject, QPoint, Qt, Signal, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
-from config.config import delegate_config, tab_config
-from delegates.combo_box import ComboBoxDelegate
-from dialogs.conflict import OVERWRITE, RELOAD, ask_conflict
-from service.errors import StaleWriteError
-from service.repo.device import DeviceRepository
-from service.repo.io import IORepository
-from service.repo.parameter import ParameterRepository
-from utils.exporter import write_csv, write_xlsx
-from utils.menus import build_device_table_menu
-from utils.user import current_user
-from views.device_table import DeviceTableView
+from genviewer.config.config import delegate_config, tab_config
+from genviewer.delegates.combo_box import ComboBoxDelegate
+from genviewer.dialogs.conflict import OVERWRITE, RELOAD, ask_conflict
+from genviewer.service.errors import StaleWriteError
+from genviewer.service.repo.device import DeviceRepository
+from genviewer.service.repo.io import IORepository
+from genviewer.service.repo.parameter import ParameterRepository
+from genviewer.utils.exporter import write_csv, write_xlsx
+from genviewer.utils.menus import build_device_table_menu
+from genviewer.utils.user import current_user
+from genviewer.views.device_table import DeviceTableView
 
 
 class DeviceTableController(QObject):

@@ -20,8 +20,8 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from service.config import DbConfig
-from service.errors import DbUnavailableError
+from genviewer.service.config import DbConfig
+from genviewer.service.errors import DbUnavailableError
 
 log = logging.getLogger(__name__)
 

@@ -57,9 +57,9 @@ def pg_dsn():
 @pytest.fixture
 def db(pg_dsn):
     """스키마가 적용된 빈 Database. 테스트마다 모든 행을 지운다."""
-    from service.config import load_config
-    from service.pool import Database
-    from service.schema import child_tables, postgres_all_ddl
+    from genviewer.service.config import load_config
+    from genviewer.service.pool import Database
+    from genviewer.service.schema import child_tables, postgres_all_ddl
 
     database = Database(load_config(pg_dsn))
     database.open()
@@ -84,9 +84,9 @@ def two_processes(db):
 
     반환: fetch_export_data 가 받는 형태의 device_info 리스트.
     """
-    from service.repo.device import DeviceRepository
-    from service.repo.parameter import ParameterRepository
-    from service.repo.process import ProcessRepository
+    from genviewer.service.repo.device import DeviceRepository
+    from genviewer.service.repo.parameter import ParameterRepository
+    from genviewer.service.repo.process import ProcessRepository
 
     pr, dr, par = ProcessRepository(db), DeviceRepository(db), ParameterRepository(db)
     columns = ["reserved_key", "cds_inst_term_name"]

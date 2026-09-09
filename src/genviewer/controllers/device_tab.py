@@ -3,19 +3,19 @@ from collections import defaultdict
 from PySide6.QtCore import QModelIndex, QObject, Signal, Slot
 from PySide6.QtWidgets import QMessageBox
 
-from controllers.device_tab_toolbar import DeviceTabToolBarController
-from controllers.device_table import DeviceTableController
-from controllers.parameter_tab import ParameterTabController
-from service.config import load_config
-from service.errors import DbUnavailableError
-from service.pool import Database
-from service.repo.device import DeviceRepository
-from service.repo.io import IORepository
-from service.repo.parameter import ParameterRepository
-from service.repo.process import ProcessRepository
-from utils.dialogs import question
-from utils.lisp import to_lisp_list_string
-from views.device_tab import DeviceTab
+from genviewer.controllers.device_tab_toolbar import DeviceTabToolBarController
+from genviewer.controllers.device_table import DeviceTableController
+from genviewer.controllers.parameter_tab import ParameterTabController
+from genviewer.service.config import load_config
+from genviewer.service.errors import DbUnavailableError
+from genviewer.service.pool import Database
+from genviewer.service.repo.device import DeviceRepository
+from genviewer.service.repo.io import IORepository
+from genviewer.service.repo.parameter import ParameterRepository
+from genviewer.service.repo.process import ProcessRepository
+from genviewer.utils.dialogs import question
+from genviewer.utils.lisp import to_lisp_list_string
+from genviewer.views.device_tab import DeviceTab
 
 
 class DeviceTabController(QObject):

@@ -1,14 +1,14 @@
 from PySide6.QtCore import QObject, Signal
 
-from config.config import tab_config
-from controllers.tab_section import TabSectionController
-from dialogs.conflict import OVERWRITE, RELOAD, ask_conflict
-from dialogs.tab_selector import TabSelectorDialog
-from service.errors import StaleWriteError
-from service.repo.parameter import ParameterRepository
-from utils.user import current_user
-from views.parameter_tab import ParameterTab
-from views.tab_section import TabSection
+from genviewer.config.config import tab_config
+from genviewer.controllers.tab_section import TabSectionController
+from genviewer.dialogs.conflict import OVERWRITE, RELOAD, ask_conflict
+from genviewer.dialogs.tab_selector import TabSelectorDialog
+from genviewer.service.errors import StaleWriteError
+from genviewer.service.repo.parameter import ParameterRepository
+from genviewer.utils.user import current_user
+from genviewer.views.parameter_tab import ParameterTab
+from genviewer.views.tab_section import TabSection
 
 
 class ParameterTabController(QObject):

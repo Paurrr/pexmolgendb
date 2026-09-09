@@ -1,11 +1,11 @@
 from PySide6.QtCore import QObject, QPoint, Signal, Slot
 
-from config.config import delegate_config
-from delegates.combo_box import ComboBoxDelegate
-from models.generic_table import GenericTableModel
-from service.repo.parameter import ParameterRepository
-from utils.menus import build_parameter_table_menu
-from views.tab_section import TabSection
+from genviewer.config.config import delegate_config
+from genviewer.delegates.combo_box import ComboBoxDelegate
+from genviewer.models.generic_table import GenericTableModel
+from genviewer.service.repo.parameter import ParameterRepository
+from genviewer.utils.menus import build_parameter_table_menu
+from genviewer.views.tab_section import TabSection
 
 
 class TabSectionController(QObject):

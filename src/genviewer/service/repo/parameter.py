@@ -1,8 +1,8 @@
 from psycopg import sql
 
-from service import schema
-from service.errors import Conflict, StaleWriteError
-from service.pool import Database
+from genviewer.service import schema
+from genviewer.service.errors import Conflict, StaleWriteError
+from genviewer.service.pool import Database
 
 
 def _check(table_name: str, columns: list[str]) -> list[str]:

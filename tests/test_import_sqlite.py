@@ -4,17 +4,13 @@
 """
 
 import sqlite3
-import sys
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+from genviewer.scripts import import_sqlite
 
-import import_sqlite  # noqa: E402
-
-LEGACY = ROOT / "db" / "init.sqlite"
+LEGACY = Path(__file__).resolve().parent.parent / "db" / "init.sqlite"
 
 
 def _counts(path: Path) -> dict[str, int]:

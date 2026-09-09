@@ -5,10 +5,10 @@
 
 import pytest
 
-from service.errors import StaleWriteError
-from service.repo.device import DeviceRepository
-from service.repo.parameter import ParameterRepository
-from service.repo.process import ProcessRepository
+from genviewer.service.errors import StaleWriteError
+from genviewer.service.repo.device import DeviceRepository
+from genviewer.service.repo.parameter import ParameterRepository
+from genviewer.service.repo.process import ProcessRepository
 
 TERM_COLUMNS = ["reserved_key", "cds_inst_term_name"]
 

@@ -12,6 +12,23 @@
 uv sync
 ```
 
+## 소스 구조
+
+코드는 전부 `src/genviewer/` 아래의 한 패키지다. 배포 이름은 `molgenviewer`,
+임포트 이름은 `genviewer` 다.
+
+```
+src/genviewer/
+  main.py        진입점 (`genviewer` 명령 / `python -m genviewer`)
+  config/        tab_config.json, delegate_config.json — 스키마와 UI 의 원본
+  service/       DB 계층. Qt 를 import 하지 않는다 (테스트가 GUI 없이 돈다)
+  models/ views/ controllers/ delegates/ dialogs/   Qt MVC
+  net/           Virtuoso 소켓
+  utils/
+  scripts/       관리 도구 (init_db, import_sqlite)
+tests/           저장소 루트에 남는다
+```
+
 ## 서버 준비 (한 번만)
 
 ```sh
@@ -20,8 +37,8 @@ PGBIN="/c/Program Files/PostgreSQL/18/bin" ./tools/initdb.sh   # 윈도우
 ./tools/initdb.sh                                              # 리눅스
 
 # 스키마 생성. 먼저 --dry-run 으로 무엇이 실행될지 볼 수 있다 (접속 안 함).
-uv run python scripts/init_db.py --dry-run
-uv run python scripts/init_db.py --dsn "postgresql://<user>@127.0.0.1:55433/molgen"
+uv run python -m genviewer.scripts.init_db --dry-run
+uv run python -m genviewer.scripts.init_db --dsn "postgresql://<user>@127.0.0.1:55433/molgen"
 ```
 
 윈도우 Git Bash 에서는 `pg_ctl start` 가 셸에 매여 프롬프트가 돌아오지 않는다.
@@ -35,10 +52,10 @@ uv run python scripts/init_db.py --dsn "postgresql://<user>@127.0.0.1:55433/molg
 
 ```sh
 export MOLGEN_PG_DSN="postgresql://<user>@127.0.0.1:55433/molgen"
-uv run python main.py
+uv run genviewer
 
 # 또는
-uv run python main.py --dsn "postgresql://..." --host <virtuoso-host>
+uv run genviewer --dsn "postgresql://..." --host <virtuoso-host>
 ```
 
 접속 정보는 메뉴의 **Database → Connect...** 에서도 바꿀 수 있다.
@@ -50,10 +67,10 @@ uv run python main.py --dsn "postgresql://..." --host <virtuoso-host>
 
 ```sh
 # 무엇이 들어갈지 먼저 본다
-uv run python scripts/import_sqlite.py --sqlite mine.sqlite --dry-run
+uv run python -m genviewer.scripts.import_sqlite --sqlite mine.sqlite --dry-run
 
 # 여러 사람 파일을 각자 이름으로 구분해서 넣는다 (초기 대량 이관에 권장)
-uv run python scripts/import_sqlite.py --sqlite mine.sqlite --on-conflict rename
+uv run python -m genviewer.scripts.import_sqlite --sqlite mine.sqlite --on-conflict rename
 ```
 
 `--on-conflict` 는 같은 이름의 process 가 이미 있을 때의 정책이다.

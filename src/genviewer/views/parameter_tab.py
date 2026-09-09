@@ -1,8 +1,8 @@
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import QTabWidget, QWidget
 
-from views.parameter_summary import ParameterSummaryView
-from views.tab_section import TabSection
+from genviewer.views.parameter_summary import ParameterSummaryView
+from genviewer.views.tab_section import TabSection
 
 
 class ParameterTab(QTabWidget):

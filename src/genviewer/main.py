@@ -3,14 +3,14 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from controllers.main_window import MainWindowController
-from service.config import DSN_ENV
-from utils.palette import apply_theme
-from views.main_window import MainWindow
+from genviewer.controllers.main_window import MainWindowController
+from genviewer.service.config import DSN_ENV
+from genviewer.utils.palette import apply_theme
+from genviewer.views.main_window import MainWindow
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    ap = argparse.ArgumentParser(prog="molgenviewer")
+    ap = argparse.ArgumentParser(prog="genviewer")
     ap.add_argument(
         "--dsn",
         default="",

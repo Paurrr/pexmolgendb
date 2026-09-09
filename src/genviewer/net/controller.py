@@ -2,8 +2,8 @@ from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Signal
 
-from net.client import Client
-from net.workers import ConnectWorker, DisconnectWorker, ReceiveWorker, SendWorker
+from genviewer.net.client import Client
+from genviewer.net.workers import ConnectWorker, DisconnectWorker, ReceiveWorker, SendWorker
 
 
 class ConnectionController(QObject):

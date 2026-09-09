@@ -5,16 +5,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dialogs.connection import ConnectionDialog
-from utils.file_dialogs import open_file
-from utils.table_utils import (
+from genviewer.dialogs.connection import ConnectionDialog
+from genviewer.utils.file_dialogs import open_file
+from genviewer.utils.table_utils import (
     build_searchable_labeled_view,
     setup_tableview,
 )
-from views.device_state_table import FilteredDeviceTableView, VirtuosoDeviceTableView
-from views.device_tab_toolbar import DeviceTabToolBar
-from views.device_table import DeviceTableView
-from views.parameter_tab import ParameterTab
+from genviewer.views.device_state_table import FilteredDeviceTableView, VirtuosoDeviceTableView
+from genviewer.views.device_tab_toolbar import DeviceTabToolBar
+from genviewer.views.device_table import DeviceTableView
+from genviewer.views.parameter_tab import ParameterTab
 
 
 class DeviceTab(QWidget):

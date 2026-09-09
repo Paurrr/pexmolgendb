@@ -1,6 +1,6 @@
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 
-from utils.validators import normalize_value, validate_field_value
+from genviewer.utils.validators import normalize_value, validate_field_value
 
 
 class GenericTableModel(QAbstractTableModel):

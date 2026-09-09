@@ -1,6 +1,6 @@
 import psycopg
 
-from service.pool import Database
+from genviewer.service.pool import Database
 
 
 class ProcessRepository:

@@ -6,13 +6,13 @@ autocommit)와 DB 단계(스키마 DDL, 트랜잭션) 분리, skip_if 로 멱등
 그리고 psycopg 도 살아 있는 서버도 없이 도는 --dry-run.
 
   # 무엇을 할지만 본다 (접속 안 함)
-  uv run python scripts/init_db.py --dry-run
+  uv run python -m genviewer.scripts.init_db --dry-run
 
   # 기존 DB 에 스키마만 만든다
-  uv run python scripts/init_db.py --dsn "$MOLGEN_PG_DSN"
+  uv run python -m genviewer.scripts.init_db --dsn "$MOLGEN_PG_DSN"
 
   # role 과 database 부터 만든다 (관리자 DSN 으로)
-  uv run python scripts/init_db.py --dsn "postgresql://postgres@host:5433/postgres" \
+  uv run python -m genviewer.scripts.init_db --dsn "postgresql://postgres@host:5433/postgres" \
       --create-role molgen --create-database molgen
 
 비밀번호는 MOLGEN_INIT_PASSWORD 환경변수나 프롬프트에서만 받는다.
@@ -22,14 +22,10 @@ argv 로는 절대 받지 않는다 — ps 에 남는다.
 import argparse
 import getpass
 import os
-import sys
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from service import schema  # noqa: E402
+from genviewer.service import schema
 
 
 @dataclass

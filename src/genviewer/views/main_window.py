@@ -19,9 +19,9 @@ from PySide6.QtWidgets import (
     QWidgetAction,
 )
 
-from utils.dialogs import critical, error, info, warning
-from views.device_tab import DeviceTab
-from views.socket_tab import SocketTab
+from genviewer.utils.dialogs import critical, error, info, warning
+from genviewer.views.device_tab import DeviceTab
+from genviewer.views.socket_tab import SocketTab
 
 
 class MainWindow(QMainWindow):

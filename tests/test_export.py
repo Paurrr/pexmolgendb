@@ -4,7 +4,7 @@ molgen/CSV_COLUMNS.md §0: "로더가 비어 있지 않은 동명 컬럼을 순�
 하나의 리스트로 만든다" — 즉 자식 행의 순서는 의미를 갖는다.
 """
 
-from service.repo.io import IORepository
+from genviewer.service.repo.io import IORepository
 
 
 def test_each_row_carries_its_own_process_name(db, two_processes):

@@ -1,7 +1,7 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHeaderView, QTableView
 
-from models.parameter_summary import ParameterSummaryModel
+from genviewer.models.parameter_summary import ParameterSummaryModel
 
 
 class ParameterSummaryView(QTableView):

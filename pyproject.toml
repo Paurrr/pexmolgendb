@@ -13,16 +13,25 @@ dependencies = [
     "psycopg[binary,pool]>=3.3,<4",
 ]
 
+[project.scripts]
+genviewer = "genviewer.main:main"
+genviewer-init-db = "genviewer.scripts.init_db:main"
+genviewer-import-sqlite = "genviewer.scripts.import_sqlite:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.3",
     "ruff>=0.14",
 ]
 
-[tool.uv]
-# 평평한 모듈 구조(main.py + 형제 패키지들)이므로 가상 프로젝트로 둔다.
-# 루트를 설치하지 않으며, 실행은 `uv run python main.py`.
-package = false
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# 배포 이름(molgenviewer)과 임포트 이름(genviewer)이 다르므로 명시해야 한다.
+# config/*.json 은 패키지 안에 있으므로 함께 들어간다.
+packages = ["src/genviewer"]
 
 [tool.ruff]
 line-length = 100
@@ -35,5 +44,3 @@ ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# 평평한 모듈 구조라 프로젝트 루트를 import 경로에 넣어야 한다.
-pythonpath = ["."]

@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from config.config import tab_config
-from service import schema
+from genviewer.config.config import tab_config
+from genviewer.service import schema
 
 LEGACY_DB = Path(__file__).resolve().parent.parent / "db" / "init.sqlite"
 

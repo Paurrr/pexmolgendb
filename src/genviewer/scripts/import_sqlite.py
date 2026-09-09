@@ -5,10 +5,11 @@
 한 서버로 모으는 상황을 전제한다.
 
   # 무엇이 들어갈지만 본다
-  uv run python scripts/import_sqlite.py --sqlite mine.sqlite --dsn "$MOLGEN_PG_DSN" --dry-run
+  uv run python -m genviewer.scripts.import_sqlite --sqlite mine.sqlite \
+      --dsn "$MOLGEN_PG_DSN" --dry-run
 
   # 여러 사람 파일을 각자 이름으로 구분해서 넣는다 (초기 대량 이관에 권장)
-  uv run python scripts/import_sqlite.py --sqlite mine.sqlite --dsn "$MOLGEN_PG_DSN" \
+  uv run python -m genviewer.scripts.import_sqlite --sqlite mine.sqlite --dsn "$MOLGEN_PG_DSN" \
       --on-conflict rename
 
 원본 파일은 읽기 전용으로 열며 절대 수정하지 않는다.
@@ -17,13 +18,10 @@
 import argparse
 import os
 import sqlite3
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from service import schema  # noqa: E402
-from utils.user import current_user  # noqa: E402
+from genviewer.service import schema
+from genviewer.utils.user import current_user
 
 
 def open_readonly(path: Path) -> sqlite3.Connection:

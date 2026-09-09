@@ -6,8 +6,8 @@ import pandas as pd
 import psycopg
 from psycopg import sql
 
-from config.config import tab_config
-from service.pool import Database
+from genviewer.config.config import tab_config
+from genviewer.service.pool import Database
 
 
 class IORepository:
