@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""molgen PostgreSQL 프로비저닝.
+"""PostgreSQL 프로비저닝.
 
 fmserver/init_db.py 를 따른다: 선언적 Plan/Step, 서버 단계(CREATE ROLE/DATABASE,
 autocommit)와 DB 단계(스키마 DDL, 트랜잭션) 분리, skip_if 로 멱등성 확보,
@@ -9,13 +9,13 @@ autocommit)와 DB 단계(스키마 DDL, 트랜잭션) 분리, skip_if 로 멱등
   uv run python -m genviewer.scripts.init_db --dry-run
 
   # 기존 DB 에 스키마만 만든다
-  uv run python -m genviewer.scripts.init_db --dsn "$MOLGEN_PG_DSN"
+  uv run python -m genviewer.scripts.init_db --dsn "$GENDB_PG_DSN"
 
   # role 과 database 부터 만든다 (관리자 DSN 으로)
   uv run python -m genviewer.scripts.init_db --dsn "postgresql://postgres@host:5433/postgres" \
       --create-role molgen --create-database molgen
 
-비밀번호는 MOLGEN_INIT_PASSWORD 환경변수나 프롬프트에서만 받는다.
+비밀번호는 GENDB_INIT_PASSWORD 환경변수나 프롬프트에서만 받는다.
 argv 로는 절대 받지 않는다 - ps 에 남는다.
 """
 
@@ -101,7 +101,7 @@ def run_plan(steps: list[Step], dsn: str, target_db: str, password: str) -> int:
     db_steps = [s for s in steps if s.conn == "db"]
 
     if server_steps:
-        with psycopg.connect(dsn, autocommit=True, application_name="molgen-init-db") as con:
+        with psycopg.connect(dsn, autocommit=True, application_name="genviewer-init-db") as con:
             with con.cursor() as cur:
                 for st in server_steps:
                     if st.skip_if is not None and st.skip_if(cur):
@@ -118,7 +118,7 @@ def run_plan(steps: list[Step], dsn: str, target_db: str, password: str) -> int:
         info["dbname"] = target_db
         target_dsn = psycopg.conninfo.make_conninfo(**info)
 
-    with psycopg.connect(target_dsn, application_name="molgen-init-db") as con:
+    with psycopg.connect(target_dsn, application_name="genviewer-init-db") as con:
         with con.cursor() as cur:
             for st in db_steps:
                 cur.execute(st.sql)
@@ -130,8 +130,8 @@ def run_plan(steps: list[Step], dsn: str, target_db: str, password: str) -> int:
 
 def main() -> int:
     survive_console_encoding()
-    ap = argparse.ArgumentParser(description="molgen PostgreSQL 프로비저닝")
-    ap.add_argument("--dsn", default=os.environ.get("MOLGEN_PG_DSN", ""))
+    ap = argparse.ArgumentParser(description="PostgreSQL 프로비저닝")
+    ap.add_argument("--dsn", default=os.environ.get("GENDB_PG_DSN", ""))
     ap.add_argument("--create-role", default="", help="이 이름으로 LOGIN role 생성")
     ap.add_argument("--create-database", default="", help="이 이름으로 database 생성")
     ap.add_argument("--owner", default="", help="생성할 database 의 owner")
@@ -149,11 +149,11 @@ def main() -> int:
         return 0
 
     if not args.dsn:
-        ap.error("--dsn 또는 MOLGEN_PG_DSN 이 필요하다")
+        ap.error("--dsn 또는 GENDB_PG_DSN 이 필요하다")
 
     password = ""
     if args.create_role:
-        password = os.environ.get("MOLGEN_INIT_PASSWORD", "")
+        password = os.environ.get("GENDB_INIT_PASSWORD", "")
         if not password:
             password = getpass.getpass(f"'{args.create_role}' role 의 비밀번호: ")
         if not password:

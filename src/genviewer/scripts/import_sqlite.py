@@ -6,10 +6,10 @@
 
   # 무엇이 들어갈지만 본다
   uv run python -m genviewer.scripts.import_sqlite --sqlite mine.sqlite \
-      --dsn "$MOLGEN_PG_DSN" --dry-run
+      --dsn "$GENDB_PG_DSN" --dry-run
 
   # 여러 사람 파일을 각자 이름으로 구분해서 넣는다 (초기 대량 이관에 권장)
-  uv run python -m genviewer.scripts.import_sqlite --sqlite mine.sqlite --dsn "$MOLGEN_PG_DSN" \
+  uv run python -m genviewer.scripts.import_sqlite --sqlite mine.sqlite --dsn "$GENDB_PG_DSN" \
       --on-conflict rename
 
 원본 파일은 읽기 전용으로 열며 절대 수정하지 않는다.
@@ -201,7 +201,7 @@ def main() -> int:
     survive_console_encoding()
     ap = argparse.ArgumentParser(description="sqlite -> PostgreSQL 이관")
     ap.add_argument("--sqlite", required=True, help="원본 .sqlite 파일")
-    ap.add_argument("--dsn", default=os.environ.get("MOLGEN_PG_DSN", ""))
+    ap.add_argument("--dsn", default=os.environ.get("GENDB_PG_DSN", ""))
     ap.add_argument(
         "--on-conflict",
         choices=["fail", "rename", "merge", "skip"],
@@ -217,7 +217,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if not args.dsn:
-        ap.error("--dsn 또는 MOLGEN_PG_DSN 이 필요하다")
+        ap.error("--dsn 또는 GENDB_PG_DSN 이 필요하다")
 
     src_path = Path(args.sqlite)
     if not src_path.is_file():

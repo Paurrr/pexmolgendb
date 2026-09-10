@@ -25,8 +25,8 @@ from PySide6.QtWidgets import (
 
 from genviewer.service.config import DSN_ENV
 
-_ORG = "molgen"
-_APP = "molgenviewer"
+_ORG = "gendb"
+_APP = "genviewer"
 
 
 def _quote(value: str) -> str:

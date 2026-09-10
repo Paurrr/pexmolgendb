@@ -58,4 +58,4 @@ fi
 
 echo
 echo "완료. 환경변수:"
-echo "  MOLGEN_PG_DSN=postgresql://$PGUSER@127.0.0.1:$PGPORT/$PGDB"
+echo "  GENDB_PG_DSN=postgresql://$PGUSER@127.0.0.1:$PGPORT/$PGDB"

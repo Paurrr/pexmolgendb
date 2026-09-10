@@ -8,7 +8,7 @@ fmserver 의 actor_user 와 같은 태도 — 위조는 못 막고 실수를 막
 import getpass
 import os
 
-_ENV_ORDER = ("MOLGEN_APP_USER", "USER", "USERNAME", "LOGNAME")
+_ENV_ORDER = ("GENDB_APP_USER", "USER", "USERNAME", "LOGNAME")
 
 
 def current_user() -> str:

@@ -128,7 +128,7 @@ class DeviceTabController(QObject):
         return db
 
     def connect_db(self, dsn: str) -> bool:
-        """DSN 으로 접속한다. dsn 이 비면 MOLGEN_PG_DSN 환경변수를 쓴다."""
+        """DSN 으로 접속한다. dsn 이 비면 GENDB_PG_DSN 환경변수를 쓴다."""
         if self.db is not None:
             self.db.close()
             self.db = None

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from genviewer.utils.user import current_user
 
-DSN_ENV = "MOLGEN_PG_DSN"
+DSN_ENV = "GENDB_PG_DSN"
 
 
 @dataclass(frozen=True)
@@ -47,20 +47,20 @@ def load_config(dsn_override: str = "") -> DbConfig:
             f"{DSN_ENV} is required (또는 --dsn / Connect 다이얼로그로 지정)"
         )
 
-    pool_min = _int_env("MOLGEN_PG_POOL_MIN", 1)
-    pool_max = _int_env("MOLGEN_PG_POOL_MAX", 4)
+    pool_min = _int_env("GENDB_PG_POOL_MIN", 1)
+    pool_max = _int_env("GENDB_PG_POOL_MAX", 4)
     if pool_min < 0 or pool_max < 1 or pool_min > pool_max:
         raise RuntimeError(
-            f"invalid pool size: MOLGEN_PG_POOL_MIN={pool_min} "
-            f"MOLGEN_PG_POOL_MAX={pool_max}"
+            f"invalid pool size: GENDB_PG_POOL_MIN={pool_min} "
+            f"GENDB_PG_POOL_MAX={pool_max}"
         )
 
     return DbConfig(
         dsn=dsn,
         pool_min=pool_min,
         pool_max=pool_max,
-        connect_timeout=_int_env("MOLGEN_PG_CONNECT_TIMEOUT", 5),
-        lock_timeout_ms=_int_env("MOLGEN_PG_LOCK_TIMEOUT_MS", 5000),
-        statement_timeout_ms=_int_env("MOLGEN_PG_STATEMENT_TIMEOUT_MS", 15000),
+        connect_timeout=_int_env("GENDB_PG_CONNECT_TIMEOUT", 5),
+        lock_timeout_ms=_int_env("GENDB_PG_LOCK_TIMEOUT_MS", 5000),
+        statement_timeout_ms=_int_env("GENDB_PG_STATEMENT_TIMEOUT_MS", 15000),
         app_user=current_user(),
     )

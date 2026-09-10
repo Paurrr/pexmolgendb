@@ -8,7 +8,7 @@ from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.service.repo.process import ProcessRepository
 
-# db 픽스처가 MOLGEN_TEST_PG_DSN 없이 돌면 알아서 skip 한다.
+# db 픽스처가 GENDB_TEST_PG_DSN 없이 돌면 알아서 skip 한다.
 COLUMNS = ["reserved_key", "cds_inst_term_name"]
 
 

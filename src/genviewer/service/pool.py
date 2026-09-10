@@ -39,7 +39,7 @@ class Database:
             "open": False,
             "kwargs": {
                 "row_factory": dict_row,
-                "application_name": f"molgenviewer:{cfg.app_user}",
+                "application_name": f"genviewer:{cfg.app_user}",
                 "connect_timeout": cfg.connect_timeout,
                 "options": options,
             },

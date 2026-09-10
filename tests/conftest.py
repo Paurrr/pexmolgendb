@@ -1,18 +1,18 @@
 """PostgreSQL 테스트 픽스처.
 
-MOLGEN_TEST_PG_DSN 이 없으면 DB 가 필요한 테스트는 통째로 skip 한다. 서버가
+GENDB_TEST_PG_DSN 이 없으면 DB 가 필요한 테스트는 통째로 skip 한다. 서버가
 없는 사람의 `uv run pytest` 를 막지 않기 위해서다.
 
-  MOLGEN_TEST_PG_DSN="postgresql://user@127.0.0.1:55433/postgres" uv run pytest
+  GENDB_TEST_PG_DSN="postgresql://user@127.0.0.1:55433/postgres" uv run pytest
 
-세션마다 molgen_test_<pid> 데이터베이스를 만들고 끝나면 지운다.
+세션마다 gendb_test_<pid> 데이터베이스를 만들고 끝나면 지운다.
 """
 
 import os
 
 import pytest
 
-TEST_DSN_ENV = "MOLGEN_TEST_PG_DSN"
+TEST_DSN_ENV = "GENDB_TEST_PG_DSN"
 
 
 def _admin_dsn() -> str:
@@ -33,7 +33,7 @@ def pg_dsn():
 
     import psycopg
 
-    dbname = f"molgen_test_{os.getpid()}"
+    dbname = f"gendb_test_{os.getpid()}"
     with psycopg.connect(admin, autocommit=True) as con:
         con.execute(f'DROP DATABASE IF EXISTS "{dbname}"')
         con.execute(f'CREATE DATABASE "{dbname}"')

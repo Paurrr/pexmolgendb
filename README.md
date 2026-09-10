@@ -1,4 +1,4 @@
-# molgenviewer
+# genviewer
 
 옆 디렉토리 `molgen`(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV 를
 만들고 관리하는 PySide6 데스크톱 앱.
@@ -14,8 +14,7 @@ uv sync
 
 ## 소스 구조
 
-코드는 전부 `src/genviewer/` 아래의 한 패키지다. 배포 이름은 `molgenviewer`,
-임포트 이름은 `genviewer` 다.
+코드는 전부 `src/genviewer/` 아래의 한 패키지다.
 
 ```
 src/genviewer/
@@ -51,7 +50,7 @@ uv run python -m genviewer.scripts.init_db --dsn "postgresql://<user>@127.0.0.1:
 ## 실행
 
 ```sh
-export MOLGEN_PG_DSN="postgresql://<user>@127.0.0.1:55433/molgen"
+export GENDB_PG_DSN="postgresql://<user>@127.0.0.1:55433/molgen"
 uv run genviewer
 
 # 또는
@@ -102,20 +101,20 @@ uv run ruff check .
 uv run pytest                     # DB 필요한 테스트는 skip 된다
 
 # DB 를 붙이면 전부 돈다. 테스트용 데이터베이스를 만들고 끝나면 지운다.
-MOLGEN_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
+GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
 ## 환경변수
 
 | | |
 |---|---|
-| `MOLGEN_PG_DSN` | 접속 문자열 (필수, `--dsn` 으로도 지정 가능) |
-| `MOLGEN_APP_USER` | `updated_by` 에 기록할 이름 (기본: 로그인 계정) |
-| `MOLGEN_PG_POOL_MIN` / `_MAX` | 커넥션 풀 크기 (기본 1 / 4) |
-| `MOLGEN_PG_CONNECT_TIMEOUT` | 접속 타임아웃 초 (기본 5) |
-| `MOLGEN_PG_LOCK_TIMEOUT_MS` | 행 잠금 대기 한도 (기본 5000) |
-| `MOLGEN_PG_STATEMENT_TIMEOUT_MS` | 쿼리 한도 (기본 15000) |
-| `MOLGEN_TEST_PG_DSN` | 테스트용 관리 DSN |
+| `GENDB_PG_DSN` | 접속 문자열 (필수, `--dsn` 으로도 지정 가능) |
+| `GENDB_APP_USER` | `updated_by` 에 기록할 이름 (기본: 로그인 계정) |
+| `GENDB_PG_POOL_MIN` / `_MAX` | 커넥션 풀 크기 (기본 1 / 4) |
+| `GENDB_PG_CONNECT_TIMEOUT` | 접속 타임아웃 초 (기본 5) |
+| `GENDB_PG_LOCK_TIMEOUT_MS` | 행 잠금 대기 한도 (기본 5000) |
+| `GENDB_PG_STATEMENT_TIMEOUT_MS` | 쿼리 한도 (기본 15000) |
+| `GENDB_TEST_PG_DSN` | 테스트용 관리 DSN |
 
 ## 배포 시 주의 — RHEL 8
 
