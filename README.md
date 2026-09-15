@@ -101,6 +101,57 @@ uv run genviewer --dsn "postgresql://molgen_app@<서버IP>:55433/molgen"
 > 메인 툴바의 `Server` / `Port` / `Connect` 는 **Virtuoso 소켓**이지 데이터베이스가
 > 아니다. `--host` 도 그쪽이다. 둘은 별개다.
 
+## 명령줄
+
+창을 띄우지 않고 할 수 있는 일이 넷 있다. 같은 `genviewer` 명령에 서브커맨드로
+붙어 있고 접속 설정도 창과 똑같은 것을 쓴다.
+
+```sh
+genviewer                        # 서브커맨드가 없으면 창을 띄운다 (지금까지와 같다)
+
+genviewer status                 # 어디에 붙어 있고 스키마와 행이 얼마나 있는지
+genviewer processes              # process 목록과 각 process 의 device 수
+genviewer load ./devices.csv     # CSV 를 불러온다
+genviewer export sf2p ./out.csv  # process 하나를 파일로 낸다 (.xlsx 도 된다)
+```
+
+```
+$ genviewer status
+설정 파일: /opt/genviewer/genviewer.env
+찾아본 곳:
+  /home/pdh99/.genviewer.env
+  /opt/genviewer/genviewer.env <-- 이것
+적용된 값:
+  PGHOST=10.1.2.3
+  PGPORT=55433
+  PGDATABASE=molgen
+  PGUSER=molgen_app
+  PGPASSWORD=(설정됨)
+로그 파일: /home/pdh99/.genviewer/genviewer.log  (GENDB_LOG 로 바꿀 수 있다)
+접속 대상: host=10.1.2.3 port=55433 dbname=molgen user=molgen_app
+접속: 됨 (0.04초)
+서버: PostgreSQL 16.2
+계정: molgen_app@molgen
+스키마: 테이블 16개 모두 있음
+내용: process 2개, device 128개
+```
+
+**device 를 더하고 지우는 것, 탭 내용을 고치는 것은 창에서만 한다.** 그쪽은
+낙관적 잠금과 충돌 해결이 얽혀 있어서 명령줄로 흉내 내면 둘 중 하나는 거짓말이
+된다.
+
+- `--dsn` 은 어디에나 붙는다: `genviewer status --dsn "postgresql://..."`.
+- `load` 는 **넣을 때마다 쌓인다.** 같은 파일을 두 번 넣으면 device 가 두 배가
+  된다(아래 'CSV 컬럼과 탭'). 그래서 몇 개를 새로 만들었는지 항상 찍는다. 큰
+  파일을 위해 `statement_timeout` 을 풀고 도는데, 직접 정해 뒀으면 그 값을 따른다.
+- `export` 는 process 를 통째로 낸다. device 를 골라서 내보내는 것은 창 쪽이다.
+  device 가 하나도 없으면 빈 파일을 만들지 않고 그렇다고 말한다.
+- 종료 코드는 `0` 성공 / `1` 실패 / `2` 사용법 오류 / `130` Ctrl-C 다. 스크립트에서
+  `if genviewer status; then ...` 로 쓸 수 있다.
+- 실패는 한 줄 문장으로 나온다. 트레이스백까지 보려면 `-v` 를 준다.
+- `genviewer --check-config` 는 그대로 있다. `status` 가 그 내용을 다 담고 접속까지
+  해 본다.
+
 ## 배포
 
 개발 트리에서 그냥 돌리는 것과, 여러 사람이 쓰는 설치본은 분리한다. 설치 단위는
@@ -281,11 +332,12 @@ psycopg 의 접속 실패 예외에는 conninfo 가 통째로 들어 있어서 �
 
 ```
 src/genviewer/
-  main.py        진입점 (`genviewer` 명령 / `python -m genviewer`)
+  cli.py         명령줄 진입점 (`genviewer` 명령 / `python -m genviewer`)
+  main.py        창 띄우기. cli.py 가 서브커맨드 없이 불릴 때만 쓴다
   config/        tab_config.json, delegate_config.json — 스키마와 UI 의 원본
   service/       DB 계층. Qt 를 import 하지 않는다 (테스트가 GUI 없이 돈다)
                  config.py 접속 설정 / env_file.py 설정 파일 / pool.py 풀
-                 schema.py DDL / repo/ 쿼리
+                 schema.py DDL / diagnostics.py 상태 진단 / repo/ 쿼리
   models/ views/ controllers/ delegates/ dialogs/   Qt MVC
   net/           Virtuoso 소켓
   utils/

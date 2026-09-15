@@ -40,6 +40,20 @@ class ProcessRepository:
             rows = conn.execute("SELECT name FROM process ORDER BY name").fetchall()
         return [r["name"] for r in rows]
 
+    def list_with_counts(self) -> list[tuple[str, int]]:
+        """process 이름과 그 안의 device 수. 이름 순.
+
+        list_all + count_devices 로 하면 process 마다 쿼리가 하나씩 더 나간다.
+        LEFT JOIN 이라 device 가 없는 process 도 0 으로 나온다.
+        """
+        with self.db.connection() as conn:
+            rows = conn.execute(
+                "SELECT p.name, count(d.id) AS n FROM process p "
+                "LEFT JOIN device d ON d.process_id = p.id "
+                "GROUP BY p.name ORDER BY p.name"
+            ).fetchall()
+        return [(r["name"], r["n"]) for r in rows]
+
     def count_devices(self, name: str) -> int:
         """이 process 를 지우면 cascade 로 함께 사라질 device 수."""
         with self.db.connection() as conn:

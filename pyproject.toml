@@ -11,10 +11,14 @@ dependencies = [
     "pandas>=3.0,<4",
     "openpyxl>=3.1",
     "psycopg[binary,pool]>=3.3,<4",
+    # 도움말과 에러는 rich 없이 평문으로 낸다 (cli.py 의 rich_markup_mode=None).
+    # 한국어 Windows 콘솔은 cp949 라 rich 가 그리는 상자 문자를 못 찍는다.
+    # typer-slim 을 쓰지 않는 이유: 그 이름은 이제 typer 를 끌어오는 껍데기다.
+    "typer>=0.15",
 ]
 
 [project.scripts]
-genviewer = "genviewer.main:main"
+genviewer = "genviewer.cli:main"
 genviewer-init-db = "genviewer.scripts.init_db:main"
 genviewer-import-sqlite = "genviewer.scripts.import_sqlite:main"
 

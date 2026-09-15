@@ -1,85 +1,23 @@
-import argparse
+"""창을 띄운다.
+
+명령줄을 읽는 것은 cli.py 가 한다. 여기는 Qt 부팅과 마지막 예외 그물만 맡는다.
+그 둘을 나눈 이유는 status 같은 명령이 Qt 를 통째로 올리지 않게 하려는 것이다 -
+X 가 없는 서버에서도 돌아야 한다.
+"""
+
 import logging
-import os
 import sys
 import threading
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from genviewer.controllers.main_window import MainWindowController
-from genviewer.service import env_file
-from genviewer.service.config import CONFIG_ENV, DSN_ENV
 from genviewer.service.errors import user_message
 from genviewer.utils import logs
 from genviewer.utils.palette import apply_theme
 from genviewer.views.main_window import MainWindow
 
 log = logging.getLogger(__name__)
-
-# --check-config 가 보여줄 값들. 비밀은 값 대신 (설정됨) 만 찍는다.
-_SHOWN = ("PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGSERVICE", "PGSSLMODE")
-
-
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    ap = argparse.ArgumentParser(prog="genviewer")
-    ap.add_argument(
-        "--dsn",
-        default="",
-        help=f"PostgreSQL 접속 문자열. 없으면 {DSN_ENV} 환경변수와 설정 파일을 본다.",
-    )
-    ap.add_argument("--host", default="", help="Virtuoso 소켓 호스트 이름")
-    ap.add_argument(
-        "--check-config",
-        action="store_true",
-        help="어느 설정 파일이 쓰이고 무슨 값이 적용되는지 보여주고 끝낸다.",
-    )
-    return ap.parse_args(argv)
-
-
-def check_config() -> int:
-    """접속 설정을 진단한다. 창을 띄우지 않는다.
-
-    "접속이 안 된다" 는 문의의 대부분은 '어느 파일이 읽혔나' 로 끝난다. 값을
-    직접 보여주되 **비밀번호는 절대 찍지 않는다** - 로그나 화면 캡처로 샌다.
-    """
-    try:
-        used, searched = env_file.load(os.environ.get(CONFIG_ENV, "").strip())
-    except RuntimeError as e:
-        print(f"설정 파일 오류: {e}", file=sys.stderr)
-        return 1
-
-    print(f"설정 파일: {used if used else '(없음)'}")
-    print("찾아본 곳:")
-    for path in searched:
-        mark = "<-- 이것" if used == path else ""
-        print(f"  {path} {mark}".rstrip())
-
-    print("적용된 값:")
-    shown = False
-    dsn = os.environ.get(DSN_ENV, "").strip()
-    if dsn:
-        # DSN 안에 비밀번호가 들어 있을 수 있다. 그러면 통째로 감춘다.
-        safe = "(설정됨, 비밀번호가 들어 있어 감춤)" if "password" in dsn.lower() else dsn
-        print(f"  {DSN_ENV}={safe}")
-        shown = True
-    for key in _SHOWN:
-        value = os.environ.get(key, "").strip()
-        if value:
-            print(f"  {key}={value}")
-            shown = True
-    for key in sorted(env_file.SECRET_KEYS):
-        if os.environ.get(key):
-            print(f"  {key}=(설정됨)")
-    if not shown:
-        print("  (없음)")
-
-    print(f"로그 파일: {logs.log_path()}  ({logs.LOG_ENV} 로 바꿀 수 있다)")
-
-    if dsn or env_file.libpq_env_present():
-        return 0
-    print("접속 정보가 없다. 위 경로 중 한 곳에 설정 파일을 둘 것.", file=sys.stderr)
-    return 1
-
 
 # 상자가 겹쳐 뜨는 것을 막는다. 종료 중에 예외가 줄줄이 나면 사용자가 상자를 수십 번
 # 닫아야 한다.
@@ -131,11 +69,11 @@ def install_excepthooks() -> None:
     threading.excepthook = thread_hook
 
 
-def main():
-    args = parse_args(sys.argv[1:])
-    if args.check_config:
-        sys.exit(check_config())
+def run_gui(dsn: str = "", host: str = "") -> int:
+    """창을 띄우고 닫힐 때까지 돈다. 종료 코드를 돌려준다.
 
+    인자를 스스로 읽지 않는다 - cli.py 가 파싱해서 넘긴다.
+    """
     logs.setup()
     install_excepthooks()
 
@@ -143,15 +81,11 @@ def main():
     app = QApplication(sys.argv[:1])
     QApplication.setStyle("Fusion")
     apply_theme(app, "graphite")
-    main_window = MainWindow(args.host)
-    controller = MainWindowController(main_window, args.dsn)
+    main_window = MainWindow(host)
+    controller = MainWindowController(main_window, dsn)
     main_window.show()
 
     rc = app.exec()
     # 풀을 닫고 나서 나간다. 안 그러면 인터프리터 종료 중에 멈춘다.
     controller.shutdown()
-    sys.exit(rc)
-
-
-if __name__ == "__main__":
-    main()
+    return rc

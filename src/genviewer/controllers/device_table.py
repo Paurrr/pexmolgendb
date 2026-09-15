@@ -427,19 +427,17 @@ class DeviceTableController(QObject):
         if not save_path:
             return
 
+        # 쓰다 실패하면 예외가 올라간다. @report 가 이유까지 담아 상자로 띄운다.
         if fmt.lower() == "csv":
-            ok = write_csv(save_path, headers, rows)
+            write_csv(save_path, headers, rows)
             title = "Save CSV"
         else:
-            ok = write_xlsx(save_path, headers, rows)
+            write_xlsx(save_path, headers, rows)
             title = "Save XLSX"
 
         leaf = Path(save_path).name
-        if ok:
-            self.notifyRequested.emit("info", title, f"Success!\n - {leaf}")
-            self.logRequested.emit(f"Exported {len(rows)} row(s) to {leaf}.")
-        else:
-            self.notifyRequested.emit("error", title, f"Fail\n - {leaf}")
+        self.notifyRequested.emit("info", title, f"Success!\n - {leaf}")
+        self.logRequested.emit(f"Exported {len(rows)} row(s) to {leaf}.")
 
     def set_current_process(self, process: str):
         self.current_process = process
