@@ -131,8 +131,8 @@ class DeviceTab(QWidget):
         self.refresh_banner.hide()
 
     @Slot()
-    def _open_connect(self, initial_dsn: str = ""):
-        dialog = ConnectionDialog(self, initial_dsn)
+    def _open_connect(self):
+        dialog = ConnectionDialog(self)
         if dialog.exec():
             self.dbConnectRequested.emit(dialog.dsn())
 

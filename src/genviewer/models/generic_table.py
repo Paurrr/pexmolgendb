@@ -1,3 +1,5 @@
+from collections import Counter
+
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 
 from genviewer.utils.validators import normalize_value, validate_field_value
@@ -150,6 +152,14 @@ class GenericTableModel(QAbstractTableModel):
         self._undo_stack.clear()
         self._redo_stack.clear()
 
+    def reset_baseline(self):
+        """저장 직후 기준점만 다시 잡는다.
+
+        undo 이력은 남긴다 — 저장했다고 방금 한 편집을 되돌릴 수 없게 되는 것은
+        사용자가 기대하는 동작이 아니다.
+        """
+        self._original_data = [row.copy() for row in self._data]
+
     def undo(self):
         if not self._undo_stack:
             return False
@@ -206,6 +216,21 @@ class GenericTableModel(QAbstractTableModel):
 
     def is_modified(self) -> bool:
         return self._data != self._original_data
+
+    def change_counts(self) -> tuple[int, int]:
+        """원본 대비 (추가된 행, 사라진 행). 고친 행은 양쪽에 한 번씩 잡힌다.
+
+        위치로 비교하면 중간에 한 줄 끼워 넣었을 때 그 아래가 전부 바뀐 것으로
+        잡힌다. 행을 컬럼 값 튜플로 만들어 다중집합으로 비교한다.
+        """
+        def bag(rows):
+            return Counter(
+                tuple(normalize_value(r.get(c, "")) for c in self.columns)
+                for r in rows
+            )
+
+        now, before = bag(self._data), bag(self._original_data)
+        return sum((now - before).values()), sum((before - now).values())
 
     def _push_undo(self):
         self._undo_stack.append([r.copy() for r in self._data])

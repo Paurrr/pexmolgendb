@@ -166,7 +166,9 @@ class MainWindow(QMainWindow):
             warning(self, title, text)
         elif severity == "critical":
             critical(self, title, text)
-        elif severity == "error":
+        else:
+            # 모르는 severity 도 보여준다. 예전에는 조용히 버려서, 오타 하나로
+            # 에러 메시지가 통째로 사라졌다.
             error(self, title, text)
 
     def show_status(self, text: str, ms=2000):

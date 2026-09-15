@@ -5,6 +5,7 @@ from genviewer.delegates.combo_box import ComboBoxDelegate
 from genviewer.models.generic_table import GenericTableModel
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.utils.menus import build_parameter_table_menu
+from genviewer.utils.reporting import report
 from genviewer.views.tab_section import TabSection
 
 
@@ -121,9 +122,26 @@ class TabSectionController(QObject):
 
     def mark_saved(self) -> None:
         self.set_dirty(False)
-        self.logRequested.emit(
-            f"{self.ui.title}: saved {len(self.get_buffer_rows())} row(s)."
-        )
+        self.logRequested.emit(f"{self.ui.title}: {self.describe_save()}")
+        # 다음 저장이 이번 저장분까지 "바뀐 행" 으로 세지 않게 기준점을 옮긴다.
+        if self.model:
+            self.model.reset_baseline()
+
+    def describe_save(self) -> str:
+        """무엇이 바뀌었는지와 무엇이 실제로 쓰였는지를 같이 말한다.
+
+        탭 저장은 그 탭의 행을 전부 지우고 다시 넣는다 (ParameterRepository
+        .replace_many_for_device). 자식 행에는 version 이 없고 순서가 곧 CSV
+        컬럼 순서라, 행 단위로 갈라 쓰려면 순서 컬럼이 따로 있어야 한다.
+        그래서 "N개 저장" 이라고만 하면 이번에는 반대 방향으로 사실과 달라진다.
+        바뀐 수와 다시 쓴 수를 둘 다 남긴다.
+        """
+        total = len(self.get_buffer_rows())
+        if not self.model:
+            return f"saved {total} row(s)."
+        added, removed = self.model.change_counts()
+        changed = max(added, removed)
+        return f"{changed} row(s) changed ({total} rewritten)."
 
     @Slot()
     def _on_dirty_changed(self, dirty: bool):
@@ -158,6 +176,9 @@ class TabSectionController(QObject):
             self.model_by_device[device_id] = m
         return self.model_by_device[device_id]
 
+    # 행을 하나 고르는 것만으로 여기서 SQL 이 돈다. 서버가 내려가 있으면 클릭
+    # 한 번이 트레이스백이 됐다.
+    @report("Load Failed")
     def update_model(self):
         if not self.device_id:
             self.clear_model()

@@ -50,10 +50,6 @@ def apply_theme(app, theme_name: str = "mist"):
     app.setStyleSheet(_build_stylesheet(colors))
 
 
-def set_light_palette(app):
-    apply_theme(app, "mist")
-
-
 def _compact_font(font: QFont) -> QFont:
     compact = QFont(font)
     compact.setPointSize(9)

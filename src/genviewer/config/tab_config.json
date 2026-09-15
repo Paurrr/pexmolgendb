@@ -2,37 +2,51 @@
     "SuffixCellName": {
         "table": "suffix_cell_name",
         "headers": ["Suffix Cell Name"],
-        "columns": ["suffix_cell_name"]
+        "columns": ["suffix_cell_name"],
+        "parse": "string"
     },
     "InstTerm": {
         "table": "inst_terms",
         "headers": ["Reserved Key", "CDS Inst Term Name"],
-        "columns": ["reserved_key", "cds_inst_term_name"]
+        "columns": ["reserved_key", "cds_inst_term_name"],
+        "parse": "parseStringToVariableValue"
     },
     "InstSchParam": {
         "table": "inst_sch_params",
         "headers": ["Reserved Key", "CDS Inst Parameter Name"],
-        "columns": ["reserved_key", "cds_inst_parameter_name"]
+        "columns": ["reserved_key", "cds_inst_parameter_name"],
+        "parse": "parseStringToVariableValue"
     },
     "InstSchParamRange": {
         "table": "inst_sch_param_ranges",
         "headers": ["InstSchParam Reserved Key", "Value"],
-        "columns": ["inst_sch_param_reserved_key", "value"]
+        "columns": ["inst_sch_param_reserved_key", "value"],
+        "parse": "parseStringToVariableValue"
+    },
+    "ForcedInstSchParam": {
+        "table": "forced_inst_sch_params",
+        "headers": ["Forced Parameter"],
+        "columns": ["parameter_name"],
+        "parse": "parseString",
+        "row_per_token": true
     },
     "PreDefineInstSchParamValue": {
         "table": "pre_define_inst_sch_param_values",
         "headers": ["CDS Inst Parameter Name", "Value"],
-        "columns": ["cds_inst_parameter_name", "value"]
+        "columns": ["cds_inst_parameter_name", "value"],
+        "parse": "parseStringToVariableValue"
     },
     "PostDefineInstSchParamValue": {
         "table": "post_define_inst_sch_param_values",
         "headers": ["CDS Inst Parameter Name", "Value"],
-        "columns": ["cds_inst_parameter_name", "value"]
+        "columns": ["cds_inst_parameter_name", "value"],
+        "parse": "parseStringToVariableValue"
     },
     "PostDefineInstLayParamValue": {
         "table": "post_define_inst_lay_param_values",
         "headers": ["CDS Inst Parameter Name", "Value"],
-        "columns": ["cds_inst_parameter_name", "value"]
+        "columns": ["cds_inst_parameter_name", "value"],
+        "parse": "parseStringToVariableValue"
     },
     "AddLayer": {
         "table": "add_layers",
@@ -47,7 +61,8 @@
             "reference_layer_name_purpose",
             "value",
             "drawn_type"
-        ]
+        ],
+        "parse": "parseString"
     },
     "AddFGR": {
         "table": "add_fgrs",
@@ -64,7 +79,8 @@
             "value",
             "term_name",
             "fgr_parameter_header_name"
-        ]
+        ],
+        "parse": "parseString"
     },
     "AddFGRParam": {
         "table": "add_fgr_params",
@@ -75,7 +91,8 @@
         "columns": [
             "parameter_name",
             "value"
-        ]
+        ],
+        "parse": "parseStringToVariableValue"
     },
     "AddPFGRParam": {
         "table": "add_pfgr_params",
@@ -86,7 +103,8 @@
         "columns": [
             "parameter_name",
             "value"
-        ]
+        ],
+        "parse": "parseStringToVariableValue"
     },
     "AddNFGRParam": {
         "table": "add_nfgr_params",
@@ -97,7 +115,8 @@
         "columns": [
             "parameter_name",
             "value"
-        ]
+        ],
+        "parse": "parseStringToVariableValue"
     },
     "AddFGRFirstMetal": {
         "table": "add_fgr_first_metals",
@@ -108,6 +127,7 @@
         "columns": [
             "layer_name",
             "purpose"
-        ]
+        ],
+        "parse": "parseStringToVariableValue"
     }
 }

@@ -54,8 +54,17 @@ def _validate_layer_purpose(
     purposes = syntax.get("purposes") or []
     example = syntax.get("example", f"NW{separator}drawing")
 
+    # 참조 슬롯에는 LPP 대신 BBOX 가 올 수 있다 (CSV_COLUMNS.md 1a/2a).
+    # 구분자가 없으니 아래 검사를 그대로 태우면 유효한 값이 거부된다.
+    bare = syntax.get("bare_values") or []
+    if any(text.casefold() == b.casefold() for b in bare):
+        return True, ""
+
     if text.count(separator) != 1:
-        return False, f"{label} must use Layer{separator}Purpose, e.g. {example}."
+        hint = f", or one of: {', '.join(bare)}" if bare else ""
+        return False, (
+            f"{label} must use Layer{separator}Purpose, e.g. {example}{hint}."
+        )
 
     layer, purpose = [part.strip() for part in text.split(separator, 1)]
     if not layer or not purpose:

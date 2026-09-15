@@ -1,10 +1,10 @@
 {
-    "device":{
+    "device": {
         "name": {
             "required": true
         },
         "celltype": {
-            "items" : ["INV", "NFET", "NFETTW", "PFET", "RESISTOR", "VNCAP", "NCAP", "PCAP", "INDUCTOR", "PSUBDIODE","NWDIODE", "VPNP", "VNPN", "LNPN","ESDNFET", "ESDPSUBDIODE","ESDNWDIODE", "ESDVPNP", "ESDVNPN", "ESDLNPN","ESDSCR"],
+            "items": ["INV", "NFET", "NFETTW", "PFET", "RESISTOR", "VNCAP", "NCAP", "PCAP", "INDUCTOR", "PSUBDIODE", "NWDIODE", "VPNP", "VNPN", "LNPN", "ESDNFET", "ESDPSUBDIODE", "ESDNWDIODE", "ESDVPNP", "ESDVNPN", "ESDLNPN", "ESDSCR", "PFETTW", "DGNFET", "DGNFETTW", "LDPFET", "ESDPFET", "ESDNFETTW", "DEVNFET", "DEVNFETTW", "DEVPFET", "DEVESDNFET", "POLYRESISTOR", "NCAPTW", "MIM", "VNCAP_NTYPE", "VNCAP_NWELL", "VNCAP_PTWELL", "STACKCAP", "STACKCAP_NPFET", "STACKCAP_NFET", "STACKCAP_PFET", "STACKPCAP", "STACKNCAP", "PWDIODE", "PWDIODETW", "NWDIODETW", "PNP", "PNPTW", "NPN", "NPNTW", "LVSRES", "VIARESISTANCE", "WIRERC", "ETC", "PAD", "CHIP"],
             "required": true,
             "strict": true
         }
@@ -12,30 +12,31 @@
     "inst_terms": {
         "reserved_key": {
             "items_by_celltype": {
-                "INV"  : ["A", "Y", "VDD", "VSS"],
-                "NFET" : ["DRN", "GATE", "SRC", "BULK"],
-                "NFETTW" : ["DRN", "GATE", "SRC", "BULK", "TWELL", "PSUB"],
-                "PFET" : ["DRN", "GATE", "SRC", "BULK"],
-                "RESISTOR" : ["IN", "OUT", "BULK"],
-                "VNCAP" : ["PLUS", "MINUS", "BULK"],
-                "NCAP" : ["PLUS", "MINUS", "BULK"],
-                "PCAP" : ["PLUS", "MINUS", "BULK", "PSUB"],
-                "INDUCTOR" : ["IN", "OUT", "CT", "BULK"],
-                "PSUBDIODE" : ["CATHODE", "ANODE", "BULK"],
-                "NWDIODE" : ["CATHODE", "ANODE", "BULK"],
+                "INV": ["A", "Y", "VDD", "VSS"],
+                "NFET": ["DRN", "GATE", "SRC", "BULK"],
+                "NFETTW": ["DRN", "GATE", "SRC", "BULK", "TWELL", "PSUB"],
+                "PFET": ["DRN", "GATE", "SRC", "BULK"],
+                "RESISTOR": ["IN", "OUT", "BULK"],
+                "VNCAP": ["PLUS", "MINUS", "BULK"],
+                "NCAP": ["PLUS", "MINUS", "BULK"],
+                "PCAP": ["PLUS", "MINUS", "BULK", "PSUB"],
+                "INDUCTOR": ["IN", "OUT", "CT", "BULK"],
+                "PSUBDIODE": ["CATHODE", "ANODE", "BULK"],
+                "NWDIODE": ["CATHODE", "ANODE", "BULK"],
                 "VPNP": ["COLLECTOR", "EMITTER", "BASE"],
                 "VNPN": ["COLLECTOR", "EMITTER", "BASE", "BULK"],
                 "LNPN": ["COLLECTOR", "EMITTER", "BASE", "BULK"],
                 "ESDNFET": ["DRN", "GATE", "SRC", "BULK", "PSUB"],
                 "ESDPSUBDIODE": ["CATHODE", "ANODE", "BULK"],
-                "ESDPWDIODE": ["CATHODE", "ANODE", "BULK"],
                 "ESDNWDIODE": ["CATHODE", "ANODE", "BULK"],
                 "ESDVPNP": ["COLLECTOR", "EMITTER", "BASE"],
                 "ESDVNPN": ["COLLECTOR", "EMITTER", "BASE", "BULK"],
                 "ESDLNPN": ["COLLECTOR", "EMITTER", "BASE", "BULK"],
-                "ESDSCR": ["CATHODE", "ANODE", "NGATE", "PGATE"]
+                "ESDSCR": ["CATHODE", "ANODE", "NGATE", "PGATE"],
+                "PWDIODE": ["CATHODE", "ANODE", "BULK"],
+                "PFETTW": ["DRN", "GATE", "SRC", "BULK", "TWELL", "PSUB"]
             },
-            "items": ["DRN", "GATE", "SRC", "BULK", "TWELL", "PSUB", "COLLECTOR", "EMITTER", "BASE", "PLUS", "MINUS", "CATHODE", "ANODE", "IN", "OUT", "CT","NGATE", "PGATE"],
+            "items": ["DRN", "GATE", "SRC", "BULK", "TWELL", "PSUB", "COLLECTOR", "EMITTER", "BASE", "PLUS", "MINUS", "CATHODE", "ANODE", "IN", "OUT", "CT", "NGATE", "PGATE"],
             "required": true,
             "strict": true
         },
@@ -44,19 +45,19 @@
         }
     },
     "inst_sch_params": {
-        "reserved_key" : {
+        "reserved_key": {
             "items_by_celltype": {
-                "INV" : ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
-                "NFET" : ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
-                "NFETTW" : ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
-                "PFET" : ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
-                "RESISTOR" : ["LENGTH", "WIDTH", "BULK"],
-                "VNCAP" : ["LENGTH", "WIDTH", "BULK", "TOP", "BOTTOM"],
-                "NCAP" : ["LENGTH", "WIDTH", "BULK", "NF"],
-                "PCAP" : ["LENGTH", "WIDTH", "BULK", "NF"],
-                "INDUCTOR" : ["WIDTH"],
-                "PSUBDIODE" : ["LENGTH", "WIDTH", "WNS"],
-                "NWDIODE" : ["LENGTH", "WIDTH", "WNS"],
+                "INV": ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
+                "NFET": ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
+                "NFETTW": ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
+                "PFET": ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
+                "RESISTOR": ["LENGTH", "WIDTH", "BULK"],
+                "VNCAP": ["LENGTH", "WIDTH", "BULK", "TOP", "BOTTOM"],
+                "NCAP": ["LENGTH", "WIDTH", "BULK", "NF"],
+                "PCAP": ["LENGTH", "WIDTH", "BULK", "NF"],
+                "INDUCTOR": ["WIDTH"],
+                "PSUBDIODE": ["LENGTH", "WIDTH", "WNS"],
+                "NWDIODE": ["LENGTH", "WIDTH", "WNS"],
                 "VPNP": ["LENGTH", "WIDTH"],
                 "VNPN": ["LENGTH", "WIDTH"],
                 "LNPN": ["LENGTH", "WIDTH"],
@@ -65,40 +66,23 @@
                 "ESDNWDIODE": ["LENGTH", "WIDTH", "WNS"],
                 "ESDSCR": ["LENGTH", "WIDTH"]
             },
-            "items": ["LENGTH", "WIDTH", "WNS", "NFIN", "TOP", "BOTTOM", "BULK"],
+            "items": ["LENGTH", "WIDTH", "NFIN", "WNS", "NREP", "MBC", "NF", "CAPC", "TUCK", "NGCON", "TOP", "BOTTOM", "BULK"],
             "required": true
         },
-        "cds_inst_parameter_name" : {
+        "cds_inst_parameter_name": {
             "required": true
         }
     },
     "inst_sch_param_ranges": {
         "inst_sch_param_reserved_key": {
-            "items_by_celltype": {
-                "INV" : ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC", "CAPC", "CBFIELD"],
-                "NFET" : ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC", "CAPC", "CAVA", "CAVAFIELD", "PCCB", "CA", "CBONRX", "CBONRX2", "SDROUTE"],
-                "NFETTW" : ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC", "CAPC", "CAVA", "CAVAFIELD", "PCCB", "CA", "CBONRX", "CBONRX2", "SDROUTE"],
-                "PFET" : ["LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC", "CAPC", "CAVA", "CAVAFIELD", "PCCB", "CA", "CBONRX", "CBONRX2", "SDROUTE"],
-                "RESISTOR" : ["LENGTH", "WIDTH", "BULK"],
-                "VNCAP" : ["LENGTH", "WIDTH", "BULK", "TOP", "BOTTOM"],
-                "NCAP" : ["LENGTH", "WIDTH", "BULK", "NF"],
-                "PCAP" : ["LENGTH", "WIDTH", "BULK", "NF"],
-                "INDUCTOR" : ["WIDTH"],
-                "PSUBDIODE" : ["LENGTH", "WIDTH", "WNS"],
-                "NWDIODE" : ["LENGTH", "WIDTH", "WNS"],
-                "VPNP": ["LENGTH", "WIDTH"],
-                "VNPN": ["LENGTH", "WIDTH"],
-                "LNPN": ["LENGTH", "WIDTH"],
-                "ESDNFET": ["LENGTH", "WIDTH"],
-                "ESDPSUBDIODE": ["LENGTH", "WIDTH", "WNS"],
-                "ESDNWDIODE": ["LENGTH", "WIDTH", "WNS"],
-                "ESDSCR": ["LENGTH", "WIDTH"]
-            },
-            "items": ["LENGTH", "WIDTH", "WNS", "NFIN", "TOP", "BOTTOM", "BULK"],
-            "required": true
+            "items": ["LENGTH", "WIDTH", "NFIN", "NF", "MBC", "WNS", "TUCK", "CAPC", "CA", "CAVA", "CAVAFIELD", "PCCB", "CBONRX", "CBONRX2", "CBFIELD", "SDROUTE", "TOP", "BOTTOM", "TOPBOTTOM", "BULK"],
+            "required": true,
+            "strict": true
         },
         "value": {
-            "required": true
+            "required": true,
+            "pattern": "[^\\s:]+(?::[^\\s:]+)*",
+            "message": "Value is colon-separated keys, e.g. 1:2 or min:mid:max. Reserved: def min max mid minmid midmax; multiplier: min*2."
         }
     },
     "pre_define_inst_sch_param_values": {
@@ -141,13 +125,17 @@
                 "kind": "layer_purpose",
                 "separator": ":",
                 "purposes": ["drawing"],
+                "bare_values": ["BBOX"],
                 "example": "NW:drawing"
             }
         },
         "value": {
             "required": true,
-            "pattern": "\\d+(?::\\d+)?",
-            "message": "Value must be a number or number:number, e.g. 5 or 5:5."
+            "pattern": "(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:\\|(?:\\d+(?:\\.\\d+)?|\\.\\d+))?(?::(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:\\|(?:\\d+(?:\\.\\d+)?|\\.\\d+))?)?",
+            "message": "AddLayer spacing is vertical first: <top[|bottom]>:<left[|right]>, e.g. 0.2, 0.2:0.1 or 0.2|0.3:0.1."
+        },
+        "drawn_type": {
+            "items": ["size", "extend", "ring"]
         }
     },
     "add_fgrs": {
@@ -155,24 +143,33 @@
             "required": true
         },
         "reference_layer_name_purpose": {
-            "required": true
+            "required": true,
+            "syntax": {
+                "kind": "layer_purpose",
+                "separator": ":",
+                "purposes": ["drawing"],
+                "bare_values": ["BBOX"],
+                "example": "NW:drawing"
+            }
         },
         "value": {
-            "required": true
+            "required": true,
+            "pattern": "(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?::(?:\\d+(?:\\.\\d+)?|\\.\\d+))?",
+            "message": "AddFGR spacing is horizontal first: <X[:Y]> - the reverse of AddLayer. e.g. 0.5 or 0.5:0.3."
         },
         "term_name": {
             "items_by_celltype": {
-                "INV" : ["VDD", "VSS"],
-                "NFET" : ["BULK"],
-                "NFETTW" : ["BULK", "TWELL", "PSUB"],
-                "PFET" : ["BULK"],
-                "RESISTOR" : ["BULK"],
-                "VNCAP" : ["BULK"],
-                "NCAP" : ["BULK"],
-                "PCAP" : ["BULK", "PSUB"],
-                "INDUCTOR" : ["BULK"],
-                "PSUBDIODE" : ["BULK"],
-                "NWDIODE" : ["BULK"],
+                "INV": ["VDD", "VSS"],
+                "NFET": ["BULK"],
+                "NFETTW": ["BULK", "TWELL", "PSUB"],
+                "PFET": ["BULK"],
+                "RESISTOR": ["BULK"],
+                "VNCAP": ["BULK"],
+                "NCAP": ["BULK"],
+                "PCAP": ["BULK", "PSUB"],
+                "INDUCTOR": ["BULK"],
+                "PSUBDIODE": ["BULK"],
+                "NWDIODE": ["BULK"],
                 "VNPN": ["BULK"],
                 "LNPN": ["BULK"],
                 "ESDNFET": ["BULK", "PSUB"],
@@ -183,6 +180,9 @@
             },
             "items": ["BULK", "TWELL", "PSUB"],
             "required": true
+        },
+        "fgr_parameter_header_name": {
+            "items": ["AddFGRParam", "AddPFGRParam", "AddNFGRParam"]
         }
     },
     "add_fgr_params": {
@@ -214,7 +214,34 @@
             "required": true
         },
         "purpose": {
-            "required": true
+            "required": true,
+            "items": ["drawing"]
+        }
+    },
+    "forced_inst_sch_params": {
+        "parameter_name": {
+            "required": true,
+            "items": ["ALL", "LENGTH", "WIDTH", "NFIN", "WNS", "NREP", "MBC", "NF", "CAPC", "TUCK", "NGCON"],
+            "items_by_celltype": {
+                "INV": ["ALL", "LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
+                "NFET": ["ALL", "LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
+                "NFETTW": ["ALL", "LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
+                "PFET": ["ALL", "LENGTH", "WIDTH", "WNS", "NFIN", "NF", "MBC"],
+                "RESISTOR": ["ALL", "LENGTH", "WIDTH", "BULK"],
+                "VNCAP": ["ALL", "LENGTH", "WIDTH", "BULK", "TOP", "BOTTOM"],
+                "NCAP": ["ALL", "LENGTH", "WIDTH", "BULK", "NF"],
+                "PCAP": ["ALL", "LENGTH", "WIDTH", "BULK", "NF"],
+                "INDUCTOR": ["ALL", "WIDTH"],
+                "PSUBDIODE": ["ALL", "LENGTH", "WIDTH", "WNS"],
+                "NWDIODE": ["ALL", "LENGTH", "WIDTH", "WNS"],
+                "VPNP": ["ALL", "LENGTH", "WIDTH"],
+                "VNPN": ["ALL", "LENGTH", "WIDTH"],
+                "LNPN": ["ALL", "LENGTH", "WIDTH"],
+                "ESDNFET": ["ALL", "LENGTH", "WIDTH"],
+                "ESDPSUBDIODE": ["ALL", "LENGTH", "WIDTH", "WNS"],
+                "ESDNWDIODE": ["ALL", "LENGTH", "WIDTH", "WNS"],
+                "ESDSCR": ["ALL", "LENGTH", "WIDTH"]
+            }
         }
     }
 }

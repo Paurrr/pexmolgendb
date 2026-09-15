@@ -36,6 +36,8 @@ class ParameterTabController(QObject):
         ctrl = TabSectionController(tab_view, repo=self.repo)
         ctrl.setParent(tab_view)
         ctrl.logRequested.connect(self.logRequested)
+        # 이 줄이 없어서 탭 섹션이 알리는 것은 전부 바닥에 떨어지고 있었다.
+        ctrl.notifyRequested.connect(self.notifyRequested)
         tab_view.dirtyChanged.connect(lambda *_: self._refresh_summary_if_visible())
         self._sections[name] = ctrl
 
@@ -57,10 +59,14 @@ class ParameterTabController(QObject):
         if not self._write(dict(sec.payload_fragment() for sec in dirty)):
             return
 
+        # mark_saved 가 기준점을 옮기므로 요약을 먼저 만든다.
+        summary = "\n".join(
+            f"{sec.ui.title}: {sec.describe_save()}" for sec in dirty
+        )
         for sec in dirty:
             sec.mark_saved()
         names = [sec.table_name for sec in dirty]
-        self.notifyRequested.emit("info", "Saved", f"{', '.join(names)} saved.")
+        self.notifyRequested.emit("info", "Saved", summary)
         self.logRequested.emit(f"Saved tab data: {', '.join(names)}.")
 
     def _write(self, payload: dict) -> bool:
@@ -85,7 +91,7 @@ class ParameterTabController(QObject):
             return False
 
     def _apply(self, payload: dict, *, force: bool = False) -> None:
-        # 13개 탭을 한 트랜잭션으로 쓴다. 부모 device 행에 FOR UPDATE 를 걸므로
+        # 탭 전부를 한 트랜잭션으로 쓴다. 부모 device 행에 FOR UPDATE 를 걸므로
         # 다른 사용자 뒤에서 대기할 수 있어 워커 스레드에서 돌린다.
         version = run_blocking(
             lambda: self.repo.replace_many_for_device(

@@ -13,17 +13,12 @@ lock_timeout / statement_timeout 이 없으면 다른 사용자의 FOR UPDATE �
 창이 굳는다.
 """
 
-import logging
-import time
-
 import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from genviewer.service.config import DbConfig
 from genviewer.service.errors import DbUnavailableError
-
-log = logging.getLogger(__name__)
 
 
 class Database:
@@ -54,10 +49,6 @@ class Database:
     def user(self) -> str:
         return self.cfg.app_user
 
-    @property
-    def is_open(self) -> bool:
-        return not self._pool.closed
-
     def open(self) -> None:
         if self._pool.closed:
             self._pool.open()
@@ -84,20 +75,3 @@ class Database:
         except (psycopg.Error, DbUnavailableError):
             return False
 
-
-def with_retry(fn, *, attempts: int = 3):
-    """데드락/직렬화 실패는 트랜잭션이 통째로 롤백되므로 그대로 재시도해도 안전하다."""
-    delay = 0.05
-    for i in range(attempts):
-        try:
-            return fn()
-        except (
-            psycopg.errors.DeadlockDetected,
-            psycopg.errors.SerializationFailure,
-        ):
-            if i == attempts - 1:
-                raise
-            log.warning("serialization conflict, retrying (%d/%d)", i + 1, attempts)
-            time.sleep(delay)
-            delay *= 2
-    return None

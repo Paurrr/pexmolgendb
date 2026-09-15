@@ -8,14 +8,29 @@ from genviewer.config.config import delegate_config, tab_config
 from genviewer.delegates.combo_box import ComboBoxDelegate
 from genviewer.dialogs.conflict import OVERWRITE, RELOAD, ask_conflict
 from genviewer.service.errors import StaleWriteError
-from genviewer.service.repo.device import DeviceRepository
+from genviewer.service.repo.device import DeviceRepository, SaveResult
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.utils.background import run_blocking
 from genviewer.utils.exporter import write_csv, write_xlsx
 from genviewer.utils.menus import build_device_table_menu
+from genviewer.utils.reporting import report
 from genviewer.utils.user import current_user
 from genviewer.views.device_table import DeviceTableView
+
+
+def _describe_save(result: SaveResult) -> str:
+    """DB 가 실제로 쓴 행만 세어 문장으로 만든다."""
+    parts = []
+    if result.updated:
+        parts.append(f"{result.updated} updated")
+    if result.inserted:
+        parts.append(f"{result.inserted} added")
+    if result.deleted:
+        parts.append(f"{result.deleted} deleted")
+    if not parts:
+        return "No changes to save."
+    return f"{', '.join(parts)}."
 
 
 class DeviceTableController(QObject):
@@ -136,6 +151,7 @@ class DeviceTableController(QObject):
         if removed:
             self.logRequested.emit(f"Device Info: deleted {removed} row(s).")
 
+    @report("Copy Failed")
     def copy_rows(self, rows: list[int]):
         model = self.ui.model_safe()
         if not model:
@@ -160,6 +176,7 @@ class DeviceTableController(QObject):
         self._copied_rows = copied_rows
         self.logRequested.emit(f"Device Info: copied {len(copied_rows)} row(s).")
 
+    @report("Paste Failed")
     def paste_rows(self, rows: list[int]):
         model = self.ui.model_safe()
         if not model or not self._copied_rows:
@@ -235,6 +252,7 @@ class DeviceTableController(QObject):
             return [model.get_device(r) for r in rows]
         return model.get_devices() if fallback_to_all else []
 
+    @report("Load Failed")
     def refresh_devices(self):
         if not self.repo:
             return
@@ -328,23 +346,28 @@ class DeviceTableController(QObject):
                 invalid_devices.append(d.get("name", "<Unknown>"))
 
         deleted = model.deleted_devices()
-        if not self._write_devices(to_save, deleted):
+        result = self._write_devices(to_save, deleted)
+        if result is None:
             return
 
         for d in to_save:
             d["process_id"] = self.current_process_id
             d["process_name"] = self.current_process
 
-        self.notifyRequested.emit(
-            "info", "Save Complete", f"{len(to_save)} device(s) saved to DB."
-        )
+        # to_save 는 화면의 모든 device 다. 그 길이를 저장 건수로 보고하면
+        # 20개 중 1개만 고쳐도 "20개 저장됨" 이 된다. DB 가 실제로 쓴 행 수를
+        # 쓴다 (DeviceRepository.SaveResult).
+        summary = _describe_save(result)
+        self.notifyRequested.emit("info", "Save Complete", summary)
         self.refresh_devices()
-        self.logRequested.emit(f"Device Info: saved {len(to_save)} device(s).")
+        self.logRequested.emit(f"Device Info: {summary}")
 
-    def _write_devices(self, to_save: list[dict], deleted: dict[int, int]) -> bool:
-        """저장하고, 충돌하면 사용자에게 물어본다. 저장했으면 True."""
+    def _write_devices(
+        self, to_save: list[dict], deleted: dict[int, int]
+    ) -> SaveResult | None:
+        """저장하고, 충돌하면 사용자에게 물어본다. 취소했으면 None."""
         if not to_save and not deleted:
-            return True
+            return SaveResult()
 
         def write(force: bool):
             # 워커 스레드에서 돈다. advisory lock 과 FOR UPDATE 때문에 다른
@@ -358,21 +381,20 @@ class DeviceTableController(QObject):
             )
 
         try:
-            run_blocking(lambda: write(False), self)
-            return True
+            return run_blocking(lambda: write(False), self)
         except StaleWriteError as e:
             # 다이얼로그는 run_blocking 이 끝난 뒤 GUI 스레드에서 뜬다.
             choice = ask_conflict(self.ui, e.conflicts)
             if choice == RELOAD:
                 self.refresh_devices()
                 self.logRequested.emit("Save conflict: 서버 내용으로 다시 읽었다.")
-                return False
+                return None
             if choice == OVERWRITE:
-                run_blocking(lambda: write(True), self)
+                forced = run_blocking(lambda: write(True), self)
                 self.logRequested.emit("Save conflict: 내 변경으로 덮어썼다.")
-                return True
+                return forced
             self.logRequested.emit("Save conflict: 저장을 취소했다.")
-            return False
+            return None
 
     def set_device_version(self, device_id: int, version: int) -> None:
         """탭 저장 등으로 올라간 version 을 모델에 반영한다."""
@@ -381,6 +403,7 @@ class DeviceTableController(QObject):
         # 여기서 기준점을 다시 잡지 않으면 내 저장이 남의 변경으로 보인다.
         self.remember_etag()
 
+    @report("Export Failed")
     def export_selected_devices(self, fmt: str):
         selected = self.get_selected_devices()
         if not selected:

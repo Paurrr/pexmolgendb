@@ -24,12 +24,3 @@ def save_file(
     )
     return path or ""
 
-
-def select_directory(
-    parent: QWidget, title: str = "Select Directory", start_dir: str = ""
-) -> str:
-    """폴더 선택 다이얼로그"""
-    options = QFileDialog.Options()
-    options |= QFileDialog.DontUseNativeDialog
-    path = QFileDialog.getExistingDirectory(parent, title, start_dir, options=options)
-    return path or ""

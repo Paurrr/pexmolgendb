@@ -5,10 +5,11 @@
 __pycache__/
 *.py[cod]
 
-# 환경변수 / 자격증명
+# 접속 설정. 서버 주소와 비밀번호가 들어 있다. 예시만 추적한다.
+genviewer.env
+.genviewer.env
 .env
 .env.*
-!.env.sample
 
 # 도구 캐시
 .ruff_cache/

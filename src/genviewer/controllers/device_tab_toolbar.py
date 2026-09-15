@@ -2,6 +2,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 
 from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.dialogs import question
+from genviewer.utils.reporting import report, report_error
 from genviewer.views.device_tab_toolbar import DeviceTabToolBar
 
 
@@ -77,6 +78,7 @@ class DeviceTabToolBarController(QObject):
         self.logRequested.emit(f"Gen Layout {'enabled' if checked else 'disabled'}.")
 
     @Slot(str)
+    @report("Process Add Failed")
     def add_process(self, name: str):
         if not self._require_repo():
             return
@@ -96,6 +98,7 @@ class DeviceTabToolBarController(QObject):
         self.logRequested.emit(f"Process added: {name}.")
 
     @Slot()
+    @report("Process Remove Failed")
     def remove_process(self, name: str):
         if not self._require_repo():
             return
@@ -121,10 +124,9 @@ class DeviceTabToolBarController(QObject):
                 self.setProcessRequested.emit("")
                 self.logRequested.emit(f"Process removed: {name}.")
         except Exception as e:
-            self.notifyRequested.emit(
-                "error", "Error", f"Failed to delete '{name}': {e}"
-            )
+            report_error(self, f"Remove Failed: {name}", e)
 
+    @report("Process List Failed")
     def refresh_processes(self):
         if not self.repo:
             return

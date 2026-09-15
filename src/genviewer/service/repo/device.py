@@ -1,16 +1,39 @@
+from dataclasses import dataclass, field
+
 from psycopg import sql
 
 from genviewer.service.errors import Conflict, StaleWriteError
 from genviewer.service.pool import Database
 from genviewer.service.schema import ADVISORY_LOCK_CLASS
 
-# device 한 행 + 13개 자식 테이블이 한 사용자가 한 화면에서 편집하는 단위다.
+# device 한 행 + 자식 탭 테이블이 한 사용자가 한 화면에서 편집하는 단위다.
 # 그래서 version 은 device 에만 둔다. 자식 테이블에 쓰는 작업도 device 행에
 # FOR UPDATE 를 걸고 version 을 올린다 (ParameterRepository 참고).
 _SELECT_COLUMNS = (
     'id, process_id, name, celltype, description, "order", version, '
     "updated_at, updated_by"
 )
+
+
+@dataclass
+class SaveResult:
+    """저장 결과. devices 는 id/version 이 채워진 그 목록 그대로다.
+
+    개수를 같이 내는 이유: upsert_devices 는 화면의 모든 device 를 받지만
+    IS DISTINCT FROM 가드 때문에 실제로 쓰이는 것은 값이 달라진 행뿐이다.
+    호출부가 payload 크기를 저장 건수인 양 보고하면 20개 중 1개만 고쳐도
+    "20개 저장됨" 이 된다. UPDATE 의 RETURNING 이 진짜 개수를 이미 알고 있으니
+    그것을 위로 올린다.
+    """
+
+    devices: list[dict] = field(default_factory=list)
+    updated: int = 0
+    inserted: int = 0
+    deleted: int = 0
+
+    @property
+    def written(self) -> int:
+        return self.updated + self.inserted + self.deleted
 
 
 def etag_key(etag: dict | None) -> tuple | None:
@@ -108,7 +131,7 @@ class DeviceRepository:
         deleted: dict[int, int] | None = None,
         actor: str = "",
         force: bool = False,
-    ) -> list[dict]:
+    ) -> SaveResult:
         """화면의 device 목록을 저장한다.
 
         deleted: {device_id: 화면에 불러왔을 때의 version}. 사용자가 명시적으로
@@ -120,7 +143,7 @@ class DeviceRepository:
         """
         deleted = deleted or {}
         if not devices and not deleted:
-            return devices
+            return SaveResult(devices)
 
         known = sorted(
             {d["id"] for d in devices if d.get("id") is not None} | set(deleted)
@@ -151,6 +174,7 @@ class DeviceRepository:
                     # with 블록이 롤백한다 — 아무것도 쓰이지 않는다.
                     raise StaleWriteError(conflicts)
 
+            removed = 0
             if deleted:
                 # process_id 조건: 그 사이 다른 process 로 옮겨진 device 를
                 # 오래된 클라이언트가 지우지 못하게 한다.
@@ -158,11 +182,12 @@ class DeviceRepository:
                     "DELETE FROM device WHERE id = ANY(%s) AND process_id = %s",
                     (sorted(deleted), process_id),
                 )
+                removed = cur.rowcount
 
-            self._update_existing(cur, devices, actor, force)
-            self._insert_new(cur, process_id, devices, actor)
+            updated = self._update_existing(cur, devices, actor, force)
+            inserted = self._insert_new(cur, process_id, devices, actor)
 
-        return devices
+        return SaveResult(devices, updated=updated, inserted=inserted, deleted=removed)
 
     @staticmethod
     def _preflight(
@@ -195,10 +220,11 @@ class DeviceRepository:
     @staticmethod
     def _update_existing(
         cur, devices: list[dict], actor: str, force: bool = False
-    ) -> None:
+    ) -> int:
+        """실제로 UPDATE 된 행 수를 낸다."""
         to_update = [d for d in devices if d.get("id") is not None]
         if not to_update:
-            return
+            return 0
 
         # IS DISTINCT FROM 가드는 최적화가 아니다. save_all 은 손대지 않은
         # device 까지 전부 보내므로, 가드가 없으면 한 번 저장할 때마다 process
@@ -242,10 +268,13 @@ class DeviceRepository:
         for d in to_update:
             if d["id"] in changed:
                 d["version"] = changed[d["id"]]
+        return len(changed)
 
     @staticmethod
-    def _insert_new(cur, process_id: int, devices: list[dict], actor: str) -> None:
-        for d in [d for d in devices if d.get("id") is None]:
+    def _insert_new(cur, process_id: int, devices: list[dict], actor: str) -> int:
+        """새로 INSERT 된 행 수를 낸다."""
+        to_insert = [d for d in devices if d.get("id") is None]
+        for d in to_insert:
             # ON CONFLICT DO UPDATE 를 쓰면 안 된다. 남이 같은 이름으로 만든
             # device 를 조용히 흡수하는 것은 지금 없애려는 버그와 같은 부류다.
             row = cur.execute(
@@ -263,3 +292,4 @@ class DeviceRepository:
             ).fetchone()
             d["id"] = row["id"]
             d["version"] = row["version"]
+        return len(to_insert)

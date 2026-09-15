@@ -27,8 +27,9 @@ def _counts(path: Path) -> dict[str, int]:
 def test_legacy_file_passes_validation():
     conn = import_sqlite.open_readonly(LEGACY)
     try:
+        # device 이름 중복은 더 이상 검사하지 않는다. PostgreSQL 쪽 UNIQUE
+        # (process_id, name) 을 없앴으므로 중복은 중복인 채로 옮겨진다.
         assert import_sqlite.validate(conn) == []
-        assert import_sqlite.duplicate_devices(conn) == []
     finally:
         conn.close()
 

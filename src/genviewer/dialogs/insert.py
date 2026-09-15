@@ -62,9 +62,14 @@ class InsertDialog(QDialog):
             label = QLabel(label_text)
             label.setFixedWidth(max_width)
 
-            if "items" in field_config:
-                items = allowed_items(field_config, self.device_celltype)
-                widget = self._make_locked_searchable_combo(items)
+            items = allowed_items(field_config, self.device_celltype)
+            if items:
+                # strict 가 아니면 잠그지 않는다. 표 안의 델리게이트는 자유 입력을
+                # 허용하는데 (combo_box.py) 여기서만 막으면 같은 컬럼이 경로에
+                # 따라 다르게 동작한다.
+                widget = self._make_searchable_combo(
+                    items, lock=field_config.get("strict", False)
+                )
                 if prefill and name in prefill:
                     widget.setCurrentText(str(prefill.get(name, "")))
             else:
@@ -145,21 +150,29 @@ class InsertDialog(QDialog):
     def get_result(self) -> dict:
         return getattr(self, "_result_data", {})
 
-    def _make_locked_searchable_combo(self, items: list[str]) -> QComboBox:
+    def _make_searchable_combo(self, items: list[str], lock: bool) -> QComboBox:
         combo = QComboBox()
         combo.setEditable(True)
         combo.addItems(items)
-        combo.setInsertPolicy(QComboBox.NoInsert)
+        combo.setInsertPolicy(
+            QComboBox.NoInsert if lock else QComboBox.InsertAtTop
+        )
 
         comp = combo.completer()
         comp.setCompletionMode(QCompleter.PopupCompletion)
         comp.setFilterMode(Qt.MatchContains)
 
-        if items:
-            escaped = [QRegularExpression.escape(s) for s in items]
-            pattern = f"^(?:{'|'.join(escaped)})$"
-            validator = QRegularExpressionValidator(QRegularExpression(pattern))
-            combo.lineEdit().setValidator(validator)
+        if not lock:
+            # 목록은 후보일 뿐이다. 처음 열릴 때 첫 항목이 값으로 박히지 않게
+            # 비워 둔다 — 잠긴 콤보는 아래에서 어차피 유효한 값으로 맞춘다.
+            combo.setCurrentIndex(-1)
+            return combo
+
+        escaped = [QRegularExpression.escape(s) for s in items]
+        pattern = f"^(?:{'|'.join(escaped)})$"
+        combo.lineEdit().setValidator(
+            QRegularExpressionValidator(QRegularExpression(pattern))
+        )
 
         def normalize_to_valid():
             txt = combo.currentText()

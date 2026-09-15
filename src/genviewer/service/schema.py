@@ -1,12 +1,13 @@
 """스키마의 단일 진실 공급원.
 
-13개 자식 테이블의 이름과 컬럼은 config/tab_config.json 이 이미 선언하고 있다.
+자식 테이블의 이름과 컬럼은 config/tab_config.json 이 이미 선언하고 있다.
 db_init 이 그 목록을 손으로 한 번 더 적어두고 있었기 때문에, 탭을 하나
 추가하면 두 곳을 고쳐야 했고 어긋나도 아무도 알아채지 못했다. 여기서 생성해서
 그 위험을 없앤다.
 
-지금은 SQLite DDL 만 낸다. PostgreSQL 로 넘어갈 때 렌더러만 교체하면 되도록
-테이블 구조 자체는 아래 상수로 선언해 둔다.
+구조는 아래 상수로 선언하고 렌더러를 따로 둔다. 지금 쓰는 것은 PostgreSQL
+렌더러(postgres_all_ddl)이고, SQLite 쪽은 예전 .sqlite 파일을 읽어 들일 때만
+쓰는 레거시 경로다.
 """
 
 from genviewer.config.config import tab_config
@@ -84,11 +85,14 @@ def sqlite_all_ddl() -> list[str]:
 #     필터링하는데 지금까지 인덱스가 없었다.
 #  2. payload 컬럼을 NOT NULL DEFAULT '' 로. 앱은 이미 row.get(c, "") 를 쓰고,
 #     export 단계에서 None 을 "" 로 바꾸고 있었다. None/"" 이중성을 없앤다.
-#  3. UNIQUE (process_id, name). InstCellName 은 CdsLibName 안에서의 식별자이고,
-#     두 사용자가 동시에 같은 device 를 만드는 것을 DB 가 막아준다.
-#  4. version / updated_at / updated_by. 컬럼은 여기서 한 번에 만들고, 이것을
-#     사용하는 낙관적 잠금 로직은 다음 단계에서 붙인다. 데이터가 아직 없으므로
-#     나중에 ALTER TABLE 하는 것보다 지금 넣는 편이 단순하다.
+#  3. device 이름에 UNIQUE 를 걸지 않는다. 한동안 UNIQUE (process_id, name) 이
+#     있었는데, 현장 CSV 에는 같은 CdsLibName/InstCellName 을 가진 행이 정상적으로
+#     여러 개 들어온다. 그 제약 때문에 임포트가 그런 행들을 device 하나로 합쳐
+#     버렸고, 사람이 같은 이름으로 device 를 추가하면 저장이 UniqueViolation 으로
+#     죽었다. 이름은 식별자가 아니라 표시용 값이다 - 식별은 id 가 한다.
+#     (참조하는 쪽도 전부 id 를 쓴다. name 을 가리키는 외래키는 하나도 없다.)
+#  4. version / updated_at / updated_by. 낙관적 잠금(service/repo/device.py)이
+#     이 컬럼들을 쓴다.
 
 from psycopg import sql  # noqa: E402
 
@@ -112,9 +116,37 @@ _PG_DEVICE_DDL = sql.SQL("""
         "order"     INTEGER NOT NULL DEFAULT 0,
         version     INTEGER NOT NULL DEFAULT 1,
         updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_by  TEXT NOT NULL DEFAULT '',
-        UNIQUE (process_id, name)
+        updated_by  TEXT NOT NULL DEFAULT ''
     )
+""")
+
+# 이미 만들어진 DB 에서 옛 UNIQUE (process_id, name) 을 떼어낸다.
+#
+# CREATE TABLE IF NOT EXISTS 는 이미 있는 테이블을 손대지 않으므로, 위에서 줄을
+# 지우는 것만으로는 운영 중인 DB 가 바뀌지 않는다. 제약 이름을 적어 넣는 대신
+# 카탈로그에서 찾는다 - 손으로 만든 DB 는 이름이 다를 수 있다.
+#
+# 문자열에 % 를 쓰지 않는다. psycopg 는 파라미터가 있을 때 % 를 자리표시자로 읽는데,
+# format('... %I', ...) 가 들어 있으면 이 DDL 을 파라미터와 함께 쓰려는 순간 깨진다.
+# quote_ident 로 붙이면 그 함정이 없다.
+_PG_DEVICE_DROP_NAME_UNIQUE = sql.SQL("""
+    -- device 의 옛 UNIQUE (process_id, name) 을 뗀다
+    DO $$
+    DECLARE con text;
+    BEGIN
+        FOR con IN
+            SELECT c.conname FROM pg_constraint c
+            WHERE c.conrelid = 'device'::regclass AND c.contype = 'u'
+              -- attname 은 name 타입이다. text[] 와 그냥 비교하면
+              -- "operator does not exist: name[] = text[]" 로 죽는다.
+              AND (SELECT array_agg(a.attname::text ORDER BY a.attname::text)
+                   FROM pg_attribute a
+                   WHERE a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey))
+                  = ARRAY['name', 'process_id']::text[]
+        LOOP
+            EXECUTE 'ALTER TABLE device DROP CONSTRAINT ' || quote_ident(con);
+        END LOOP;
+    END $$;
 """)
 
 _PG_DEVICE_INDEXES = [
@@ -147,7 +179,12 @@ def pg_child_index_ddl(table: str) -> sql.Composed:
 
 
 def postgres_all_ddl() -> list:
-    out = [_PG_PROCESS_DDL, _PG_DEVICE_DDL, *_PG_DEVICE_INDEXES]
+    out = [
+        _PG_PROCESS_DDL,
+        _PG_DEVICE_DDL,
+        _PG_DEVICE_DROP_NAME_UNIQUE,
+        *_PG_DEVICE_INDEXES,
+    ]
     for table, columns in child_tables().items():
         out.append(pg_child_ddl(table, columns))
         out.append(pg_child_index_ddl(table))

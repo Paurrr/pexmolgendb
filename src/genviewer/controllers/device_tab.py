@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 
 from PySide6.QtCore import QModelIndex, QObject, QTimer, Signal, Slot
@@ -7,7 +8,7 @@ from genviewer.controllers.device_tab_toolbar import DeviceTabToolBarController
 from genviewer.controllers.device_table import DeviceTableController
 from genviewer.controllers.parameter_tab import ParameterTabController
 from genviewer.service.config import load_config
-from genviewer.service.errors import DbUnavailableError
+from genviewer.service.errors import DbUnavailableError, user_message
 from genviewer.service.pool import Database
 from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.io import IORepository
@@ -16,7 +17,10 @@ from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.background import Task, is_busy, run_blocking
 from genviewer.utils.dialogs import question
 from genviewer.utils.lisp import to_lisp_list_string
+from genviewer.utils.reporting import report, report_error
 from genviewer.views.device_tab import DeviceTab
+
+log = logging.getLogger(__name__)
 
 # 변경 감지 폴링 주기. 여러 명이 시간당 몇 번 저장하는 정도의 사용량이라
 # 이보다 자주 볼 이유가 없다.
@@ -104,7 +108,7 @@ class DeviceTabController(QObject):
         try:
             self.device_table.save_all()
         except Exception as e:
-            self.notifyRequested.emit("error", "Save Devices Failed", str(e))
+            report_error(self, "Save Devices Failed", e, logger=log)
             return
 
         current = getattr(self, "current_device", None)
@@ -112,7 +116,7 @@ class DeviceTabController(QObject):
             try:
                 self.parameter_tab.save_all()
             except Exception as e:
-                self.notifyRequested.emit("error", "Save Tabs Failed", str(e))
+                report_error(self, "Save Tabs Failed", e, logger=log)
                 return
 
         self.notifyRequested.emit("info", "Saved", "All changes have been saved.")
@@ -135,15 +139,25 @@ class DeviceTabController(QObject):
 
         try:
             db = run_blocking(lambda: self._open_database(dsn), self)
-        except (RuntimeError, DbUnavailableError) as e:
+        except Exception as e:
+            # 좁은 예외 목록이면 안 된다. OperationalError 만 DbUnavailableError 로
+            # 바뀌므로 인증 실패나 권한 오류는 그대로 여기까지 올라오는데, 이 함수는
+            # __init__ 에서도 불리기 때문에 새면 창도 못 띄우고 죽는다.
             self.connected = False
-            self.logRequested.emit(f"Database connect failed: {e}")
+            log.warning("데이터베이스 접속 실패", exc_info=e)
+            # 로그 패널에 e 를 그대로 쓰면 안 된다. psycopg 의 접속 실패 문자열에는
+            # conninfo 가 통째로 들어 있어 비밀번호가 화면에 찍힌다.
+            self.logRequested.emit(f"Database connect failed: {user_message(e)}")
             return False
 
         self.db = db
         self.connected = True
         self.set_repo(db)
-        self.apply_db()
+        try:
+            self.apply_db()
+        except Exception as e:
+            # 붙기는 했는데 첫 조회가 실패했다. 빈 화면으로라도 띄운다.
+            report_error(self, "Load Failed", e, logger=log)
         self._poll_failures = 0
         self._poll_timer.start()
         self.logRequested.emit(f"Database connected: {db.cfg.dsn}.")
@@ -246,6 +260,7 @@ class DeviceTabController(QObject):
         self.ui.virtuoso_device_table.clear_devices()
         self.ui.filtered_device_table.clear_devices()
 
+    @report("Send Failed")
     def send_device_data(self, mode: str):
         selected_devices = self.device_table.get_selected_devices(
             fallback_to_all=(mode == "all")
@@ -304,25 +319,33 @@ class DeviceTabController(QObject):
             self.statusMessageRequested.emit(f"Send failed: {e}", 5000)
 
     @Slot(str)
+    @report("Load CSV Failed")
     def on_load_csv_requested(self, path: str):
         if not self.connected:
             self.notifyRequested.emit(
                 "warn", "Database Not Loaded", "먼저 DB를 Load 해야 합니다."
             )
             return
-        try:
-            ok = self.io_repo.import_data(path)
-            if ok:
-                self.device_tab_toolbar.refresh_processes()
-                self.device_table.refresh_devices()
-                self.notifyRequested.emit("info", "Load CSV", "Success")
-                self.logRequested.emit(f"Imported CSV: {path}.")
-            else:
-                self.notifyRequested.emit("error", "Load CSV", "Fail")
-        except Exception as e:
-            self.notifyRequested.emit("error", "Load CSV Failed", str(e))
+
+        # 큰 CSV 는 몇 초씩 걸린다. GUI 스레드에서 돌리면 창이 얼어붙는다.
+        # run_blocking 은 예외를 호출 지점에서 다시 내므로 @report 가 그대로 받는다.
+        created = run_blocking(lambda: self.io_repo.import_data(path), self)
+
+        self.device_tab_toolbar.refresh_processes()
+        self.device_table.refresh_devices()
+        # 개수를 반드시 보여준다. 임포트는 CSV 행마다 device 를 새로 만들므로 같은
+        # 파일을 두 번 넣으면 두 배가 되는데, 사용자가 그것을 알아채는 유일한 방법이
+        # 이 숫자다.
+        self.notifyRequested.emit(
+            "info",
+            "Load CSV",
+            f"device {created}개를 새로 추가했다.\n"
+            "CSV 는 불러올 때마다 새로 쌓인다 — 같은 파일을 다시 넣으면 중복된다.",
+        )
+        self.logRequested.emit(f"Imported CSV: {path} (device {created}개 추가).")
 
     @Slot()
+    @report("Load Failed")
     def on_current_row_changed(self, current: QModelIndex, previous: QModelIndex):
         if not self.connected:
             QMessageBox.warning(
@@ -339,11 +362,13 @@ class DeviceTabController(QObject):
         self._switch_device_by_index()
 
     @Slot()
+    @report("Load Failed")
     def load_virtuoso(self):
         self.device_table.refresh_devices()
         self.parameter_tab._clear_tabs()
 
     @Slot()
+    @report("Process Change Failed")
     def on_process_changed(self, process_name: str):
         self.clear()
         self.ui.hide_views()

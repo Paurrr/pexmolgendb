@@ -1,0 +1,338 @@
+"""tools/deploy.sh - 태그를 공유 디렉터리에 설치하는 부분.
+
+네트워크도 진짜 uv 도 쓰지 않는다. tmp 에 진짜 git 저장소를 만들어 태그를 달고,
+PATH 앞에 가짜 uv 를 놓아 venv 처럼 보이는 것을 만들게 한다. 검증 대상은 의존성
+설치가 아니라 **스크립트가 디렉터리를 어떻게 바꾸는가** 다.
+
+윈도우(Git Bash)에서도 대부분 돌지만, NTFS 위에서 chmod 와 ln -s 가 실제 의미를
+갖지 않으므로 그 두 가지에 기대는 항목은 건너뛴다. 배포 대상은 리눅스다.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO = Path(__file__).resolve().parent.parent
+DEPLOY = REPO / "tools" / "deploy.sh"
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("sh") is None or shutil.which("git") is None,
+    reason="sh 나 git 이 없다",
+)
+
+posix_only = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="윈도우에서는 chmod / ln -s 가 실제 의미를 갖지 않는다",
+)
+
+# 가짜 uv. 받은 인자를 기록하고, deploy.sh 가 기대하는 모양의 venv 를 만든다.
+# 중첩 heredoc 을 피하려고 printf 로 찍는다.
+UV_STUB = """#!/bin/sh
+set -e
+{
+  echo "ARGS: $*"
+  echo "ENV: ${UV_PROJECT_ENVIRONMENT:-(없음)}"
+} >> "$STUB_RECORD"
+
+venv=${UV_PROJECT_ENVIRONMENT:-}
+[ -n "$venv" ] || { echo "stub uv: UV_PROJECT_ENVIRONMENT 가 없다" >&2; exit 1; }
+mkdir -p "$venv/bin"
+
+# deploy.sh 는 이 python 으로 두 가지를 묻는다: 패키지 이름, 그리고 console_scripts.
+printf '%s\\n' \\
+  '#!/bin/sh' \\
+  'case "$*" in' \\
+  '  *pyproject.toml*) echo genviewer ;;' \\
+  '  *) echo "${STUB_COMMANDS:-genviewer}" ;;' \\
+  'esac' > "$venv/bin/python"
+chmod 755 "$venv/bin/python"
+
+for c in ${STUB_COMMANDS:-genviewer}; do
+    printf '%s\\n' '#!/bin/sh' 'exit 0' > "$venv/bin/$c"
+    chmod 755 "$venv/bin/$c"
+done
+"""
+
+
+@pytest.fixture
+def source_repo(tmp_path):
+    """태그 둘과 브랜치 하나가 있는 진짜 저장소."""
+    src = tmp_path / "source"
+    src.mkdir()
+    (src / "pyproject.toml").write_text(
+        '[project]\nname = "genviewer"\nversion = "0.1.0"\n', encoding="utf-8"
+    )
+    (src / "genviewer.env.example").write_text("PGHOST=example\n", encoding="utf-8")
+
+    def git(*args):
+        subprocess.run(["git", "-C", str(src), *args], check=True, capture_output=True)
+
+    def commit(message):
+        git("add", "-A")
+        git(
+            "-c", "user.name=test",
+            "-c", "user.email=test@example.invalid",
+            "commit", "-q", "-m", message,
+        )
+
+    git("init", "-q", "-b", "main")
+    commit("first")
+    git("tag", "v1.0.0")
+    # 태그마다 커밋이 달라야 한다. 같은 커밋에 둘을 달면
+    # describe --exact-match 가 어느 쪽을 돌려줄지 알 수 없어 검증이 무의미해진다.
+    (src / "marker.txt").write_text("v1.1.0\n", encoding="utf-8")
+    commit("second")
+    git("tag", "v1.1.0")
+    return src
+
+
+@pytest.fixture
+def stub(tmp_path):
+    """PATH 앞에 놓을 가짜 uv 와, 그것이 남기는 기록."""
+    bindir = tmp_path / "stub_bin"
+    bindir.mkdir()
+    path = bindir / "uv"
+    path.write_text(UV_STUB, encoding="utf-8", newline="\n")
+    path.chmod(0o755)
+    return {"bindir": bindir, "record": tmp_path / "uv_record.txt"}
+
+
+@pytest.fixture
+def root(tmp_path):
+    return tmp_path / "deployed"
+
+
+def deploy(root, source_repo, stub, tag="v1.0.0", with_url=True, **env):
+    """deploy.sh 를 돌리고 CompletedProcess 를 준다."""
+    environ = dict(os.environ)
+    for key in list(environ):
+        if key.startswith(("DEPLOY_", "GENDB_", "PG")):
+            environ.pop(key)
+    environ["PATH"] = str(stub["bindir"]) + os.pathsep + environ["PATH"]
+    environ["STUB_RECORD"] = str(stub["record"])
+    environ.setdefault("STUB_COMMANDS", "genviewer genviewer-init-db")
+    environ.update({k: str(v) for k, v in env.items()})
+
+    argv = ["sh", str(DEPLOY), str(root), tag]
+    if with_url:
+        argv.append(str(source_repo))
+    return subprocess.run(
+        argv, capture_output=True, text=True, encoding="utf-8",
+        errors="replace", env=environ,
+    )
+
+
+def pinned_tag(root):
+    out = subprocess.run(
+        ["git", "-C", str(root / "src"), "describe", "--exact-match", "--tags", "HEAD"],
+        capture_output=True, text=True,
+    )
+    return out.stdout.strip()
+
+
+# --------------------------------------------------------------------------
+# 무엇을 받아오는가
+# --------------------------------------------------------------------------
+
+
+def test_a_tag_pins_the_checkout(root, source_repo, stub):
+    result = deploy(root, source_repo, stub, tag="v1.0.0")
+
+    assert result.returncode == 0, result.stderr
+    assert pinned_tag(root) == "v1.0.0"
+
+
+def test_a_branch_name_is_refused(root, source_repo, stub):
+    """브랜치에 고정하면 '이 태그 배포본' 이 나중에 다른 커밋이 된다.
+
+    refs/tags/ 를 명시하는 것만으로 막힌다 - refs/tags/main 은 없다.
+    """
+    result = deploy(root, source_repo, stub, tag="main")
+
+    assert result.returncode != 0
+    assert pinned_tag(root) != "main"
+
+
+def test_upgrading_does_not_need_the_url_again(root, source_repo, stub):
+    deploy(root, source_repo, stub, tag="v1.0.0")
+
+    result = deploy(root, source_repo, stub, tag="v1.1.0", with_url=False)
+
+    assert result.returncode == 0, result.stderr
+    assert pinned_tag(root) == "v1.1.0"
+
+
+# --------------------------------------------------------------------------
+# 어떻게 설치하는가
+# --------------------------------------------------------------------------
+
+
+def test_uv_is_asked_for_a_locked_non_editable_install(root, source_repo, stub):
+    """--frozen 은 uv.lock 재현, --no-editable 은 src 가 실행에 관여하지 않게."""
+    deploy(root, source_repo, stub)
+
+    record = stub["record"].read_text(encoding="utf-8")
+
+    assert "--frozen" in record
+    assert "--no-editable" in record
+    assert "--no-dev" in record
+
+    # venv 는 프로젝트 안(src/.venv)이 아니라 배포 루트에 놓여야 한다.
+    # Git Bash 는 /tmp/... 를, 파이썬은 C:\... 를 보므로 경로 전체는 비교할 수 없다.
+    env_line = [ln for ln in record.splitlines() if ln.startswith("ENV:")][0]
+    assert env_line.endswith(f"/{root.name}/venv"), env_line
+
+
+def test_deploy_python_is_passed_through(root, source_repo, stub):
+    """경고만 하고 고칠 수단이 없으면 소용이 없다."""
+    deploy(root, source_repo, stub, DEPLOY_PYTHON="/usr/bin/python3.13")
+
+    assert "--python /usr/bin/python3.13" in stub["record"].read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------
+# 런처
+# --------------------------------------------------------------------------
+
+
+def test_one_launcher_per_command(root, source_repo, stub):
+    deploy(root, source_repo, stub)
+
+    names = sorted(p.name for p in (root / "bin").iterdir())
+    assert names == ["genviewer", "genviewer-init-db"]
+
+
+def test_a_launcher_runs_the_venv_interpreter_and_names_the_config(
+    root, source_repo, stub
+):
+    """사용자에게 uv 나 자기 파이썬을 요구하지 않는 것이 이 런처의 요점이다."""
+    deploy(root, source_repo, stub)
+
+    text = (root / "bin" / "genviewer").read_text(encoding="utf-8")
+
+    assert text.startswith("#!/bin/sh")
+    exec_line = text.split("exec ", 1)[1]
+    assert "/venv/bin/python" in exec_line
+    assert "uv" not in exec_line, "실행 줄이 uv 를 부르고 있다"
+    assert "GENDB_CONFIG" in text and "genviewer.env" in text
+    assert "\r" not in text, "CRLF shebang 은 리눅스에서 bad interpreter 가 된다"
+
+
+def test_a_renamed_command_leaves_no_stale_launcher(root, source_repo, stub):
+    """없어진 진입점을 가리키는 런처가 남으면 '있는데 안 되는' 명령이 된다."""
+    deploy(root, source_repo, stub, STUB_COMMANDS="genviewer genviewer-old")
+    site_own = root / "bin" / "site-script"
+    site_own.write_text("#!/bin/sh\n", encoding="utf-8")
+
+    deploy(root, source_repo, stub, STUB_COMMANDS="genviewer")
+
+    names = sorted(p.name for p in (root / "bin").iterdir())
+    assert names == ["genviewer", "site-script"], "남의 파일을 지웠거나 옛것을 남겼다"
+
+
+def test_deploy_commands_overrides_discovery(root, source_repo, stub):
+    deploy(root, source_repo, stub, DEPLOY_COMMANDS="genviewer")
+
+    assert [p.name for p in (root / "bin").iterdir()] == ["genviewer"]
+
+
+# --------------------------------------------------------------------------
+# 설정 파일 - 업그레이드해도 살아남아야 하고, 남에게 읽히면 안 된다
+# --------------------------------------------------------------------------
+
+
+def test_the_config_is_seeded_from_the_example(root, source_repo, stub):
+    deploy(root, source_repo, stub)
+
+    assert (root / "genviewer.env").read_text(encoding="utf-8") == "PGHOST=example\n"
+
+
+def test_an_existing_config_survives_an_upgrade(root, source_repo, stub):
+    """설정이 버전 바깥에 있다는 것이 이 레이아웃의 요점이다."""
+    deploy(root, source_repo, stub, tag="v1.0.0")
+    (root / "genviewer.env").write_text("PGHOST=우리서버\n", encoding="utf-8")
+
+    deploy(root, source_repo, stub, tag="v1.1.0", with_url=False)
+
+    assert (root / "genviewer.env").read_text(encoding="utf-8") == "PGHOST=우리서버\n"
+
+
+@posix_only
+def test_the_config_is_not_opened_up_by_the_chmod(root, source_repo, stub):
+    """스크립트는 트리를 a+rX 로 연다. 이 파일만은 빠져야 한다.
+
+    PGPASSWORD 가 들어 있어서, 아무나 읽게 되면 앱이 스스로 실행을 거부한다.
+    """
+    deploy(root, source_repo, stub)
+
+    mode = (root / "genviewer.env").stat().st_mode
+    assert not mode & 0o004, "설정 파일이 모두에게 읽힌다"
+    # 대신 bin/ 은 열려 있어야 다른 사용자가 쓸 수 있다.
+    assert (root / "bin" / "genviewer").stat().st_mode & 0o004
+
+
+@posix_only
+def test_the_tree_is_readable_by_others(root, source_repo, stub):
+    deploy(root, source_repo, stub)
+
+    for path in (root, root / "bin", root / "src", root / "venv"):
+        assert path.stat().st_mode & 0o005, f"{path} 에 다른 사용자가 못 들어간다"
+
+
+# --------------------------------------------------------------------------
+# PATH 에 이미 있는 디렉터리로 링크
+# --------------------------------------------------------------------------
+
+
+@posix_only
+def test_link_dir_exposes_the_commands(root, source_repo, stub, tmp_path):
+    link_dir = tmp_path / "usr_local_bin"
+    link_dir.mkdir()
+
+    result = deploy(root, source_repo, stub, DEPLOY_LINK_DIR=str(link_dir))
+
+    assert result.returncode == 0, result.stderr
+    assert sorted(p.name for p in link_dir.iterdir()) == [
+        "genviewer",
+        "genviewer-init-db",
+    ]
+    assert (link_dir / "genviewer").is_symlink()
+
+
+@posix_only
+def test_link_dir_refuses_to_clobber_someone_elses_file(
+    root, source_repo, stub, tmp_path
+):
+    link_dir = tmp_path / "usr_local_bin"
+    link_dir.mkdir()
+    (link_dir / "genviewer").write_text("남의 것\n", encoding="utf-8")
+
+    result = deploy(root, source_repo, stub, DEPLOY_LINK_DIR=str(link_dir))
+
+    assert result.returncode != 0
+    assert (link_dir / "genviewer").read_text(encoding="utf-8") == "남의 것\n"
+
+
+@posix_only
+def test_link_dir_cleans_up_only_its_own_links(root, source_repo, stub, tmp_path):
+    link_dir = tmp_path / "usr_local_bin"
+    link_dir.mkdir()
+    deploy(
+        root, source_repo, stub,
+        STUB_COMMANDS="genviewer genviewer-old",
+        DEPLOY_LINK_DIR=str(link_dir),
+    )
+    (link_dir / "unrelated").write_text("사이트 것\n", encoding="utf-8")
+
+    deploy(
+        root, source_repo, stub,
+        STUB_COMMANDS="genviewer",
+        with_url=False,
+        DEPLOY_LINK_DIR=str(link_dir),
+    )
+
+    assert sorted(p.name for p in link_dir.iterdir()) == ["genviewer", "unrelated"]

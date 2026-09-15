@@ -15,6 +15,11 @@
 원본 파일은 읽기 전용으로 열며 절대 수정하지 않는다.
 """
 
+# 서버(RHEL 7)의 파이썬은 3.9 다. 이 도구는 GUI 를 import 하지 않으므로 거기서
+# 돌릴 수 있는데, X | None (3.10+) 이 평가되는 자리에 있으면 import 조차 안 된다.
+# 이 한 줄이 애노테이션을 문자열로 만들어 평가 자체를 없앤다. 런타임 동작은 같다.
+from __future__ import annotations
+
 import argparse
 import os
 import sqlite3
@@ -31,16 +36,24 @@ def open_readonly(path: Path) -> sqlite3.Connection:
     return conn
 
 
-def validate(src: sqlite3.Connection) -> list[str]:
-    """원본에 필요한 테이블과 컬럼이 다 있는지 본다. 문제를 문자열로 돌려준다."""
-    problems: list[str] = []
-    have = {
+def tables_in(src: sqlite3.Connection) -> set[str]:
+    return {
         r[0]
         for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
+
+
+def validate(src: sqlite3.Connection) -> list[str]:
+    """원본에 필요한 테이블과 컬럼이 다 있는지 본다. 문제를 문자열로 돌려준다.
+
+    자식 테이블이 통째로 없는 것은 문제가 아니다. 탭이 추가된 뒤에 만들어진
+    테이블은 그보다 오래된 .sqlite 파일에 있을 수 없다 — 그 탭에 옮길 행이
+    없다는 뜻일 뿐이다. process/device 가 없으면 그건 genviewer 파일이 아니다.
+    """
+    problems: list[str] = []
+    have = tables_in(src)
     for table, columns in schema.child_tables().items():
         if table not in have:
-            problems.append(f"테이블 없음: {table}")
             continue
         cols = {r[1] for r in src.execute(f"PRAGMA table_info({table})")}
         missing = set(columns) - cols
@@ -50,17 +63,6 @@ def validate(src: sqlite3.Connection) -> list[str]:
         if table not in have:
             problems.append(f"테이블 없음: {table}")
     return problems
-
-
-def duplicate_devices(src: sqlite3.Connection) -> list[tuple]:
-    """PostgreSQL 의 UNIQUE (process_id, name) 를 위반할 행."""
-    return [
-        tuple(r)
-        for r in src.execute(
-            "SELECT process_id, name, count(*) FROM device "
-            "GROUP BY 1, 2 HAVING count(*) > 1"
-        )
-    ]
 
 
 def resolve_name(cur, name: str, policy: str, suffix: str) -> str | None:
@@ -96,15 +98,17 @@ def import_file(
             print(f"  ! {p}")
         raise SystemExit("원본 스키마가 맞지 않는다. 중단.")
 
-    dups = duplicate_devices(src)
-    if dups:
-        for process_id, name, n in dups:
-            print(f"  ! device 중복: process_id={process_id} name={name!r} x{n}")
-        raise SystemExit(
-            "PostgreSQL 은 (process_id, name) 이 유일해야 한다. 원본을 먼저 정리할 것."
-        )
+    # 원본의 device 이름 중복은 더 이상 문제가 아니다. 예전에는 PostgreSQL 에
+    # UNIQUE (process_id, name) 이 있어서 여기서 미리 막고 원본을 고치게 했는데,
+    # 그 제약을 없앴으므로 중복은 중복인 채로 옮겨진다.
 
-    child = schema.child_tables()
+    # 원본에 없는 자식 테이블은 건너뛴다 (validate 의 주석 참고). 어느 탭이
+    # 비어서 넘어가는지는 말해준다 — 조용히 사라지면 이관 누락과 구분되지 않는다.
+    present = tables_in(src)
+    child = {t: c for t, c in schema.child_tables().items() if t in present}
+    for table in schema.child_tables():
+        if table not in present:
+            print(f"  - {table}: 원본에 없음 (옮길 행 없음)")
     actor = f"import:{src_path.stem}"
     totals: dict[str, int] = {t: 0 for t in ["process", "device", *child]}
 
@@ -137,27 +141,46 @@ def import_file(
                 ).fetchone()["id"]
                 totals["process"] += 1
 
+                # 이미 들어가 있는 device 를 이름별로 모아둔다 (--on-conflict merge
+                # 로 같은 process 에 다시 들어올 때만 비어 있지 않다).
+                #
+                # 이름이 유일하지 않으므로 ON CONFLICT 를 쓸 수 없다 — 대상이 될
+                # 유일 인덱스가 없어서 42P10 으로 죽는다. 대신 같은 이름끼리 id
+                # 순으로 짝짓는다. 원본의 중복 두 개는 기존 중복 두 개에 하나씩
+                # 대응하므로, 다시 돌려도 늘어나지 않는다.
+                existing: dict[str, list[int]] = {}
+                for r in cur.execute(
+                    "SELECT id, name FROM device WHERE process_id = %s ORDER BY id",
+                    (pid,),
+                ).fetchall():
+                    existing.setdefault(r["name"], []).append(r["id"])
+                seen: dict[str, int] = {}
+
                 for dev in devices:
-                    # id 는 새로 발급받는다. 명시적으로 넣으면 identity 시퀀스가
-                    # 전진하지 않아 다음 INSERT 가 중복 키로 실패한다.
-                    new_id = cur.execute(
-                        "INSERT INTO device "
-                        '  (process_id, name, celltype, description, "order", updated_by) '
-                        "VALUES (%s, %s, %s, %s, %s, %s) "
-                        "ON CONFLICT (process_id, name) DO UPDATE "
-                        "   SET celltype = EXCLUDED.celltype, "
-                        "       description = EXCLUDED.description, "
-                        '       "order" = EXCLUDED."order" '
-                        "RETURNING id",
-                        (
-                            pid,
-                            dev["name"],
-                            dev["celltype"],
-                            dev["description"] or "",
-                            dev["order"] or 0,
-                            actor,
-                        ),
-                    ).fetchone()["id"]
+                    slot = seen.get(dev["name"], 0)
+                    seen[dev["name"]] = slot + 1
+                    matched = existing.get(dev["name"], [])
+                    values = (
+                        dev["celltype"],
+                        dev["description"] or "",
+                        dev["order"] or 0,
+                    )
+                    if slot < len(matched):
+                        new_id = matched[slot]
+                        cur.execute(
+                            "UPDATE device SET celltype = %s, description = %s, "
+                            '"order" = %s WHERE id = %s',
+                            (*values, new_id),
+                        )
+                    else:
+                        # id 는 새로 발급받는다. 명시적으로 넣으면 identity 시퀀스가
+                        # 전진하지 않아 다음 INSERT 가 중복 키로 실패한다.
+                        new_id = cur.execute(
+                            "INSERT INTO device "
+                            '  (process_id, name, celltype, description, "order", updated_by) '
+                            "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                            (pid, dev["name"], *values, actor),
+                        ).fetchone()["id"]
                     totals["device"] += 1
 
                     for table, columns in child.items():

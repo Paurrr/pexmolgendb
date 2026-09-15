@@ -1,3 +1,5 @@
+import logging
+
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
@@ -6,8 +8,11 @@ from genviewer.controllers.device_tab import DeviceTabController
 from genviewer.controllers.socket_tab import SocketTabController
 from genviewer.net.controller import ConnectionController
 from genviewer.service import virtuoso_protocol
+from genviewer.service.errors import user_message
 from genviewer.utils.palette import THEMES, apply_theme
 from genviewer.views.main_window import MainWindow
+
+log = logging.getLogger(__name__)
 
 
 class MainWindowController(QObject):
@@ -155,15 +160,21 @@ class MainWindowController(QObject):
     def _on_save_triggered(self):
         fw = self.ui.focusWidget()
 
-        if self.device_tab.ui.device_table_view.isAncestorOf(fw):
-            self.device_tab.device_table.save_all()
-            self.notify_status("Device table saved")
-        elif self.device_tab.ui.parameter_tab_view.isAncestorOf(fw):
-            self.device_tab.parameter_tab.save_all()
-            self.notify_status("Tab section data saved")
-        else:
-            self.device_tab.save_db()
-            self.notify_status("All device and tab data saved")
+        # 세 갈래 중 둘은 아무것도 잡지 않고 있었다. 포커스가 어디 있느냐에 따라
+        # 같은 Ctrl+S 가 메시지 박스로 끝나기도 하고 트레이스백이 되기도 했다.
+        try:
+            if self.device_tab.ui.device_table_view.isAncestorOf(fw):
+                self.device_tab.device_table.save_all()
+                self.notify_status("Device table saved")
+            elif self.device_tab.ui.parameter_tab_view.isAncestorOf(fw):
+                self.device_tab.parameter_tab.save_all()
+                self.notify_status("Tab section data saved")
+            else:
+                self.device_tab.save_db()
+                self.notify_status("All device and tab data saved")
+        except Exception as e:
+            log.error("저장 실패", exc_info=e)
+            self.ui.notify("error", "Save Failed", user_message(e))
 
     @Slot()
     def _on_undo_triggered(self):
@@ -199,6 +210,10 @@ class MainWindowController(QObject):
         self.ui.notify(severity, title, text)
         one_line = " ".join(str(text).split())
         self.ui.append_log(f"{title}: {one_line}")
+        # 사용자가 본 것은 파일에도 남긴다. 로그 패널은 창을 닫으면 사라지고
+        # Clear 버튼으로도 없어진다.
+        level = logging.ERROR if severity in ("error", "critical") else logging.INFO
+        log.log(level, "%s: %s", title, one_line)
 
     def notify_status(self, text: str, ms=2000):
         self.statusMessageRequested.emit(text, ms)

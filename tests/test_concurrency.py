@@ -46,7 +46,7 @@ def test_only_explicitly_deleted_rows_are_removed(db, process_id):
     repo = DeviceRepository(db)
     devices = repo.upsert_devices(
         process_id, [_device("a"), _device("b"), _device("c")], actor="A"
-    )
+    ).devices
     victim = next(d for d in devices if d["name"] == "b")
 
     keep = [d for d in devices if d["name"] != "b"]
@@ -60,7 +60,7 @@ def test_only_explicitly_deleted_rows_are_removed(db, process_id):
 
 def test_stale_version_raises_and_writes_nothing(db, process_id):
     repo = DeviceRepository(db)
-    (dev,) = repo.upsert_devices(process_id, [_device("nfet_b")], actor="A")
+    (dev,) = repo.upsert_devices(process_id, [_device("nfet_b")], actor="A").devices
 
     stale = dict(dev)  # B 가 들고 있는 오래된 사본
     repo.upsert_devices(
@@ -83,7 +83,7 @@ def test_stale_version_raises_and_writes_nothing(db, process_id):
 
 def test_force_overrides_the_conflict(db, process_id):
     repo = DeviceRepository(db)
-    (dev,) = repo.upsert_devices(process_id, [_device("nfet_b")], actor="A")
+    (dev,) = repo.upsert_devices(process_id, [_device("nfet_b")], actor="A").devices
     stale = dict(dev)
     repo.upsert_devices(process_id, [{**dev, "description": "A"}], actor="A")
 
@@ -101,17 +101,50 @@ def test_unchanged_save_does_not_bump_version(db, process_id):
     충돌을 맞는다.
     """
     repo = DeviceRepository(db)
-    devices = repo.upsert_devices(process_id, [_device("a"), _device("b")], actor="A")
+    saved = repo.upsert_devices(process_id, [_device("a"), _device("b")], actor="A")
+    devices = saved.devices
     before = {d["id"]: d["version"] for d in repo.fetch_devices_by_process(process_id)}
 
     # 'a' 만 고치고 둘 다 보낸다.
     payload = [dict(d) for d in devices]
     payload[0]["description"] = "바뀜"
-    repo.upsert_devices(process_id, payload, actor="A")
+    result = repo.upsert_devices(process_id, payload, actor="A")
 
     after = {d["id"]: d["version"] for d in repo.fetch_devices_by_process(process_id)}
     changed = [i for i in before if after[i] != before[i]]
     assert len(changed) == 1, "손대지 않은 device 의 version 까지 올라갔다"
+    # 보고되는 개수도 payload 크기(2)가 아니라 실제로 쓰인 수(1)여야 한다.
+    assert (result.updated, result.inserted, result.deleted) == (1, 0, 0)
+    assert saved.inserted == 2, "처음 저장은 두 행 다 새로 들어간다"
+
+
+def test_save_counts_only_what_the_database_wrote(db, process_id):
+    """SaveResult 는 payload 크기가 아니라 DB 가 실제로 쓴 행을 센다.
+
+    이것이 없으면 화면의 device 20개를 전부 보내는 save_all 이 1개만 고쳐도
+    "20개 저장됨" 이라고 말한다.
+    """
+    repo = DeviceRepository(db)
+    devices = repo.upsert_devices(
+        process_id, [_device("a"), _device("b"), _device("c")], actor="A"
+    ).devices
+
+    # 하나도 안 고치고 전부 다시 보낸다.
+    untouched = repo.upsert_devices(process_id, [dict(d) for d in devices], actor="A")
+    assert untouched.written == 0
+
+    # 하나 고치고, 하나 추가하고, 하나 지운다 — 셋 다 한 번에.
+    victim = devices[2]
+    payload = [dict(devices[0]), dict(devices[1]), _device("d")]
+    payload[0]["description"] = "바뀜"
+    mixed = repo.upsert_devices(
+        process_id,
+        payload,
+        deleted={victim["id"]: victim["version"]},
+        actor="A",
+    )
+    assert (mixed.updated, mixed.inserted, mixed.deleted) == (1, 1, 1)
+    assert mixed.written == 3
 
 
 def test_child_tables_bump_the_device_version_once(db, process_id):
@@ -122,7 +155,7 @@ def test_child_tables_bump_the_device_version_once(db, process_id):
     """
     dev_repo = DeviceRepository(db)
     par = ParameterRepository(db)
-    (dev,) = dev_repo.upsert_devices(process_id, [_device("nfet_b")], actor="A")
+    (dev,) = dev_repo.upsert_devices(process_id, [_device("nfet_b")], actor="A").devices
     v0 = dev["version"]
 
     new_version = par.replace_many_for_device(
@@ -144,7 +177,7 @@ def test_child_tables_bump_the_device_version_once(db, process_id):
 def test_child_write_detects_a_stale_device(db, process_id):
     dev_repo = DeviceRepository(db)
     par = ParameterRepository(db)
-    (dev,) = dev_repo.upsert_devices(process_id, [_device("nfet_b")], actor="A")
+    (dev,) = dev_repo.upsert_devices(process_id, [_device("nfet_b")], actor="A").devices
     stale_version = dev["version"]
 
     dev_repo.upsert_devices(
@@ -165,7 +198,7 @@ def test_child_row_order_survives_a_rewrite(db, process_id):
     """자식 행은 삽입 순서대로 다시 읽혀야 한다 (CSV 컬럼 순서가 된다)."""
     dev_repo = DeviceRepository(db)
     par = ParameterRepository(db)
-    (dev,) = dev_repo.upsert_devices(process_id, [_device("nfet_b")], actor="A")
+    (dev,) = dev_repo.upsert_devices(process_id, [_device("nfet_b")], actor="A").devices
 
     order = [("DRN", "d"), ("GATE", "g"), ("SRC", "s"), ("BULK", "b")]
     version = par.replace_all_for_device(
@@ -190,11 +223,19 @@ def test_child_row_order_survives_a_rewrite(db, process_id):
     assert [r["reserved_key"] for r in got] == [k for k, _ in order]
 
 
-def test_duplicate_device_name_is_rejected(db, process_id):
-    """두 사람이 같은 이름으로 device 를 만들면 두 번째는 실패해야 한다."""
-    import psycopg
+def test_duplicate_device_names_are_allowed(db, process_id):
+    """같은 이름의 device 두 개가 나란히 들어간다.
 
+    한동안 UNIQUE (process_id, name) 이 두 번째를 UniqueViolation 으로 막았다.
+    그런데 현장 CSV 에는 같은 CdsLibName/InstCellName 행이 정상적으로 여러 개
+    들어오고, 사람이 Insert 로 같은 이름을 추가하는 것도 막을 이유가 없다.
+    이름은 식별자가 아니라 표시용 값이고 식별은 id 가 한다.
+    """
     repo = DeviceRepository(db)
     repo.upsert_devices(process_id, [_device("nfet_b")], actor="A")
-    with pytest.raises(psycopg.errors.UniqueViolation):
-        repo.upsert_devices(process_id, [_device("nfet_b")], actor="B")
+    repo.upsert_devices(process_id, [_device("nfet_b", "PFET")], actor="B")
+
+    rows = repo.fetch_devices_by_process(process_id)
+    assert [r["name"] for r in rows] == ["nfet_b", "nfet_b"]
+    assert len({r["id"] for r in rows}) == 2, "같은 행에 덮어썼다"
+    assert sorted(r["celltype"] for r in rows) == ["NFET", "PFET"]

@@ -5,14 +5,18 @@ DB 가 파일이 아니게 되면서 "Load DB" 파일 대화상자를 대체한�
 주의: 메인 툴바에도 Server/Port/Connect 가 있는데 그건 Virtuoso 소켓이지
 데이터베이스가 아니다. 그래서 이 창의 제목과 라벨에 "Database" 를 명시한다.
 
-비밀번호는 기본적으로 저장하지 않는다. libpq 의 ~/.pgpass
-(윈도우는 %APPDATA%\\postgresql\\pgpass.conf) 를 쓰는 편이 낫고, psycopg 가
-번들한 libpq 가 그것을 자동으로 읽는다.
+**아무것도 저장하지 않는다.** 기본값은 지금 적용된 설정(genviewer.env 가 넣어 둔
+PG* 환경변수)에서 가져온다. 이 창은 "지금 한 번 다른 데로 붙어 본다" 는 용도고,
+계속 쓸 값은 genviewer.env 에 적는 것이 맞다.
+
+예전에는 QSettings 에 host/port/dbname/user 를 저장했는데, 정작 앱이 시작할 때
+그 값을 읽는 코드가 없어서 다음 실행에 반영되지 않았다. 이 창을 다시 열어야만
+보이는 값이라 설정이 두 군데로 갈라지기만 했다.
 """
 
-from PySide6.QtCore import QSettings
+import os
+
 from PySide6.QtWidgets import (
-    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -23,10 +27,30 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from genviewer.service.config import DSN_ENV
+from genviewer.service import env_file
+from genviewer.service.config import CONFIG_ENV
 
-_ORG = "gendb"
-_APP = "genviewer"
+# 아무 설정도 없을 때 칸을 채울 값. 개발 클러스터 기준이다.
+_FALLBACK = {"host": "127.0.0.1", "port": "55433", "dbname": "molgen", "user": ""}
+
+
+def prefill() -> dict[str, str]:
+    """지금 적용된 접속 정보를 읽어 칸에 넣을 값을 만든다.
+
+    env_file.load 를 한 번 더 부르는 이유는 이 창이 혼자서도 맞아야 하기
+    때문이다. 이미 불렸으면 setdefault 라 아무 일도 안 일어난다. 설정 파일이
+    깨졌으면 여기서 따질 일이 아니라서(접속할 때 제대로 된 에러가 난다) 넘긴다.
+    """
+    try:
+        env_file.load(os.environ.get(CONFIG_ENV, "").strip())
+    except RuntimeError:
+        pass
+    return {
+        "host": os.environ.get("PGHOST", "") or _FALLBACK["host"],
+        "port": os.environ.get("PGPORT", "") or _FALLBACK["port"],
+        "dbname": os.environ.get("PGDATABASE", "") or _FALLBACK["dbname"],
+        "user": os.environ.get("PGUSER", "") or _FALLBACK["user"],
+    }
 
 
 def _quote(value: str) -> str:
@@ -36,19 +60,18 @@ def _quote(value: str) -> str:
 
 
 class ConnectionDialog(QDialog):
-    def __init__(self, parent=None, initial_dsn: str = ""):
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Connect to Database")
         self.setMinimumWidth(380)
 
-        settings = QSettings(_ORG, _APP)
-        self.host_field = QLineEdit(settings.value("db/host", "127.0.0.1"))
-        self.port_field = QLineEdit(settings.value("db/port", "55433"))
-        self.db_field = QLineEdit(settings.value("db/name", "molgen"))
-        self.user_field = QLineEdit(settings.value("db/user", ""))
+        current = prefill()
+        self.host_field = QLineEdit(current["host"])
+        self.port_field = QLineEdit(current["port"])
+        self.db_field = QLineEdit(current["dbname"])
+        self.user_field = QLineEdit(current["user"])
         self.password_field = QLineEdit()
         self.password_field.setEchoMode(QLineEdit.Password)
-        self.remember_box = QCheckBox("비밀번호 기억 (권장하지 않음)")
 
         form = QFormLayout()
         form.addRow("Host", self.host_field)
@@ -56,7 +79,6 @@ class ConnectionDialog(QDialog):
         form.addRow("Database", self.db_field)
         form.addRow("User", self.user_field)
         form.addRow("Password", self.password_field)
-        form.addRow("", self.remember_box)
 
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
@@ -75,31 +97,15 @@ class ConnectionDialog(QDialog):
 
         layout = QVBoxLayout()
         layout.addWidget(
-            QLabel(f"환경변수 {DSN_ENV} 가 있으면 그것이 기본값이 된다.")
+            QLabel(
+                f"기본값은 지금 적용된 설정({env_file.SITE_NAME})이다. "
+                "여기서 고친 값은 이번 접속에만 쓰이고 저장되지 않는다."
+            )
         )
         layout.addLayout(form)
         layout.addWidget(self.status_label)
         layout.addLayout(button_row)
         self.setLayout(layout)
-
-        if initial_dsn:
-            self._prefill_from_dsn(initial_dsn)
-
-    def _prefill_from_dsn(self, dsn: str) -> None:
-        try:
-            import psycopg
-
-            info = psycopg.conninfo.conninfo_to_dict(dsn)
-        except Exception:
-            return
-        if info.get("host"):
-            self.host_field.setText(str(info["host"]))
-        if info.get("port"):
-            self.port_field.setText(str(info["port"]))
-        if info.get("dbname"):
-            self.db_field.setText(str(info["dbname"]))
-        if info.get("user"):
-            self.user_field.setText(str(info["user"]))
 
     def dsn(self) -> str:
         parts = [
@@ -138,15 +144,3 @@ class ConnectionDialog(QDialog):
         finally:
             self.test_btn.setEnabled(True)
         self.status_label.setText("연결 성공" if ok else "실패: 접속할 수 없다")
-
-    def accept(self) -> None:
-        settings = QSettings(_ORG, _APP)
-        settings.setValue("db/host", self.host_field.text().strip())
-        settings.setValue("db/port", self.port_field.text().strip())
-        settings.setValue("db/name", self.db_field.text().strip())
-        settings.setValue("db/user", self.user_field.text().strip())
-        if self.remember_box.isChecked():
-            settings.setValue("db/password", self.password_field.text())
-        else:
-            settings.remove("db/password")
-        super().accept()

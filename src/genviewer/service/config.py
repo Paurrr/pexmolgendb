@@ -1,22 +1,32 @@
 """DB 접속 설정.
 
-fmserver/config.py 와 같은 형태 — frozen dataclass + 환경변수, DSN 없으면 즉시 실패.
-dotenv 는 쓰지 않는다(fmserver 규칙). run.cmd / run.csh 가 환경변수를 세팅한다.
+fmserver/config.py 와 같은 형태 - frozen dataclass + 환경변수, 접속 정보가 없으면
+즉시 실패.
 
-서버와 다른 점은 dsn_override 다. 이 앱은 GUI 의 Connect 다이얼로그에서도
-DSN 을 받으므로, 환경변수보다 우선하는 값을 넣을 수 있어야 한다.
+서버와 다른 점이 둘이다:
+
+- dsn_override. 이 앱은 GUI 의 Connect 다이얼로그에서도 DSN 을 받으므로,
+  환경변수보다 우선하는 값을 넣을 수 있어야 한다.
+- 설정 파일. 여러 사람이 각자 데스크톱에서 실행하므로 서버 주소를 매번 손으로
+  치게 둘 수 없다. service/env_file.py 가 개인 파일과 설치 디렉터리를 본다.
+
+**DSN 이 빈 문자열이어도 된다.** PGHOST/PGPORT/... 만 있으면 libpq 가 알아서
+만든다. 그래서 여기서 문자열을 조립하지 않는다.
 """
 
 import os
 from dataclasses import dataclass
 
+from genviewer.service import env_file
 from genviewer.utils.user import current_user
 
 DSN_ENV = "GENDB_PG_DSN"
+CONFIG_ENV = "GENDB_CONFIG"
 
 
 @dataclass(frozen=True)
 class DbConfig:
+    # 빈 문자열이면 libpq 가 PG* 환경변수에서 만든다.
     dsn: str
     # 데스크톱 앱이라 서버처럼 클 필요가 없다. 저장 한 번이 커넥션 하나.
     pool_min: int = 1
@@ -40,12 +50,38 @@ def _int_env(name: str, default: int) -> int:
         raise RuntimeError(f"{name} must be an integer, got {raw!r}") from e
 
 
-def load_config(dsn_override: str = "") -> DbConfig:
+def resolve_dsn(dsn_override: str = "") -> str:
+    """접속 정보를 확정한다. 설정 파일을 읽어 환경변수에 넣는 부수효과가 있다.
+
+    돌려주는 빈 문자열은 "정보가 없다" 가 아니라 "libpq 가 PG* 환경변수에서
+    만든다" 는 뜻이다. 정말 아무것도 없으면 여기서 예외가 난다.
+    """
     dsn = (dsn_override or os.environ.get(DSN_ENV, "")).strip()
-    if not dsn:
-        raise RuntimeError(
-            f"{DSN_ENV} is required (또는 --dsn / Connect 다이얼로그로 지정)"
-        )
+    if dsn:
+        return dsn
+
+    # 환경변수가 없으면 설정 파일을 본다. 개인 파일이 설치 디렉터리의 공통 값을
+    # 덮어쓴다 (env_file.candidates 참고).
+    _, searched = env_file.load(os.environ.get(CONFIG_ENV, "").strip())
+
+    dsn = os.environ.get(DSN_ENV, "").strip()
+    if dsn or env_file.libpq_env_present():
+        return dsn
+
+    # 찾아본 자리를 다 보여준다. "설정이 없다" 만으로는 어디에 두라는 것인지 알 수
+    # 없고, 그게 다음 질문이 된다.
+    places = "\n".join(f"  {p}" for p in searched)
+    raise RuntimeError(
+        f"접속 정보가 없다. --dsn, {DSN_ENV} 환경변수, Connect 다이얼로그, "
+        f"또는 아래 중 한 곳에 {env_file.SITE_NAME} 을 둘 것"
+        f"({CONFIG_ENV} 로 파일을 직접 가리킬 수도 있다):\n"
+        f"{places}"
+    )
+
+
+def load_config(dsn_override: str = "") -> DbConfig:
+    # 접속 정보를 먼저 확정한다. 제일 흔한 실패라 그 에러가 먼저 보여야 한다.
+    dsn = resolve_dsn(dsn_override)
 
     pool_min = _int_env("GENDB_PG_POOL_MIN", 1)
     pool_max = _int_env("GENDB_PG_POOL_MAX", 4)
