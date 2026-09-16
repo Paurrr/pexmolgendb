@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from genviewer.controllers.main_window import MainWindowController
 from genviewer.service.errors import user_message
+from genviewer.service.repo import audit
 from genviewer.utils import logs
 from genviewer.utils.palette import apply_theme
 from genviewer.views.main_window import MainWindow
@@ -69,19 +70,24 @@ def install_excepthooks() -> None:
     threading.excepthook = thread_hook
 
 
-def run_gui(dsn: str = "", host: str = "") -> int:
+def run_gui(dsn: str = "", host: str = "", history: bool = False) -> int:
     """창을 띄우고 닫힐 때까지 돈다. 종료 코드를 돌려준다.
 
     인자를 스스로 읽지 않는다 - cli.py 가 파싱해서 넘긴다.
+
+    history 가 참일 때만 왼쪽 목록에 이력 화면이 생긴다. 기본은 꺼짐이라
+    항목도 위젯도 만들어지지 않는다 (genviewer --history 로 켠다).
     """
     logs.setup()
     install_excepthooks()
+    # 이력에 남길 출처. 같은 저장이라도 창에서 한 것과 명령줄에서 한 것을 구분한다.
+    audit.set_source("gui")
 
     # Qt 에는 프로그램 이름만 넘긴다. 우리 인자를 Qt 가 다시 해석하면 안 된다.
     app = QApplication(sys.argv[:1])
     QApplication.setStyle("Fusion")
     apply_theme(app, "graphite")
-    main_window = MainWindow(host)
+    main_window = MainWindow(host, show_history=history)
     controller = MainWindowController(main_window, dsn)
     main_window.show()
 

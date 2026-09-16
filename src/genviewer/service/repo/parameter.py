@@ -3,6 +3,7 @@ from psycopg import sql
 from genviewer.service import schema
 from genviewer.service.errors import Conflict, StaleWriteError
 from genviewer.service.pool import Database
+from genviewer.service.repo import audit
 
 
 def _check(table_name: str, columns: list[str]) -> list[str]:
@@ -65,9 +66,14 @@ class ParameterRepository:
 
             # 부모 행을 잠근다. 같은 device 를 동시에 저장하는 쪽을 직렬화하고,
             # 그 사이 값이 바뀌지 않았음을 보장한다.
+            # FOR UPDATE OF d 로 써야 한다. 그냥 FOR UPDATE 면 조인한 process
+            # 행까지 잠가서, 같은 process 안의 서로 다른 device 를 편집하는
+            # 사람들이 서로를 기다리게 된다.
             row = cur.execute(
-                "SELECT name, version, updated_by, updated_at FROM device "
-                "WHERE id = %s FOR UPDATE",
+                "SELECT d.name, d.version, d.updated_by, d.updated_at, "
+                "       p.name AS process_name "
+                "FROM device d JOIN process p ON p.id = d.process_id "
+                "WHERE d.id = %s FOR UPDATE OF d",
                 (device_id,),
             ).fetchone()
             if row is None:
@@ -89,13 +95,33 @@ class ParameterRepository:
                     ]
                 )
 
+            entries = []
             for table in sorted(payload):  # 결정적 순서
                 columns, rows = payload[table]
                 tbl = sql.Identifier(table)
-                cur.execute(
-                    sql.SQL("DELETE FROM {tbl} WHERE device_id = %s").format(tbl=tbl),
+                # RETURNING 으로 옛 행을 공짜로 받는다. 지운 뒤에는 무엇이 있었는지
+                # 알 수 없고, 별도 SELECT 를 하면 왕복이 하나 더 는다.
+                # id 로 정렬해야 fetch_by_device 가 읽어 주던 순서와 같아진다.
+                old = cur.execute(
+                    sql.SQL(
+                        "DELETE FROM {tbl} WHERE device_id = %s RETURNING id, {cols}"
+                    ).format(
+                        tbl=tbl,
+                        cols=sql.SQL(", ").join(map(sql.Identifier, columns)),
+                    ),
                     (device_id,),
+                ).fetchall()
+                before = [
+                    {c: r[c] for c in columns}
+                    for r in sorted(old, key=lambda r: r["id"])
+                ]
+                after = [{c: r.get(c) or "" for c in columns} for r in rows]
+                entry = audit.tab_change(
+                    row["process_name"], row["name"], device_id, table, before, after
                 )
+                if entry is not None:
+                    entries.append(entry)
+
                 if rows:
                     insert = sql.SQL(
                         "INSERT INTO {tbl} (device_id, {cols}) VALUES ({vals})"
@@ -115,6 +141,11 @@ class ParameterRepository:
                 "updated_by = %s WHERE id = %s RETURNING version",
                 (actor, device_id),
             ).fetchone()["version"]
+
+            # 내용이 달라진 탭만 남는다. 탭 저장은 값이 그대로여도 version 을
+            # 올리는데(그래야 다른 화면이 다시 읽는다), 그때까지 이력에 남기면
+            # 저장 버튼을 누를 때마다 줄이 쌓여 아무도 안 보게 된다.
+            audit.write(cur, actor, entries)
 
         return new_version
 

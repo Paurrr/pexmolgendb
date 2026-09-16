@@ -71,6 +71,9 @@ def db(pg_dsn):
     with database.connection() as conn:
         # process 를 지우면 device 와 자식 행까지 cascade 된다.
         conn.execute("TRUNCATE process RESTART IDENTITY CASCADE")
+        # change_log 는 일부러 FK 가 없어서 위 CASCADE 가 닿지 않는다.
+        # 여기서 안 비우면 앞 테스트의 이력이 다음 테스트로 새어 나간다.
+        conn.execute("TRUNCATE change_log RESTART IDENTITY")
         for table in child_tables():
             conn.execute(f'ALTER SEQUENCE IF EXISTS "{table}_id_seq" RESTART')
 

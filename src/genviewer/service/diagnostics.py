@@ -18,7 +18,12 @@ from genviewer.service import env_file
 from genviewer.service.config import CONFIG_ENV, DSN_ENV
 from genviewer.service.errors import user_message
 from genviewer.service.pool import Database
-from genviewer.service.schema import DEVICE_TABLE, PROCESS_TABLE, child_tables
+from genviewer.service.schema import (
+    CHANGE_LOG_TABLE,
+    DEVICE_TABLE,
+    PROCESS_TABLE,
+    child_tables,
+)
 from genviewer.utils import logs
 from genviewer.utils.logs import scrub
 
@@ -117,7 +122,7 @@ def target_summary(dsn: str) -> str:
 
 def expected_tables() -> list[str]:
     """스키마가 갖추고 있어야 할 테이블. 탭을 추가하면 자동으로 늘어난다."""
-    return [PROCESS_TABLE, DEVICE_TABLE, *child_tables()]
+    return [PROCESS_TABLE, DEVICE_TABLE, CHANGE_LOG_TABLE, *child_tables()]
 
 
 @dataclass(frozen=True)

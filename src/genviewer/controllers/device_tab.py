@@ -18,6 +18,7 @@ from genviewer.utils.background import Task, is_busy, run_blocking
 from genviewer.utils.dialogs import question
 from genviewer.utils.lisp import to_lisp_list_string
 from genviewer.utils.reporting import report, report_error
+from genviewer.utils.user import current_user
 from genviewer.views.device_tab import DeviceTab
 
 log = logging.getLogger(__name__)
@@ -36,6 +37,9 @@ class DeviceTabController(QObject):
     statusMessageRequested = Signal(str, int)
     notifyRequested = Signal(str, str, str)
     logRequested = Signal(str)
+    # 붙거나 끊을 때마다 현재 Database(또는 None). 이력 화면이 같은 풀을
+    # 쓰려고 듣는다.
+    dbChanged = Signal(object)
 
     def __init__(self, ui: DeviceTab, dsn: str = ""):
         super().__init__(ui)
@@ -153,6 +157,7 @@ class DeviceTabController(QObject):
         self.db = db
         self.connected = True
         self.set_repo(db)
+        self.dbChanged.emit(db)
         try:
             self.apply_db()
         except Exception as e:
@@ -242,6 +247,7 @@ class DeviceTabController(QObject):
         if self.db is not None:
             self.db.close()
             self.db = None
+            self.dbChanged.emit(None)
         self.connected = False
 
     def apply_db(self):
@@ -329,7 +335,9 @@ class DeviceTabController(QObject):
 
         # 큰 CSV 는 몇 초씩 걸린다. GUI 스레드에서 돌리면 창이 얼어붙는다.
         # run_blocking 은 예외를 호출 지점에서 다시 내므로 @report 가 그대로 받는다.
-        created = run_blocking(lambda: self.io_repo.import_data(path), self)
+        created = run_blocking(
+            lambda: self.io_repo.import_data(path, actor=current_user()), self
+        )
 
         self.device_tab_toolbar.refresh_processes()
         self.device_table.refresh_devices()

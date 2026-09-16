@@ -4,6 +4,7 @@ from psycopg import sql
 
 from genviewer.service.errors import Conflict, StaleWriteError
 from genviewer.service.pool import Database
+from genviewer.service.repo import audit
 from genviewer.service.schema import ADVISORY_LOCK_CLASS
 
 # device 한 행 + 자식 탭 테이블이 한 사용자가 한 화면에서 편집하는 단위다.
@@ -34,6 +35,14 @@ class SaveResult:
     @property
     def written(self) -> int:
         return self.updated + self.inserted + self.deleted
+
+
+def _process_name(cur, process_id: int) -> str:
+    """이력에 박을 process 이름. id 는 process 가 지워지면 읽을 수 없게 된다."""
+    row = cur.execute(
+        "SELECT name FROM process WHERE id = %s", (process_id,)
+    ).fetchone()
+    return row["name"] if row else ""
 
 
 def etag_key(etag: dict | None) -> tuple | None:
@@ -88,7 +97,16 @@ class DeviceRepository:
     def upsert_device(self, process_id: int, device: dict, *, actor: str = "") -> dict:
         """단건 upsert. 붙여넣기처럼 새 행을 하나 만들 때 쓴다."""
         with self.db.connection() as conn:
-            if device.get("id") is None:
+            # 고치는 것이라면 옛 값을 먼저 잡아 둔다. UPDATE 뒤에는 못 읽는다.
+            before = None
+            inserting = device.get("id") is None
+            if not inserting:
+                before = conn.execute(
+                    f"SELECT {_SELECT_COLUMNS} FROM device WHERE id = %s FOR UPDATE",
+                    (device["id"],),
+                ).fetchone()
+
+            if inserting:
                 row = conn.execute(
                     "INSERT INTO device "
                     '  (process_id, name, celltype, description, "order", updated_by) '
@@ -121,6 +139,19 @@ class DeviceRepository:
                 ).fetchone()
                 if row:
                     device["version"] = row["version"]
+
+            cur = conn.cursor()
+            if inserting:
+                entry = audit.device_insert(_process_name(cur, process_id), device)
+            elif before is None:
+                # id 는 들고 있는데 행이 없다 - 남이 먼저 지웠다. UPDATE 도 아무
+                # 행을 못 맞췄으므로 일어난 일이 없다. 남길 것도 없다.
+                entry = None
+            else:
+                entry = audit.device_update(
+                    _process_name(cur, process_id), before, device
+                )
+            audit.write(cur, actor, [entry] if entry is not None else [])
         return device
 
     def upsert_devices(
@@ -161,8 +192,12 @@ class DeviceRepository:
             db_now = {}
             if known:
                 # id 순서로 잠근다 — 두 저장이 서로를 기다리는 교착을 막는다.
+                #
+                # 편집 가능한 컬럼을 전부 읽는다. _preflight 는 version/name 만
+                # 쓰지만, 이 행이 곧 이력의 "이전 값" 이다 - UPDATE 뒤에는 옛값을
+                # 어디서도 다시 구할 수 없고, 이미 잠그려고 읽는 중이라 공짜다.
                 rows = cur.execute(
-                    "SELECT id, name, version, updated_by, updated_at FROM device "
+                    f"SELECT {_SELECT_COLUMNS} FROM device "
                     "WHERE id = ANY(%s) ORDER BY id FOR UPDATE",
                     (known,),
                 ).fetchall()
@@ -174,20 +209,66 @@ class DeviceRepository:
                     # with 블록이 롤백한다 — 아무것도 쓰이지 않는다.
                     raise StaleWriteError(conflicts)
 
-            removed = 0
+            gone: list[dict] = []
+            children: dict[int, dict] = {}
             if deleted:
+                # 자식 행을 지우기 전에 읽어 둔다. DELETE 는 cascade 로 자식까지
+                # 가져가므로 그 뒤에는 무엇이 사라졌는지 알 길이 없다.
+                children, _ = audit.capture_children(cur, sorted(deleted))
                 # process_id 조건: 그 사이 다른 process 로 옮겨진 device 를
                 # 오래된 클라이언트가 지우지 못하게 한다.
-                cur.execute(
-                    "DELETE FROM device WHERE id = ANY(%s) AND process_id = %s",
+                rows = cur.execute(
+                    "DELETE FROM device WHERE id = ANY(%s) AND process_id = %s "
+                    "RETURNING id",
                     (sorted(deleted), process_id),
-                )
-                removed = cur.rowcount
+                ).fetchall()
+                # RETURNING 으로 세는 이유: 옮겨진 device 는 조건에 걸려 안 지워진다.
+                # rowcount 를 믿으면 지우지 않은 것을 지웠다고 이력에 남긴다.
+                gone = [db_now[r["id"]] for r in rows if r["id"] in db_now]
+            removed = len(gone)
 
-            updated = self._update_existing(cur, devices, actor, force)
-            inserted = self._insert_new(cur, process_id, devices, actor)
+            changed = self._update_existing(cur, devices, actor, force)
+            added = self._insert_new(cur, process_id, devices, actor)
 
-        return SaveResult(devices, updated=updated, inserted=inserted, deleted=removed)
+            self._log(
+                cur,
+                process_id,
+                actor,
+                devices,
+                db_now,
+                gone,
+                children,
+                changed,
+                added,
+            )
+
+        return SaveResult(
+            devices, updated=len(changed), inserted=len(added), deleted=removed
+        )
+
+    @staticmethod
+    def _log(cur, process_id, actor, devices, db_now, gone, children, changed, added):
+        """이 트랜잭션이 실제로 쓴 것만 이력에 남긴다.
+
+        changed 는 UPDATE 의 RETURNING 이 돌려준 행뿐이다. save_all 은 화면의
+        device 를 전부 보내지만 IS DISTINCT FROM 가드가 값이 같은 행을 걸러내므로,
+        손대지 않은 저장은 여기서 한 줄도 만들지 않는다.
+        """
+        if not (gone or changed or added):
+            return
+
+        name = _process_name(cur, process_id)
+        payload = {d["id"]: d for d in devices if d.get("id") is not None}
+        entries = [
+            audit.device_delete(name, row, children.get(row["id"], {}))
+            for row in gone
+        ]
+        for device_id in changed:
+            entry = audit.device_update(name, db_now[device_id], payload[device_id])
+            if entry is not None:
+                entries.append(entry)
+        entries += [audit.device_insert(name, d) for d in added]
+        audit.write(cur, actor, entries)
 
     @staticmethod
     def _preflight(
@@ -220,11 +301,15 @@ class DeviceRepository:
     @staticmethod
     def _update_existing(
         cur, devices: list[dict], actor: str, force: bool = False
-    ) -> int:
-        """실제로 UPDATE 된 행 수를 낸다."""
+    ) -> dict[int, int]:
+        """실제로 UPDATE 된 행만 {id: 새 version} 으로 낸다.
+
+        개수가 아니라 id 를 내는 이유: 이력이 "어느 행이" 바뀌었는지 알아야
+        이전 값과 짝지을 수 있다. 개수는 호출부에서 len() 으로 낸다.
+        """
         to_update = [d for d in devices if d.get("id") is not None]
         if not to_update:
-            return 0
+            return {}
 
         # IS DISTINCT FROM 가드는 최적화가 아니다. save_all 은 손대지 않은
         # device 까지 전부 보내므로, 가드가 없으면 한 번 저장할 때마다 process
@@ -268,11 +353,13 @@ class DeviceRepository:
         for d in to_update:
             if d["id"] in changed:
                 d["version"] = changed[d["id"]]
-        return len(changed)
+        return changed
 
     @staticmethod
-    def _insert_new(cur, process_id: int, devices: list[dict], actor: str) -> int:
-        """새로 INSERT 된 행 수를 낸다."""
+    def _insert_new(
+        cur, process_id: int, devices: list[dict], actor: str
+    ) -> list[dict]:
+        """새로 INSERT 된 device 를 (id 가 채워진 채로) 낸다."""
         to_insert = [d for d in devices if d.get("id") is None]
         for d in to_insert:
             # ON CONFLICT DO UPDATE 를 쓰면 안 된다. 남이 같은 이름으로 만든
@@ -292,4 +379,4 @@ class DeviceRepository:
             ).fetchone()
             d["id"] = row["id"]
             d["version"] = row["version"]
-        return len(to_insert)
+        return to_insert

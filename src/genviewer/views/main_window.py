@@ -25,7 +25,7 @@ from genviewer.views.socket_tab import SocketTab
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, hostname: str):
+    def __init__(self, hostname: str, show_history: bool = False):
         super().__init__()
         self.setWindowTitle("Device Viewer")
         self.resize(1200, 700)
@@ -42,7 +42,10 @@ class MainWindow(QMainWindow):
         self.tab_list.setSpacing(0)
         self.tab_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        for text in ("Device", "Socket"):
+        # 이력 화면은 genviewer --history 로 띄울 때만 만든다. 꺼져 있으면
+        # 항목도 위젯도 없다 - 평소에 눈에 띄지 않게 해 달라는 요청이다.
+        names = ["Device", "Socket"] + (["History"] if show_history else [])
+        for text in names:
             item = QListWidgetItem(text)
             item.setSizeHint(QSize(96, 28))
             self.tab_list.addItem(item)
@@ -53,6 +56,13 @@ class MainWindow(QMainWindow):
         self.socket_tab_view = SocketTab(self)
         self.stack.addWidget(self.device_tab_view)
         self.stack.addWidget(self.socket_tab_view)
+
+        self.history_tab_view = None
+        if show_history:
+            from genviewer.views.history_tab import HistoryTab
+
+            self.history_tab_view = HistoryTab(self)
+            self.stack.addWidget(self.history_tab_view)
 
         self.tab_list.setCurrentRow(0)
         self.tab_list.currentRowChanged.connect(self.stack.setCurrentIndex)

@@ -7,6 +7,7 @@ from psycopg import sql
 
 from genviewer.config.config import delegate_config, tab_config
 from genviewer.service.pool import Database
+from genviewer.service.repo import audit
 
 
 def split_cell(
@@ -62,7 +63,7 @@ class IORepository:
         ).fetchone()
         return row["id"] if row else None
 
-    def import_data(self, input_path: str) -> int:
+    def import_data(self, input_path: str, *, actor: str = "") -> int:
         """CSV 를 읽어 device 와 탭 테이블에 넣는다. 새로 만든 device 수를 낸다.
 
         **CSV 행 하나가 device 하나다.** 같은 (CdsLibName, InstCellName) 이 여러
@@ -101,6 +102,7 @@ class IORepository:
                 sections.append((section_info, matched))
 
         created = 0
+        per_process: dict[str, int] = defaultdict(int)
         with self.db.connection() as conn:
             cur = conn.cursor()
             rows_by_table: dict[str, list[tuple]] = defaultdict(list)
@@ -110,13 +112,17 @@ class IORepository:
                 if process_id is None:
                     continue
 
+                # updated_by 를 넣는다. 예전에는 컬럼을 빼서 CSV 로 들어온 device
+                # 가 전부 빈 문자열이었고, 나중에 "이건 누가 넣은 거지" 에 아무도
+                # 답할 수 없었다.
                 device_row = cur.execute(
-                    "INSERT INTO device (process_id, name, celltype) "
-                    "VALUES (%s, %s, %s) RETURNING id",
-                    (process_id, row["InstCellName"], row["CellType"]),
+                    "INSERT INTO device (process_id, name, celltype, updated_by) "
+                    "VALUES (%s, %s, %s, %s) RETURNING id",
+                    (process_id, row["InstCellName"], row["CellType"], actor),
                 ).fetchone()
                 device_id = device_row["id"]
                 created += 1
+                per_process[str(row["CdsLibName"]).strip()] += 1
 
                 for section_info, matched in sections:
                     n_columns = len(section_info["columns"])
@@ -151,6 +157,15 @@ class IORepository:
                     vals=sql.SQL(", ").join(sql.Placeholder() * len(full_columns)),
                 )
                 cur.executemany(stmt, to_insert)
+
+            # 행마다가 아니라 임포트 한 번에 한 줄이다. CSV 한 장이 device 를
+            # 수백 개 만들 수 있는데 그것을 한 줄씩 남기면 이력이 못 쓰게 된다.
+            if created:
+                audit.write(
+                    cur,
+                    actor,
+                    [audit.csv_import(input_path, created, dict(per_process))],
+                )
 
         return created
 

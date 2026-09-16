@@ -132,7 +132,7 @@ $ genviewer status
 접속: 됨 (0.04초)
 서버: PostgreSQL 16.2
 계정: molgen_app@molgen
-스키마: 테이블 16개 모두 있음
+스키마: 테이블 17개 모두 있음
 내용: process 2개, device 128개
 ```
 
@@ -151,6 +151,58 @@ $ genviewer status
 - 실패는 한 줄 문장으로 나온다. 트레이스백까지 보려면 `-v` 를 준다.
 - `genviewer --check-config` 는 그대로 있다. `status` 가 그 내용을 다 담고 접속까지
   해 본다.
+
+## 변경 이력
+
+누가 언제 어떤 데이터를 더하고 지우고 고쳤는지가 DB 의 `change_log` 테이블에
+쌓인다. 여러 명이 같은 DB 를 쓰므로 **내 PC 의 파일 로그로는 답이 안 나온다** —
+남이 한 일은 DB 에만 있다.
+
+`--help` 에 나오지 않는다. 평소에 눈에 띄지 않게 해 달라는 요청이라 감춘 것이지
+접근을 막는 장치가 아니다. `change_log` 는 앱 role 이면 누구나 읽을 수 있고,
+그래야 남의 작업이 보인다.
+
+```sh
+genviewer log                          # 최근 50줄, 오래된 것부터
+genviewer log -n 200 --since 7d        # 7d / 24h / 30m / 2026-09-01
+genviewer log --who dh991 --process sf2p
+genviewer log --find nfet_b            # 바뀐 값 안까지 뒤진다
+genviewer log --detail                 # 이전/이후 값을 펼친다
+genviewer log --follow                 # 새 줄을 계속 이어 찍는다 (Ctrl-C)
+genviewer log --out history.csv        # CSV 로 뽑는다
+genviewer log --purge-before 2026-01-01  # 오래된 것을 지운다 (묻는다)
+
+genviewer --history                    # 창 왼쪽에 History 화면을 붙여서 띄운다
+```
+
+```
+$ genviewer log
+2026-09-16 14:03:11  dh991         -                             CSV 불러오기  devices.csv  device 3개 (sf2p 2, sf4u 1)
+2026-09-16 14:05:02  dh991         sf2p/nfet_b                   device 수정  description "" -> "ESD 용"
+2026-09-16 14:05:02  dh991         sf2p/nfet_b                   탭 InstTerm  4행 -> 3행
+2026-09-16 14:11:40  jyk           sf4u                          process 삭제  sf4u  device 86개가 함께 사라짐
+```
+
+- **사람이 실제로 바꾼 것만 남는다.** 저장은 화면의 device 를 전부 보내지만 값이
+  달라진 행만 기록된다. 손대지 않고 Save 를 눌러도 새 줄이 생기지 않는다 — 그러지
+  않으면 이력이 금방 못 쓰게 된다.
+- **지워진 것의 내용이 통째로 남는다.** device 를 지우면 그 device 의 자식 행까지,
+  process 를 지우면 함께 사라진 device 전부가 `--detail` 에 들어 있다. `change_log`
+  에 외래키를 걸지 않은 것이 그래서다 — 걸었으면 cascade 가 이력까지 지운다.
+- **저장이 실패하면 이력도 없다.** 이력은 저장과 같은 트랜잭션에서 쓰인다. 충돌로
+  되돌아간 저장은 흔적을 남기지 않는다.
+- **`psql` 로 직접 고친 것은 안 남는다.** 앱이 쓰는 방식이라 그렇다. 전원이 같은
+  DB role 로 붙기 때문에 트리거를 써도 `current_user` 로는 사람을 구분할 수 없고,
+  탭 저장은 통째 교체라 행 트리거를 달면 셀 하나 고친 저장이 로그 십수 줄이 된다.
+- 자동으로 지우지 않는다. 사람 몇이 쓰는 규모라 1년에 몇천 줄이다. 줄이고 싶으면
+  `--purge-before` 를 쓴다. **지우면 되돌릴 수 없다.**
+- History 화면은 10초마다 다시 읽는다. 줄을 하나 고르면 그동안은 멈춘다 — 읽는
+  중에 표가 새로 그려지면 자리를 잃기 때문이다.
+
+> **이 기능을 넣은 뒤에는 `genviewer-init-db` 를 먼저 돌려야 한다.** `change_log`
+> 가 없으면 모든 저장이 "테이블이 없다" 로 죽는다. 새 테이블은 옛 코드에 무해하니
+> **① init-db → ② deploy.sh** 순서로 하면 멈추는 시간이 없다. `genviewer status`
+> 가 테이블 수로 알려준다.
 
 ## 배포
 
@@ -338,6 +390,7 @@ src/genviewer/
   service/       DB 계층. Qt 를 import 하지 않는다 (테스트가 GUI 없이 돈다)
                  config.py 접속 설정 / env_file.py 설정 파일 / pool.py 풀
                  schema.py DDL / diagnostics.py 상태 진단 / repo/ 쿼리
+                 repo/audit.py 변경 이력 — 쓰는 쪽과 읽는 쪽이 한 파일에
   models/ views/ controllers/ delegates/ dialogs/   Qt MVC
   net/           Virtuoso 소켓
   utils/

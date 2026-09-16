@@ -48,10 +48,24 @@ class MainWindowController(QObject):
         self.device_tab.notifyRequested.connect(self._on_notify_requested)
         self.device_tab.logRequested.connect(self.ui.append_log)
 
+        # 이력 화면은 --history 로 띄웠을 때만 존재한다. Device 화면이 쓰는
+        # Database 를 그대로 받아 쓴다 - 풀을 하나 더 열 이유가 없다.
+        self.history_tab = None
+        if self.ui.history_tab_view is not None:
+            from genviewer.controllers.history_tab import HistoryTabController
+
+            self.history_tab = HistoryTabController(self.ui.history_tab_view, self.ui)
+            self.history_tab.logRequested.connect(self.ui.append_log)
+            self.device_tab.dbChanged.connect(self.history_tab.set_db)
+            self.history_tab.set_db(self.device_tab.db)
+
         self._setup_actions()
 
     def shutdown(self) -> None:
         """앱 종료 시 커넥션 풀을 닫는다. main() 이 app.exec() 후에 부른다."""
+        # 이력 쪽 작업이 먼저 끝나야 한다. 풀을 닫은 뒤에 남아 있으면 터진다.
+        if self.history_tab is not None:
+            self.history_tab.shutdown()
         self.device_tab.close_db()
 
     def _setup_actions(self):

@@ -6,6 +6,12 @@
   genviewer load <csv>             CSV 를 불러온다
   genviewer export <process> <파일>  process 하나를 파일로 낸다
 
+숨은 것 둘 - 도움말에 나오지 않는다. 평소에 눈에 띄지 않게 해 달라는
+요청이라 감춘 것이지 보안 장치가 아니다.
+
+  genviewer log                    누가 언제 무엇을 바꿨는지
+  genviewer --history              창에 이력 화면을 붙여서 띄운다
+
 device 를 더하거나 지우는 것, 탭 내용을 고치는 것은 **창에서만** 한다. 그쪽은
 낙관적 잠금과 충돌 해결이 얽혀 있어서 명령줄로 흉내 내면 둘 중 하나는 거짓말이
 된다.
@@ -17,10 +23,14 @@ Pexorche/cli.py 와 같은 구조다 - 여기는 배선만 하고 판단은 serv
 """
 
 import errno
+import json
 import os
+import re
 import sys
+import time
 import traceback
 from dataclasses import replace
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -31,10 +41,13 @@ from genviewer.service import diagnostics
 from genviewer.service.config import DSN_ENV, load_config
 from genviewer.service.errors import user_message
 from genviewer.service.pool import Database
+from genviewer.service.repo import audit
+from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.device import DeviceRepository
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.exporter import write_csv, write_xlsx
+from genviewer.utils.user import current_user
 
 _TIMEOUT_ENV = "GENDB_PG_STATEMENT_TIMEOUT_MS"
 
@@ -78,6 +91,15 @@ def root(
     verbose: Annotated[
         bool, typer.Option("--verbose", "-v", help="실패했을 때 트레이스백까지 보여준다.")
     ] = False,
+    history: Annotated[
+        bool,
+        typer.Option(
+            "--history",
+            # 평소에는 눈에 띄지 않는다. 이력 화면은 이 옵션으로 띄울 때만
+            # 왼쪽 목록에 나타나고, 그냥 genviewer 로 띄우면 항목 자체가 없다.
+            hidden=True,
+        ),
+    ] = False,
 ) -> None:
     global _verbose
     _verbose = verbose
@@ -93,7 +115,7 @@ def root(
     # 여기서부터 Qt 다. import 자체를 늦춘다.
     from genviewer.main import run_gui
 
-    raise typer.Exit(run_gui(dsn, host))
+    raise typer.Exit(run_gui(dsn, host, history=history))
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +242,7 @@ def load(
     # 그 뜻을 따른다.
     db = _open(ctx, dsn, statement_timeout_ms=0)
     try:
-        created = IORepository(db).import_data(str(csv_path))
+        created = IORepository(db).import_data(str(csv_path), actor=current_user())
     finally:
         db.close()
 
@@ -266,6 +288,177 @@ def export(
 
 
 # ---------------------------------------------------------------------------
+# 변경 이력 (숨김)
+# ---------------------------------------------------------------------------
+
+# --follow 가 다시 물어보는 간격. LISTEN/NOTIFY 를 쓰지 않는 이유는
+# service/repo/device.py 의 etag() docstring 에 적힌 것과 같다.
+_FOLLOW_SECONDS = 3.0
+
+# --follow 가 한 번에 따라잡는 최대 줄 수. 그 사이에 이보다 많이 쌓였다면
+# 최근 것부터 보여준다.
+_FOLLOW_CATCHUP = 1000
+
+_WHEN_FORMATS = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d")
+
+
+def _parse_when(text: str) -> datetime:
+    """YYYY-MM-DD[ HH:MM[:SS]] 또는 7d / 24h / 30m 같은 상대 시간."""
+    text = text.strip()
+    match = re.fullmatch(r"(\d+)\s*([dhm])", text)
+    if match:
+        amount, unit = int(match.group(1)), match.group(2)
+        delta = {"d": "days", "h": "hours", "m": "minutes"}[unit]
+        return datetime.now() - timedelta(**{delta: amount})
+    for fmt in _WHEN_FORMATS:
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    typer.echo(
+        f"시각을 못 읽겠다: {text}  (YYYY-MM-DD, 'YYYY-MM-DD HH:MM', 7d, 24h)",
+        err=True,
+    )
+    raise typer.Exit(2)
+
+
+def _emit(rows: list[dict], detail: bool) -> None:
+    for row in rows:
+        typer.echo(audit.format_line(row))
+        if detail:
+            for line in audit.format_detail(row):
+                typer.echo(line)
+
+
+@app.command(hidden=True)
+def log(
+    ctx: typer.Context,
+    number: Annotated[int, typer.Option("-n", "--number", help="보여줄 줄 수.")] = 50,
+    since: Annotated[
+        str, typer.Option("--since", help="이 시각부터. 7d / 24h / 2026-09-01 형식.")
+    ] = "",
+    who: Annotated[str, typer.Option("--who", help="이 사람이 한 것만.")] = "",
+    process: Annotated[str, typer.Option("--process", help="이 process 것만.")] = "",
+    device: Annotated[str, typer.Option("--device", help="이 device 것만.")] = "",
+    find: Annotated[
+        str, typer.Option("--find", help="이 글자가 든 줄만. 바뀐 값까지 뒤진다.")
+    ] = "",
+    detail: Annotated[
+        bool, typer.Option("--detail", help="이전/이후 값을 펼쳐 보여준다.")
+    ] = False,
+    follow: Annotated[
+        bool, typer.Option("--follow", "-f", help="새 줄을 계속 이어 찍는다. Ctrl-C 로 끝.")
+    ] = False,
+    out: Annotated[str, typer.Option("--out", help="화면 대신 CSV 파일로 쓴다.")] = "",
+    purge_before: Annotated[
+        str, typer.Option("--purge-before", help="이 시각 이전 이력을 지운다.")
+    ] = "",
+    yes: Annotated[
+        bool, typer.Option("--yes", help="--purge-before 에서 묻지 않고 지운다.")
+    ] = False,
+    dsn: DsnOpt = "",
+) -> None:
+    """누가 언제 어떤 데이터를 바꿨는지 본다."""
+    db = _open(ctx, dsn)
+    try:
+        repo = AuditRepository(db)
+
+        if purge_before:
+            _purge(repo, _parse_when(purge_before), yes)
+            return
+
+        rows = repo.recent(
+            limit=number,
+            since=_parse_when(since) if since else None,
+            actor=who,
+            process=process,
+            device=device,
+            contains=find,
+        )
+
+        if out:
+            _write_log_csv(out, rows)
+            return
+
+        if not rows and not follow:
+            typer.echo("이력이 없다.")
+            return
+
+        _emit(rows, detail)
+        if follow:
+            _follow(repo, rows, detail, who, process, device, find)
+    finally:
+        db.close()
+
+
+def _follow(
+    repo: AuditRepository,
+    seen: list[dict],
+    detail: bool,
+    who: str,
+    process: str,
+    device: str,
+    find: str,
+) -> None:
+    last = seen[-1]["id"] if seen else repo.latest_id()
+    while True:
+        time.sleep(_FOLLOW_SECONDS)
+        rows = repo.recent(
+            limit=_FOLLOW_CATCHUP,
+            after_id=last,
+            actor=who,
+            process=process,
+            device=device,
+            contains=find,
+        )
+        if rows:
+            _emit(rows, detail)
+            last = rows[-1]["id"]
+
+
+def _write_log_csv(out: str, rows: list[dict]) -> None:
+    headers = [
+        "시각",
+        "사람",
+        "출처",
+        "동작",
+        "process",
+        "device",
+        "테이블",
+        "내용",
+        "상세",
+    ]
+    table = [
+        [
+            row["at"].strftime("%Y-%m-%d %H:%M:%S"),
+            row["actor"],
+            row["source"],
+            row["action"],
+            row["process_name"],
+            row["device_name"],
+            row["table_name"],
+            row["summary"],
+            json.dumps(row["detail"], ensure_ascii=False, default=str),
+        ]
+        for row in rows
+    ]
+    write_csv(out, headers, table)
+    typer.echo(f"{len(table)}줄을 {out} 에 썼다.")
+
+
+def _purge(repo: AuditRepository, before: datetime, yes: bool) -> None:
+    when = before.strftime("%Y-%m-%d %H:%M:%S")
+    doomed = repo.count_before(before)
+    if not doomed:
+        typer.echo(f"{when} 이전 이력이 없다.")
+        return
+    if not yes:
+        # 이력은 지우면 끝이다. 원본 데이터와 달리 다시 만들 방법이 없다.
+        typer.confirm(f"{when} 이전 이력 {doomed}줄을 지운다. 계속할까?", abort=True)
+    typer.echo(f"{repo.purge(before)}줄을 지웠다.")
+
+
+# ---------------------------------------------------------------------------
 # 진입점
 # ---------------------------------------------------------------------------
 
@@ -281,6 +474,9 @@ def _fail(exc: BaseException) -> None:
 
 def main() -> None:
     survive_console_encoding()
+    # 이력에 남길 출처. 같은 저장이라도 창에서 한 것과 명령줄에서 한 것을
+    # 구분할 수 있어야 한다.
+    audit.set_source("cli")
     try:
         app(prog_name="genviewer")
     except KeyboardInterrupt:

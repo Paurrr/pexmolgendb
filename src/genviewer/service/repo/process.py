@@ -1,6 +1,10 @@
 import psycopg
 
 from genviewer.service.pool import Database
+from genviewer.service.repo import audit
+
+# 지워질 device 에서 이력에 보관할 컬럼. id 는 무엇이 있었는지 짚어보는 용도다.
+_DEVICE_COLUMNS = 'id, name, celltype, description, "order"'
 
 
 class ProcessRepository:
@@ -14,18 +18,51 @@ class ProcessRepository:
             ).fetchone()
         return row["id"] if row else None
 
-    def add(self, name: str) -> bool:
+    def add(self, name: str, *, actor: str = "") -> bool:
         try:
             with self.db.connection() as conn:
-                conn.execute("INSERT INTO process (name) VALUES (%s)", (name,))
+                cur = conn.cursor()
+                cur.execute("INSERT INTO process (name) VALUES (%s)", (name,))
+                audit.write(cur, actor, [audit.process_add(name)])
             return True
         except psycopg.errors.UniqueViolation:
             # 이미 존재
             return False
 
-    def delete(self, name: str) -> bool:
+    def delete(self, name: str, *, actor: str = "") -> bool:
+        """process 하나와, cascade 로 함께 사라지는 모든 것.
+
+        지우기 전에 내용을 통째로 이력에 담는다. 이 한 번의 클릭으로 device
+        수십 개와 그 자식 행 전부가 사라지는데, 지금까지는 누가 그랬는지조차
+        남지 않았다.
+        """
         with self.db.connection() as conn:
-            conn.execute("DELETE FROM process WHERE name = %s", (name,))
+            cur = conn.cursor()
+            row = cur.execute(
+                "SELECT id FROM process WHERE name = %s", (name,)
+            ).fetchone()
+            if row is None:
+                # 예전 계약: 없는 것을 지워도 참이다.
+                return True
+
+            devices = [
+                dict(r)
+                for r in cur.execute(
+                    f"SELECT {_DEVICE_COLUMNS} FROM device "
+                    "WHERE process_id = %s ORDER BY id",
+                    (row["id"],),
+                ).fetchall()
+            ]
+            children, truncated = audit.capture_children(
+                cur, [d["id"] for d in devices], max_rows=audit.CHILD_ROW_CAP
+            )
+            for device in devices:
+                device["children"] = children.get(device["id"], {})
+
+            cur.execute("DELETE FROM process WHERE name = %s", (name,))
+            audit.write(
+                cur, actor, [audit.process_delete(name, devices, truncated)]
+            )
         return True
 
     def exists(self, name: str) -> bool:
@@ -64,15 +101,21 @@ class ProcessRepository:
             ).fetchone()
         return row["n"] if row else 0
 
-    def get_or_create_id(self, name: str) -> int | None:
+    def get_or_create_id(self, name: str, *, actor: str = "") -> int | None:
         """id 조회, 없으면 생성 후 반환."""
         if not name:
             return None
         with self.db.connection() as conn:
-            row = conn.execute(
+            cur = conn.cursor()
+            # xmax = 0 이면 이번에 INSERT 된 행이다. ON CONFLICT DO UPDATE 는
+            # 이미 있던 경우에도 행을 돌려주므로 이것 없이는 둘을 구분할 수
+            # 없고, process 를 고를 때마다 "process 추가" 가 쌓인다.
+            row = cur.execute(
                 "INSERT INTO process (name) VALUES (%s) "
                 "ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name "
-                "RETURNING id",
+                "RETURNING id, (xmax = 0) AS created",
                 (name,),
             ).fetchone()
+            if row and row["created"]:
+                audit.write(cur, actor, [audit.process_add(name)])
         return row["id"] if row else None

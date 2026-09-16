@@ -14,6 +14,7 @@
 import csv
 import subprocess
 import sys
+from datetime import datetime, timedelta
 
 import pytest
 from typer.testing import CliRunner
@@ -78,7 +79,7 @@ def test_importing_the_cli_does_not_load_qt():
 @pytest.mark.parametrize(
     "args",
     [["--help"], ["status", "--help"], ["processes", "--help"], ["load", "--help"],
-     ["export", "--help"]],
+     ["export", "--help"], ["log", "--help"]],
 )
 def test_help_works_and_a_korean_console_can_print_it(args):
     """배포 스크립트가 런처마다 --help 를 실제로 실행해 본다 (tools/deploy.sh).
@@ -259,11 +260,103 @@ def test_no_subcommand_opens_the_window(monkeypatch, isolated):
 
     seen = {}
 
-    def fake(dsn="", host=""):
-        seen.update(dsn=dsn, host=host)
+    def fake(dsn="", host="", history=False):
+        seen.update(dsn=dsn, host=host, history=history)
         return 0
 
     monkeypatch.setattr(gui, "run_gui", fake)
     result = runner.invoke(app, ["--dsn", "D", "--host", "H"])
     assert result.exit_code == 0
-    assert seen == {"dsn": "D", "host": "H"}
+    assert seen == {"dsn": "D", "host": "H", "history": False}
+
+
+def test_the_history_screen_is_off_unless_asked_for(monkeypatch, isolated):
+    """--history 없이 띄우면 이력 화면은 아예 만들어지지 않는다."""
+    import genviewer.main as gui
+
+    seen = {}
+    monkeypatch.setattr(
+        gui, "run_gui", lambda dsn="", host="", history=False: seen.update(h=history)
+    )
+    runner.invoke(app, ["--history"])
+    assert seen == {"h": True}
+
+
+def test_the_log_command_and_history_flag_stay_out_of_the_help(isolated):
+    """숨김의 증거. 보안 장치가 아니라 "평소에 눈에 띄지 않는다" 까지다."""
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert "--history" not in result.output
+    # 명령 목록에 log 가 없어야 한다. 다른 낱말에 섞인 log 는 세지 않는다.
+    commands = result.output.split("Commands:")[1]
+    assert not any(line.strip().startswith("log") for line in commands.splitlines())
+
+
+# --------------------------------------------------------------------------
+# DB 필요 - 이력.
+# --------------------------------------------------------------------------
+
+
+def test_log_shows_what_the_load_did(db, pg_dsn, tmp_path):
+    runner.invoke(app, ["load", _csv(tmp_path / "in.csv"), "--dsn", pg_dsn])
+
+    result = runner.invoke(app, ["log", "--dsn", pg_dsn])
+    assert result.exit_code == 0, result.output
+    assert "CSV 불러오기" in result.output
+    assert "in.csv" in result.output
+    result.output.encode("cp949")
+
+
+def test_log_on_an_untouched_database_says_so(db, pg_dsn):
+    result = runner.invoke(app, ["log", "--dsn", pg_dsn])
+    assert result.exit_code == 0, result.output
+    assert "이력이 없다" in result.output
+
+
+def test_log_filters_by_person_and_process(db, pg_dsn, tmp_path):
+    ProcessRepository(db).add("sf9z", actor="관리자")
+    runner.invoke(app, ["load", _csv(tmp_path / "in.csv"), "--dsn", pg_dsn])
+
+    mine = runner.invoke(app, ["log", "--who", "관리자", "--dsn", pg_dsn])
+    assert "sf9z" in mine.output and "in.csv" not in mine.output
+
+    theirs = runner.invoke(app, ["log", "--process", "sf9z", "--dsn", pg_dsn])
+    assert "process 추가" in theirs.output
+
+
+def test_log_can_write_a_csv(db, pg_dsn, tmp_path):
+    ProcessRepository(db).add("sf9z", actor="관리자")
+    out = tmp_path / "history.csv"
+
+    result = runner.invoke(app, ["log", "--out", str(out), "--dsn", pg_dsn])
+    assert result.exit_code == 0, result.output
+
+    with open(out, encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert rows[0][0] == "시각"
+    assert any("sf9z" in cell for cell in rows[1])
+
+
+def test_purge_needs_a_confirmation_and_then_empties_the_range(db, pg_dsn):
+    ProcessRepository(db).add("sf9z", actor="관리자")
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    # 물어보는 자리에서 아니오. 이력은 지우면 되돌릴 수 없다.
+    no = runner.invoke(
+        app, ["log", "--purge-before", tomorrow, "--dsn", pg_dsn], input="n\n"
+    )
+    assert no.exit_code != 0
+    assert "sf9z" in runner.invoke(app, ["log", "--dsn", pg_dsn]).output
+
+    yes = runner.invoke(
+        app, ["log", "--purge-before", tomorrow, "--yes", "--dsn", pg_dsn]
+    )
+    assert yes.exit_code == 0, yes.output
+    assert "지웠다" in yes.output
+    assert "이력이 없다" in runner.invoke(app, ["log", "--dsn", pg_dsn]).output
+
+
+def test_a_bad_since_is_a_usage_error(db, pg_dsn):
+    result = runner.invoke(app, ["log", "--since", "어제쯤", "--dsn", pg_dsn])
+    assert result.exit_code == 2
+    assert "시각을 못 읽겠다" in result.output

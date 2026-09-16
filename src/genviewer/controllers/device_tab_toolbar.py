@@ -3,6 +3,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.dialogs import question
 from genviewer.utils.reporting import report, report_error
+from genviewer.utils.user import current_user
 from genviewer.views.device_tab_toolbar import DeviceTabToolBar
 
 
@@ -82,7 +83,7 @@ class DeviceTabToolBarController(QObject):
     def add_process(self, name: str):
         if not self._require_repo():
             return
-        created = self.repo.add(name)
+        created = self.repo.add(name, actor=current_user())
         if not created:
             self.notifyRequested.emit(
                 "warn", "Duplicate", f"Process '{name}' already exists."
@@ -117,7 +118,7 @@ class DeviceTabToolBarController(QObject):
             return
 
         try:
-            if self.repo.delete(name):
+            if self.repo.delete(name, actor=current_user()):
                 self.notifyRequested.emit(
                     "info", "Removed", f"Process '{name}' removed."
                 )
@@ -143,7 +144,7 @@ class DeviceTabToolBarController(QObject):
         if not self._require_repo():
             return None
         try:
-            return self.repo.get_or_create_id(name)
+            return self.repo.get_or_create_id(name, actor=current_user())
         except Exception as e:
             self.notifyRequested.emit("error", "Process Lookup Failed", str(e))
             return None
