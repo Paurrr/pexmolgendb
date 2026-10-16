@@ -1,0 +1,130 @@
+# 아키텍처
+
+이 문서는 현재 구조와 경계 규칙을 담는다. phase 진행 기록은 `phases/index.json` 에 있다.
+- 문서 지도: 무엇을 → `PRD.md`, 왜 → `ADR.md`, 화면 → `UI_GUIDE.md`, 작업 규칙 → `/CLAUDE.md`, 사용자·운영 절차 → `/README.md`. 구조 제안과 알려진 문제는 `docs/notes/`(프롬프트에 주입되지 않음).
+- 이 문서는 경계와 흐름만 고정한다. 함수 시그니처 세부는 실제 코드가 기준이다.
+
+## 한눈에 보기
+```
+RHEL 8 데스크톱 / Windows 개발 PC                         RHEL 7 서버
+┌──────────────────────────────────────┐                ┌───────────────────────┐
+│ genviewer (GUI, PySide6)             │   psycopg      │ PostgreSQL 15 (:55433)│
+│ genviewer <cmd> (CLI, typer)         │ ─────────────→ │  db molgen            │
+│   service/ (Qt-free) ── pool ────────┼── libpq 번들 ──│  role molgen_app (DML)│
+└──────────────┬───────────────────────┘                │  role molgen_owner(DDL)│
+               │ TCP (4바이트 길이 + UTF-8)              │ init_db (Py 3.9, 소스) │
+               ↓                                        └───────────────────────┘
+        Cadence Virtuoso SKILL 세션
+```
+- 서버 장비에서 도는 우리 프로그램은 없다. 동시 편집은 `device.version` 낙관적 잠금이 처리한다.
+- 접속 설정은 `genviewer.env`(libpq 키) 하나. 배포는 `tools/deploy.sh` 가 git 태그를 `<ROOT>/{src,venv,bin}` 에 설치한다.
+
+## 디렉토리 구조
+```
+src/genviewer/
+  __main__.py  cli.py       # 진입점. typer 앱, 서브커맨드 없으면 main.run_gui (함수 안 lazy import)
+  main.py                   # Qt 부팅, Fusion + 테마, 마지막 예외 그물(sys/threading excepthook), audit source "gui"
+  config/                   # tab_config.json(탭 = CSV 컬럼 = 테이블), delegate_config.json(값 후보·검증), config.py 로더
+  service/                  # Qt-free. 테스트가 GUI 없이 돈다
+    config.py               #   DbConfig(frozen), resolve_dsn/load_config: --dsn > GENDB_PG_DSN > 설정 파일 > PG*
+    env_file.py             #   genviewer.env 찾기(파일 하나만)·파싱·권한 검사·os.environ.setdefault
+    pool.py                 #   Database: psycopg_pool.ConnectionPool(open=False, dict_row, lock/statement timeout)
+    errors.py               #   Conflict, StaleWriteError, DbUnavailableError, user_message(SQLSTATE → 한국어)
+    schema.py               #   tab_config → DDL, TABLE_COLUMNS 허용 목록 (Python 3.9 호환)
+    diagnostics.py          #   --check-config / status 진단 (값 노출 없이)
+    virtuoso_protocol.py    #   Virtuoso 메시지 파싱·명령 문자열 (순수 함수)
+    repo/                   #   쿼리. 호출 하나 = 트랜잭션 하나
+      device.py             #     목록, etag, upsert_devices(잠금·preflight·DML·audit)
+      parameter.py          #     탭 행 읽기, replace_many_for_device(버전 확인 후 통째 교체)
+      process.py            #     process 목록·추가·삭제·get_or_create
+      io.py                 #     CSV import(pandas), export 데이터
+      audit.py              #     change_log 쓰기(호출자의 cursor)·읽기·포맷·purge
+  scripts/                  # 관리 도구 (argparse). init_db(스키마·role·권한), import_sqlite(.sqlite 이관)
+  models/                   # QAbstractTableModel: device_table(dirty·undo), generic_table(탭), device_state, parameter_summary, sorting_proxy
+  views/                    # QWidget. 위젯을 만들고 의도 시그널을 낸다. main_window, device_tab, device_table, parameter_tab, tab_section, history_tab, socket_tab …
+  controllers/              # QObject. view 시그널 ↔ repo 호출. main_window, device_tab(접속·폴링), device_table(저장·충돌), parameter_tab, tab_section(device별 모델 캐시), device_tab_toolbar, history_tab, socket_tab
+  dialogs/                  # conflict(다시 읽기/덮어쓰기/취소), connection(Connect…), insert, tab_selector
+  delegates/combo_box.py    # delegate_config 기반 콤보
+  net/                      # Virtuoso 소켓: client(Client), workers(Connect/Receive/Send QThread), controller(ConnectionController)
+  utils/                    # background(run_blocking, Task, is_busy), logs(파일 로그, scrub), reporting(report 데코레이터),
+                            # exporter(csv/xlsx), lisp(SKILL 리스트), validators, user(current_user), palette, dialogs, menus …
+tools/                      # initdb.sh(클러스터 생성·기동), deploy.sh(태그 설치·런처)
+tests/                      # pytest. conftest: pg_dsn/db fixture (GENDB_TEST_PG_DSN)
+scripts/                    # 하네스 execute.py (+ test_execute.py). 앱 코드가 아니다 (ruff 제외)
+phases/                     # 하네스 step 파일
+docs/                       # 이 문서들. notes/ 는 주입 제외
+```
+
+## 레이어 (위 → 아래로만 import)
+| 티어 | 패키지 | import 해도 되는 것 |
+|---|---|---|
+| 0 | `config/`, `utils/user.py`, `utils/logs.py`, `utils/validators.py`, `utils/lisp.py` | stdlib |
+| 1 | `service/`, `service/repo/` | 티어 0, psycopg, psycopg_pool, pandas(`repo/io.py`) |
+| 1 | `scripts/` | `service.schema`, `config`, `utils.user`, psycopg(함수 안) |
+| 2 | `cli.py`, `utils/exporter.py` | 티어 0·1. **PySide6 금지** (`cli.py` 는 `run_gui` 안에서만 `genviewer.main`) |
+| 3 | `models/`, `delegates/`, `views/`, `dialogs/`, `net/`, Qt `utils/*`(background, dialogs, file_dialogs, menus, palette, table_utils), `utils/reporting.py`(Qt 없음, `service.errors` 사용) | 아래 티어 전부, PySide6 |
+| 4 | `controllers/`, `main.py` | 전부 |
+
+- models는 `utils.validators` 만 안다. `net/` 은 자기 안에서 닫혀 있다.
+- 강제: 아직 자동 가드 테스트가 없다. `tests/test_cli.py` 가 `genviewer.main` import 스모크를 하는 정도다. Qt 금지 구역과 Python 3.9 호환은 리뷰(`/review`)로 지킨다. 가드 테스트 제안은 `docs/notes/architecture-proposal.md` P1.
+
+### 현재 어긋난 곳 (따라 하지 않는다)
+- `dialogs/connection.py` 가 `service.pool.Database` 를 직접 만들어 ping한다(view 쪽에서 서비스 호출).
+- `MainWindowController`·`DeviceTabController`·`DeviceTableController` 가 다른 컴포넌트의 private 멤버를 부른다(`_open_connect`, `_clear_tabs`, `_selected_source_rows`, `_map_to_source_row` 등).
+- `utils/reporting.py` 가 `service.errors` 를 import한다(utils → service 역방향).
+- 모델 소유가 섞여 있다. 어떤 view는 자기 모델을 만들고, `TabSectionController`·`HistoryTabController` 는 controller가 만든다.
+
+## 데이터 흐름
+
+**접속 설정** (`service/config.py`, `env_file.py`)
+```
+--dsn / Connect 창 ─┐
+GENDB_PG_DSN ───────┴→ 있으면 그대로 사용 (설정 파일은 읽지 않는다)
+없으면 → env_file.load(GENDB_CONFIG)
+          GENDB_CONFIG 가 있으면 그 파일만, 없으면 ~/.genviewer.env → sys.prefix/genviewer.env
+          → sys.prefix.parent/genviewer.env(배포 루트) → 체크아웃 루트(pyproject.toml 있을 때)
+          처음 찾은 비어 있지 않은 파일 하나만 읽어 os.environ.setdefault (이미 있는 환경변수가 이긴다)
+       → GENDB_PG_DSN 이 생겼으면 그것, PG* 가 있으면 "" (libpq 가 환경변수로 조립), 없으면 찾아본 경로를 담아 RuntimeError
+```
+- 배포 런처는 지금 `GENDB_CONFIG=<ROOT>/genviewer.env` 를 항상 넘긴다. 그래서 배포본에서는 개인 파일이 읽히지 않는다(phase `1-deploy-fixes` step 0에서 고친다).
+
+**풀** (`service/pool.py`): `ConnectionPool(min 1, max 4, open=False, check=check_connection)`. 접속 옵션 `-c lock_timeout=5000 -c statement_timeout=15000`(의도된 값, ADR-008), `connect_timeout=5`, `application_name=genviewer:<user>`. `Database.connection()` 하나가 트랜잭션 하나(정상 종료 commit, 예외 rollback).
+
+**device 저장** (`repo/device.py: upsert_devices`, 한 트랜잭션)
+```
+pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit before 값)
+→ _preflight: version 불일치/사라진 행 → StaleWriteError (force 면 건너뜀)
+→ 지울 device 의 자식 행 캡처 → DELETE (process_id 가드)
+→ UPDATE … FROM VALUES (version 가드 + IS DISTINCT FROM, version+1) → INSERT
+→ audit.write(cur, …)  (값이 실제로 바뀐 행만)
+```
+- 탭 저장(`repo/parameter.py: replace_many_for_device`): `FOR UPDATE OF d` → `expected_version` 비교 → 테이블마다 DELETE … RETURNING + INSERT → `device.version+1` → audit.
+- GUI 쪽: 모델이 dirty·baseline을 들고 있다. 컨트롤러가 `run_blocking` 으로 repo를 부르고, `StaleWriteError` 면 `dialogs/conflict.ask_conflict` 로 RELOAD / OVERWRITE(force) / CANCEL을 묻는다.
+
+**변경 감지**: `DeviceTabController` 의 10초 `QTimer` → `Task(repo.etag(process_id))` → 기억한 etag와 다르면 배너. 연속 3회 실패하면 멈추고, 다시 접속하면 되살아난다. 자동으로 다시 읽지 않는다. History 화면도 10초마다 `Task` 로 다시 읽고, 줄을 고르면 멈춘다.
+
+**스키마**: `tab_config.json` 의 탭마다 자식 테이블 하나(`id IDENTITY`, `device_id … ON DELETE CASCADE`, payload `TEXT NOT NULL DEFAULT ''`, `(device_id, id)` 인덱스). 고정 테이블 `process`, `device`(version, updated_at, updated_by), `change_log`(FK 없음, JSONB detail). 전부 `CREATE … IF NOT EXISTS` 라 `init_db` 는 여러 번 돌려도 된다. 같은 원본이 `TABLE_COLUMNS`, 화면 탭(`views/parameter_tab.py`), CSV import(`parse`, `row_per_token`), export, `diagnostics.expected_tables`(17개)를 만든다.
+
+**권한** (`scripts/init_db.py`): `SET ROLE <owner>` 후 DDL → `GRANT USAGE ON SCHEMA public`, `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES` → `ALTER DEFAULT PRIVILEGES`(새 탭 테이블도 자동). 시퀀스 권한은 IDENTITY라 필요 없다.
+
+## 스레딩
+- `utils/background.run_blocking(fn, parent)`: `Task`(QThread)에서 fn을 돌리고 GUI 스레드는 `processEvents(ExcludeUserInputEvents)` 로 돌면서 대기 커서를 띄운다. 예외는 호출 지점에서 다시 난다. 접속·저장·CSV 불러오기·연결 테스트가 이것을 쓴다.
+- `Task` 단독(비동기): 변경 감지 폴링, History 다시 읽기. `done`/`failed` 시그널은 GUI 스레드에서 받는다.
+- 아직 GUI 스레드에서 동기로 도는 DB 호출이 있다(process 목록·추가·삭제, 탭 로드, 복사·붙여넣기, export). 새 코드는 이 패턴을 따르지 않는다.
+- psycopg 커넥션은 스레드끼리 공유하지 않는다(풀에서 호출마다 꺼낸다).
+- `net/` 은 QThread 워커 셋(Connect/Receive/Send)이 `Client` 소켓 하나를 쓴다.
+
+## 배포 구조
+```
+<ROOT>/genviewer.env   접속 설정 (640, 배포가 덮지 않음, a+rX 대상에서 제외)
+<ROOT>/src             태그에 detach 된 체크아웃
+<ROOT>/venv            uv sync --no-dev --no-editable (코드는 site-packages 사본에서 돈다)
+<ROOT>/bin             런처: venv 인터프리터에 콘솔 스크립트를 넘긴다 (shebang 127바이트 제한 회피)
+```
+
+## 용어
+- **process**: molgen의 공정/라이브러리 단위(`CdsLibName`). device를 묶는다.
+- **device**: CSV 한 행. 이름은 표시용이고 중복될 수 있으며, 식별은 `id` 로 한다.
+- **탭 / 자식 테이블**: CSV 컬럼 하나. device마다 여러 행.
+- **etag**: process 하나의 device 상태 요약 `count(*)`, `sum(version)`, `max(updated_at)`(+ 표시용 `who`). 셋 중 하나라도 다르면 누군가 바꾼 것이다. 변경 감지에 쓴다(LISTEN/NOTIFY 대신, `repo/device.py` docstring).
+- **actor**: 이력에 남는 사람 이름(`GENDB_APP_USER` 또는 OS 로그인).
