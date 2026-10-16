@@ -1,0 +1,10 @@
+{
+  "project": "genviewer",
+  "phase": "0-service-fixes",
+  "steps": [
+    { "step": 0, "name": "pool-acquire", "status": "pending" },
+    { "step": 1, "name": "env-file-bom", "status": "pending" },
+    { "step": 2, "name": "cli-oserror", "status": "pending" },
+    { "step": 3, "name": "log-dir-chmod", "status": "pending" }
+  ]
+}

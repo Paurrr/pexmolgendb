@@ -1,0 +1,10 @@
+{
+  "project": "genviewer",
+  "phase": "1-deploy-fixes",
+  "steps": [
+    { "step": 0, "name": "launcher-config", "status": "pending" },
+    { "step": 1, "name": "deploy-locked", "status": "pending" },
+    { "step": 2, "name": "deploy-python-perms", "status": "pending" },
+    { "step": 3, "name": "initdb-rerun", "status": "pending" }
+  ]
+}

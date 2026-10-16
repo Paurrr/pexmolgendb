@@ -1,0 +1,14 @@
+{
+  "project": "genviewer",
+  "phase": "3-gui-save-fixes",
+  "steps": [
+    { "step": 0, "name": "device-save-result", "status": "pending" },
+    { "step": 1, "name": "tab-save-result", "status": "pending" },
+    { "step": 2, "name": "save-entry-points", "status": "pending" },
+    { "step": 3, "name": "device-switch-save", "status": "pending" },
+    { "step": 4, "name": "process-list-refresh", "status": "pending" },
+    { "step": 5, "name": "process-change-save", "status": "pending" },
+    { "step": 6, "name": "tab-version-sync", "status": "pending" },
+    { "step": 7, "name": "device-save-guards", "status": "pending" }
+  ]
+}

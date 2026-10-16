@@ -1,0 +1,24 @@
+{
+  "phases": [
+    {
+      "dir": "0-service-fixes",
+      "status": "pending"
+    },
+    {
+      "dir": "1-deploy-fixes",
+      "status": "pending"
+    },
+    {
+      "dir": "2-gui-test-infra",
+      "status": "pending"
+    },
+    {
+      "dir": "3-gui-save-fixes",
+      "status": "pending"
+    },
+    {
+      "dir": "4-gui-robustness",
+      "status": "pending"
+    }
+  ]
+}

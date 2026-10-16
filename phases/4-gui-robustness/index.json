@@ -1,0 +1,13 @@
+{
+  "project": "genviewer",
+  "phase": "4-gui-robustness",
+  "steps": [
+    { "step": 0, "name": "tab-section-load", "status": "pending" },
+    { "step": 1, "name": "tab-section-view", "status": "pending" },
+    { "step": 2, "name": "parameter-add-tab", "status": "pending" },
+    { "step": 3, "name": "device-sort", "status": "pending" },
+    { "step": 4, "name": "connect-db", "status": "pending" },
+    { "step": 5, "name": "window-guards", "status": "pending" },
+    { "step": 6, "name": "socket-workers", "status": "pending" }
+  ]
+}

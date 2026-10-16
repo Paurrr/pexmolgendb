@@ -1,0 +1,9 @@
+{
+  "project": "genviewer",
+  "phase": "2-gui-test-infra",
+  "steps": [
+    { "step": 0, "name": "pytest-qt-setup", "status": "pending" },
+    { "step": 1, "name": "fake-repos", "status": "pending" },
+    { "step": 2, "name": "controller-fixtures", "status": "pending" }
+  ]
+}
