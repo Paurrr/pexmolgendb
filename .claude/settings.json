@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./genviewer.env)",
+      "Read(./.env)",
+      "Edit(./genviewer.env)",
+      "Edit(./.env)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "input=$(cat); if printf '%s' \"$input\" | grep -qE '\"stop_hook_active\"[[:space:]]*:[[:space:]]*true'; then exit 0; fi; out=$( { uv run ruff check src tests && uv run pytest -q -x; } 2>&1 ); if [ $? -ne 0 ]; then printf '%s\\n' \"$out\" | tail -25 >&2; exit 2; fi"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "input=$(cat); if printf '%s' \"$input\" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*r[a-zA-Z]*f|rm[[:space:]]+-[a-zA-Z]*f[a-zA-Z]*r|git[[:space:]]+push[[:space:]].*(--force|-f([^a-zA-Z-]|$))|git[[:space:]]+reset[[:space:]]+--hard|git[[:space:]]+clean[[:space:]]+-[a-zA-Z]*f|DROP[[:space:]]+TABLE|Remove-Item.*-Recurse.*-Force|Remove-Item.*-Force.*-Recurse'; then echo 'BLOCKED: 위험한 명령어가 감지되었습니다. 파일 삭제는 git rm 또는 Python pathlib/shutil 코드로 하라.' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -40,6 +40,9 @@ packages = ["src/genviewer"]
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+# scripts/ 는 하네스(execute.py, pexqa 와 같은 사본), phases/ 는 step 문서다.
+# 앱 코드가 아니라서 이 규칙을 맞추지 않는다.
+extend-exclude = ["scripts", "phases"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
