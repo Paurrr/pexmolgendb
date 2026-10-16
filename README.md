@@ -7,6 +7,18 @@
 다니지 않는다. 앱은 **데스크톱(RHEL 8 / 윈도우)에서** 돌고, 서버 장비에서
 실행하는 것은 아무것도 없다.
 
+## 문서
+
+| | |
+|---|---|
+| 이 파일 | 쓰는 법, 설치·배포·서버 절차 |
+| [`docs/PRD.md`](docs/PRD.md) | 무엇을 하는 도구이고 무엇을 하지 않는가 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 패키지 구조, 레이어, 저장·설정·스레딩 흐름 |
+| [`docs/ADR.md`](docs/ADR.md) | 왜 이렇게 했는가 (공유 PG, PySide6 고정, 낙관적 잠금 …) |
+| [`docs/UI_GUIDE.md`](docs/UI_GUIDE.md) | 화면 관례 (버그를 고칠 때 깨지 않도록) |
+| [`docs/notes/`](docs/notes/) | 구조 개선 제안, 고치지 않고 기록만 한 알려진 문제 |
+| [`CLAUDE.md`](CLAUDE.md) | 코드를 고칠 때의 규칙 (사람과 Claude 공통) |
+
 ## 준비
 
 ```sh
@@ -27,7 +39,10 @@ uv run genviewer
 ```
 
 형식은 `.env` 다. **키 이름은 libpq 그대로** 라서 새로 외울 것이 없고, 여기 없는
-키(`PGSSLMODE`, `PGCONNECT_TIMEOUT` 등)도 그대로 넘어간다.
+키(`PGSSLMODE`, `PGSERVICE` 등)도 그대로 넘어간다. 다만 앱이 직접 정하는
+`connect_timeout`·`options`·`application_name` 은 덮어쓰므로 `PGCONNECT_TIMEOUT`·
+`PGOPTIONS`·`PGAPPNAME` 은 먹지 않는다. 타임아웃은 `GENDB_PG_*`(아래 '환경변수')로
+바꾼다.
 
 ```sh
 PGHOST=10.1.2.3
@@ -52,6 +67,13 @@ PGPASSWORD=...
 | 3 | `GENDB_CONFIG` 가 가리키는 파일 | 직접 지정. **주면 그것만 본다** |
 | 4 | `~/.genviewer.env` | **개인.** 공용 값을 덮어쓴다 |
 | 5 | `<배포 디렉터리>/genviewer.env` | **전원 공통.** 한 사람이 관리한다 |
+
+- 1·2 에서 접속 정보(`--dsn`, `GENDB_PG_DSN`)가 정해지면 **설정 파일은 아예 읽지 않는다.**
+- "덮어쓴다" 는 파일 단위다. `~/.genviewer.env` 가 있으면 공용 파일은 통째로 안 읽힌다.
+  키 단위로 섞지 않는다.
+- **현재 배포본(`tools/deploy.sh` 의 런처)은 3번 `GENDB_CONFIG` 를 항상 공용 파일로
+  고정해서 넘긴다.** 그래서 배포본에서는 4번 개인 파일이 읽히지 않는다. 이 표대로
+  동작하게 고치는 작업이 `phases/1-deploy-fixes` 에 있다.
 
 무엇이 읽혔는지는 값 노출 없이 확인할 수 있다. 접속이 안 될 때 첫 번째로 볼 것:
 
@@ -95,6 +117,12 @@ uv run genviewer --dsn "postgresql://molgen_app@<서버IP>:55433/molgen"
 메뉴의 **Database → Connect...** 도 같다. 그 창의 값은 **저장되지 않고 이번
 접속에만 쓰인다** — 계속 쓸 값은 `genviewer.env` 에 적는다.
 
+`--dsn` 을 주면 `genviewer.env` 를 읽지 않으므로 거기 적힌 `PGPASSWORD` 도 쓰이지
+않는다. 비밀번호는 `~/.pgpass` 나 그 실행에만 준 `PGPASSWORD` 환경변수로 준다.
+(예외로 `status` 와 `--check-config` 는 진단을 위해 파일을 먼저 읽는다. 그래서 같은
+`--dsn` 이라도 `status` 는 붙고 다른 명령은 비밀번호가 없다고 할 수 있다 —
+`docs/notes/known-issues.md` K1.)
+
 `127.0.0.1` 은 **그 앱이 도는 장비 자신**이다. 데스크톱에서 서버에 붙으려면 서버
 주소를 적어야 한다. 내 PC 의 개발 클러스터에 붙을 때만 `127.0.0.1` 이다.
 
@@ -130,7 +158,7 @@ $ genviewer status
 로그 파일: /home/pdh99/.genviewer/genviewer.log  (GENDB_LOG 로 바꿀 수 있다)
 접속 대상: host=10.1.2.3 port=55433 dbname=molgen user=molgen_app
 접속: 됨 (0.04초)
-서버: PostgreSQL 16.2
+서버: PostgreSQL 15.10
 계정: molgen_app@molgen
 스키마: 테이블 17개 모두 있음
 내용: process 2개, device 128개
@@ -140,7 +168,8 @@ $ genviewer status
 낙관적 잠금과 충돌 해결이 얽혀 있어서 명령줄로 흉내 내면 둘 중 하나는 거짓말이
 된다.
 
-- `--dsn` 은 어디에나 붙는다: `genviewer status --dsn "postgresql://..."`.
+- `--dsn` 은 어디에나 붙는다: `genviewer status --dsn "postgresql://..."`. 이때는
+  `genviewer.env` 를 읽지 않는다(위 '일회성으로 다른 데 붙기').
 - `load` 는 **넣을 때마다 쌓인다.** 같은 파일을 두 번 넣으면 device 가 두 배가
   된다(아래 'CSV 컬럼과 탭'). 그래서 몇 개를 새로 만들었는지 항상 찍는다. 큰
   파일을 위해 `statement_timeout` 을 풀고 도는데, 직접 정해 뒀으면 그 값을 따른다.
@@ -245,6 +274,11 @@ DEPLOY_LINK_DIR=/usr/local/bin ./tools/deploy.sh /opt/genviewer v0.3.0
 - `uv sync --frozen --no-editable` 이라 `uv.lock` 이 그대로 재현되고, **코드는
   site-packages 의 복사본에서 돈다.** `src` 를 고쳐도 아무의 앱도 바뀌지 않는다 —
   버전을 안 올리고 내용만 바뀌는 일이 없어야 태그에 고정한 의미가 있다.
+  - 주의: `--frozen` 은 `pyproject.toml` 과 `uv.lock` 이 맞는지 **검사하지 않는다**
+    (스크립트 주석과 달리). 태그를 달기 전에 `uv lock --check` 로 확인한다. 배포가
+    직접 막도록 `--locked` 로 바꾸는 작업이 `phases/1-deploy-fixes` 에 있다.
+- 저장소 URL 에 토큰을 넣지 않는다. 트리를 `a+rX` 로 열기 때문에 `src/.git/config` 를
+  모두가 읽는다.
 - `genviewer.env` 가 없으면 예시에서 심고 `640` 으로 둔다. **있으면 절대 덮지
   않는다.** 트리는 `a+rX` 로 열지만 이 파일만은 제외한다 — 거기엔 비밀번호가 있고,
   아무나 읽게 되면 앱이 스스로 실행을 거부한다.
@@ -254,7 +288,10 @@ DEPLOY_LINK_DIR=/usr/local/bin ./tools/deploy.sh /opt/genviewer v0.3.0
 - venv 인터프리터가 **배포한 사람 홈 안**이면 경고한다. uv 가 관리하는 CPython 을
   쓰면 그렇게 되는데, 그러면 배포한 사람만 실행되고 나머지는 `Permission denied` 를
   본다. `UV_PYTHON_INSTALL_DIR=<루트>/python uv python install 3.13` 으로 파이썬을
-  루트 안에 두고 `DEPLOY_PYTHON` 으로 그것을 가리켜 다시 돌린다.
+  루트 안에 두고 `DEPLOY_PYTHON` 으로 그것을 가리켜 다시 돌린다. 지금 스크립트는
+  `<루트>/python` 을 `a+rX` 로 열지 않으므로, umask 가 027 같은 곳이면 한 번
+  `chmod -R a+rX <루트>/python` 을 직접 한다(스크립트가 하도록 고치는 작업이
+  `phases/1-deploy-fixes` 에 있다).
 
 **설치 중에는 앱을 띄우지 않는 편이 좋다.** 교체가 제자리에서 일어나므로 그 사이에
 실행하면 반쯤 바뀐 트리를 볼 수 있다(파이썬이 모듈을 그때그때 import 한다).
@@ -321,11 +358,19 @@ DDL 이 제약 이름을 카탈로그에서 찾아 떼어내므로 손으로 만
 
 ```sh
 # 무엇이 들어갈지 먼저 본다
-uv run genviewer-import-sqlite --sqlite mine.sqlite --dry-run
+uv run genviewer-import-sqlite --sqlite mine.sqlite --dsn "$GENDB_PG_DSN" --dry-run
 
 # 여러 사람 파일을 각자 이름으로 구분해서 넣는다 (초기 대량 이관에 권장)
-uv run genviewer-import-sqlite --sqlite mine.sqlite --on-conflict rename
+uv run genviewer-import-sqlite --sqlite mine.sqlite --dsn "$GENDB_PG_DSN" --on-conflict rename
 ```
+
+이 도구는 `genviewer.env` 를 읽지 않는다. `--dsn` 이나 `GENDB_PG_DSN` 이 **반드시**
+있어야 하고(`--dry-run` 도 마찬가지), 없으면 사용법 오류로 끝난다. `genviewer-init-db`
+도 `genviewer.env` 를 읽지 않는다(그쪽은 `--dry-run` 만 DSN 없이 된다).
+
+**아무도 편집하지 않을 때 돌린다.** `--on-conflict merge` 는 device 의 `version` 을
+올리지 않고 `change_log` 도 쓰지 않아서, 그 사이 열려 있던 창은 바뀐 것을 모른 채
+나중에 저장하며 덮어쓸 수 있다(`docs/notes/known-issues.md` K4).
 
 `--on-conflict` 는 같은 이름의 **process** 가 이미 있을 때의 정책이다.
 `fail`(기본) / `rename` / `merge` / `skip`.
@@ -397,7 +442,13 @@ src/genviewer/
   scripts/       관리 도구 (init_db, import_sqlite)
 tools/           initdb.sh(서버 클러스터), deploy.sh(배포)
 tests/
+docs/            PRD / ARCHITECTURE / ADR / UI_GUIDE, notes/(제안·알려진 문제)
+phases/          하네스 step 파일 (아래 '유지보수')
+scripts/         하네스 실행기 execute.py — 위의 src/genviewer/scripts/ 와 다르다
 ```
+
+레이어 규칙(어디서 Qt 를 import 하면 안 되는지 등)은 `docs/ARCHITECTURE.md` 와
+`CLAUDE.md` 에 있다.
 
 ### 개발 클러스터 (한 번만)
 
@@ -413,6 +464,12 @@ SKIP_START=1 PGBIN="/c/Program Files/PostgreSQL/18/bin" ./tools/initdb.sh
 ```
 
 `PostgreSQL/18` 은 개발 PC 에 깔린 경로일 뿐 요구 버전이 아니다.
+
+`SKIP_START=1` 로 처음 돌리면 클러스터는 만들어지지만 서버가 아직 안 떠 있어서
+마지막 `createdb` 가 "실패" 로 끝난다. 서버를 띄운 뒤 **같은 명령을 한 번 더**
+돌리면 initdb 는 건너뛰고 데이터베이스만 만든다. 리눅스에서 이미 떠 있는 클러스터에
+다시 돌리면 `pg_ctl start` 에서 멈춘다 — 그때는 `pg_ctl stop` 뒤에 돌린다(고치는
+작업이 `phases/1-deploy-fixes` 에 있다).
 
 ```sh
 uv run genviewer-init-db --dry-run        # 접속하지 않고 실행될 SQL 만 본다
@@ -430,6 +487,52 @@ uv run pytest                     # DB 필요한 테스트는 skip 된다
 # CREATE ROLE 까지 한다 (못 하면 그 테스트만 skip 된다).
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
+
+DB 없이 돌리면 지금 기준 Git Bash 에서 99 passed / 86 skipped 다(`sh` 가 없는
+PowerShell 에서는 deploy.sh 테스트까지 skip 되어 88 / 97). skip 되는 DB 테스트가
+저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
+
+`uv run pytest` 가 `uv trampoline failed to canonicalize script path` 로 죽으면 venv 를
+만든 뒤 디렉터리 이름이 바뀐 것이다(예전 이름 `molgenviewer`). `uv sync --reinstall`
+로 실행 파일을 다시 만든다.
+
+## 유지보수 (하네스)
+
+이 저장소는 이미 쓰고 있는 도구라 **기능 추가가 아니라 에러·버그만 고친다.** 고칠
+일은 `phases/` 아래 step 파일로 적고, 각 step 을 새 Claude 세션이 하나씩 실행한다.
+형식과 규칙은 `.claude/commands/harness.md`(Claude Code 에서 `/harness`)에 있고,
+형제 저장소 `pexqa` 와 같은 하네스다.
+
+```sh
+git status                                          # 깨끗해야 한다 (step 마다 git add -A 로 커밋한다)
+uv run python -X utf8 scripts/execute.py 0-service-fixes   # feat-0-service-fixes 브랜치에서 순서대로
+```
+
+- `-X utf8` 은 빼지 않는다. 한국어 윈도우 콘솔(cp949)에서 진행 표시 기호가 깨진다.
+- 각 step 은 **실패하는 테스트로 버그를 먼저 재현**하고 고친다. 재현되지 않으면
+  고치지 않고 summary 에 `not reproduced` 라고 남긴다.
+- 진행 상황은 `phases/index.json` 과 `phases/<phase>/index.json`. step 이 `error` 나
+  `blocked`(예: DB 테스트용 `GENDB_TEST_PG_DSN` 이 필요함) 로 멈추면 사유를 해결하고
+  그 step 의 `status` 를 `pending` 으로 되돌린 뒤 다시 돌린다.
+- phase 가 끝나면 Claude Code 에서 `/review` 로 그 브랜치를 점검하고, main 에 합친 뒤
+  다음 phase 를 돌린다.
+- Claude Code 세션이 끝날 때마다 `ruff check src tests && pytest -q -x` 가 돈다
+  (`.claude/settings.json` 의 Stop 훅). `rm -rf`, `git push --force`, `git reset --hard`,
+  `DROP TABLE` 등은 PreToolUse 훅이 막는다.
+
+| phase | 내용 |
+|---|---|
+| `0-service-fixes` | 접속 실패 문구, BOM 있는 설정 파일, 윈도우의 잘못된 파일 이름, 로그 디렉터리 권한 |
+| `1-deploy-fixes` | 배포본의 개인 설정 파일, `uv sync --locked`, `<ROOT>/python` 권한, initdb.sh 재실행 |
+| `2-gui-test-infra` | pytest-qt, 가짜 repo, controller fixture (GUI 테스트 기반, 코드 불변) |
+| `3-gui-save-fixes` | 저장 안 되는 탭, 취소가 취소되지 않음, 내 저장에 내가 충돌, process 전환 시 편집 손실 |
+| `4-gui-robustness` | 탭 로드 실패, 정렬, 재접속, 창 닫기 확인, Virtuoso 소켓 워커 |
+
+## 알려진 문제
+
+고치지 않고 기록만 한 것(위험이 낮거나, 고치면 동작이 바뀌거나, 기능 추가인 것)은
+[`docs/notes/known-issues.md`](docs/notes/known-issues.md) 에 있다. 구조 개선 제안은
+[`docs/notes/architecture-proposal.md`](docs/notes/architecture-proposal.md).
 
 ## 환경변수
 
@@ -480,16 +583,31 @@ genviewer:  클라이언트 ──────── psycopg ──────�
 | 4 | `init_db` — 스키마와 권한 | 서버 **또는** 데스크톱, psycopg |
 
 4번은 네트워크로 붙으므로 데스크톱에서 돌려도 된다. 다만 슈퍼유저는 비밀번호가
-없어서(아래) 원격 접속이 안 되니, 그러려면 소유자 role 에 `--createdb` 와
-비밀번호를 줘야 한다. **서버에서 돌리는 쪽이 단순하다.**
+없어서(아래) 원격 접속이 안 되니, 그러려면 소유자 role 에 비밀번호를 주고 pg_hba
+에서 그 role 의 원격 접속도 열어야 한다(아래 예처럼 `PGHBA_USER=molgen_app` 으로
+좁히면 막힌다. `--create-database` 까지 쓸 때만 `--createdb` 가 필요하다).
+**서버에서 돌리는 쪽이 단순하다.**
 
-서버 파이썬이 3.9 여도 된다. 이 도구들은 GUI 를 import 하지 않고 의존성이
-psycopg 하나뿐이라, 패키지를 설치하지 않고 소스에서 바로 돌린다:
+서버 파이썬은 **3.9 이상**이면 된다(RHEL 7 에는 3.13 이 없다). 이 도구들은 GUI 를
+import 하지 않고 의존성이 psycopg 하나뿐이라, 패키지를 설치하지 않고 소스에서 바로
+돌린다. 4번은 `postgres` 계정으로 돌리므로 세 가지를 맞춘다:
 
 ```sh
-pip install "psycopg[binary]"
-PYTHONPATH=src python3.9 -m genviewer.scripts.init_db --dry-run
+# 1) postgres 가 읽을 수 있는 곳에 체크아웃한다. 내 홈(0700) 안이면 sudo -u postgres 가 못 읽는다.
+git clone <저장소 URL> /tmp/gendb-init && cd /tmp/gendb-init
+
+# 2) psycopg 를 postgres 의 사용자 site-packages 에 깐다. 내 계정으로 pip install 하면
+#    ~/.local 에 들어가서 postgres 에게는 보이지 않는다.
+#    3.9 에서는 pip 가 psycopg 3.2.x 를 고른다(3.3 은 3.10 이상). 코드는 3.2 이상이면 된다.
+sudo -u postgres python3.9 -m pip install --user "psycopg[binary]>=3.2,<3.3"
+
+# 3) PYTHONPATH 는 절대경로로 준다.
+sudo -u postgres env PYTHONPATH="$PWD/src" python3.9 -m genviewer.scripts.init_db --dry-run
 ```
+
+이 3.9 호환을 지키는 자동 테스트는 아직 없다. `init_db` 가 닿는 모듈
+(`scripts/init_db.py`, `service/schema.py`, `config/config.py`)을 고칠 때는 `CLAUDE.md`
+의 규칙을 본다.
 
 ### 1. 클러스터
 
@@ -527,7 +645,7 @@ root 로 따로 해야 하는 것 (스크립트는 sudo 를 쓰지 않는다):
 | | |
 |---|---|
 | 방화벽 | `firewall-cmd --permanent --add-port=55433/tcp` 후 `firewall-cmd --reload`. 막혀 있으면 **서버 로그에 아무것도 안 남고** 클라이언트만 타임아웃된다 |
-| 재부팅 생존 | `systemctl enable --now postgresql-15`. `pg_ctl` 로 띄운 것은 재부팅하면 안 올라온다. 유닛은 `-p` 인자를 주지 않으므로 포트가 `postgresql.conf` 에 있어야 하는데, `initdb.sh` 가 적어 둔다 |
+| 재부팅 생존 | 먼저 `sudo -u postgres /usr/pgsql-15/bin/pg_ctl -D /var/lib/pgsql/15/data stop` 으로 `initdb.sh` 가 띄운 서버를 내린 뒤 `systemctl enable --now postgresql-15`. 내리지 않으면 같은 PGDATA 의 `postmaster.pid` 때문에 유닛 기동이 실패한다. `pg_ctl` 로 띄운 것은 재부팅하면 안 올라온다. 유닛은 `-p` 인자를 주지 않으므로 포트가 `postgresql.conf` 에 있어야 하는데, `initdb.sh` 가 적어 둔다 |
 | SELinux | 기본 PGDATA 를 쓰면 해당 없음. `getenforce` 로 먼저 확인할 것. 증상은 퍼미션이 멀쩡한데 나는 `Permission denied` 이고 증거는 `ausearch -m avc -ts recent` 에만 있다. 옮겨야 한다면 `semanage fcontext -a -t postgresql_db_t "<PGDATA>(/.*)?"` 후 `restorecon -R` |
 
 ### 2-4. role 두 개와 스키마
@@ -553,7 +671,7 @@ sudo -u postgres /usr/pgsql-15/bin/psql -p 55433 \
     -c 'ALTER DATABASE molgen OWNER TO molgen_owner'
 
 # 4. 스키마(테이블) + 권한. --dry-run 으로 먼저 볼 것.
-sudo -u postgres env PYTHONPATH=src python3.9 -m genviewer.scripts.init_db \
+sudo -u postgres env PYTHONPATH="$PWD/src" python3.9 -m genviewer.scripts.init_db \
     --dsn "postgresql:///molgen?host=/var/run/postgresql&port=55433" \
     --owner molgen_owner --app-role molgen_app
 ```
