@@ -20,6 +20,8 @@
 | K9 | 한 문장의 파라미터가 65,535개를 넘으면 실패한다(audit 약 7,281건, device 약 10,922개 재정렬) | `repo/audit.py:75-96`, `repo/device.py:320-349` | 지금 규모(process당 수백)에서는 닿지 않는다 |
 | K10 | `log --follow` 가 행을 건너뛸 수 있다. IDENTITY id는 커밋이 아니라 삽입 때 정해진다 | `cli.py` log --follow | 보기 전용이다 |
 | K11 | `import_sqlite` 가 `?`·`#`·`%` 가 든 sqlite 경로를 열지 못한다(read-only URI를 원시 경로로 만든다) | `scripts/import_sqlite.py:34` | 경로를 바꿔서 돌리면 된다 |
+| K31 | `genviewer -v` 가 찍는 트레이스백은 `scrub()` 을 거치지 않는다. 접속 실패 예외의 conninfo(비밀번호 포함)가 그 터미널에 그대로 나올 수 있다 | `cli.py:467-468` (`_fail`) | 사용자가 자기 터미널에서 일부러 켜는 진단 출력이다. 가리면 출력이 바뀐다. 다른 사람에게 붙여 줄 때 주의한다 |
+| K32 | CSV 불러오기가 새로 만든 process에는 `process_add` 이력이 따로 남지 않는다(불러오기 한 줄에 포함된다) | `repo/io.py` import, `repo/audit.py` | 이력 형식 변경이다 |
 
 ## 내보내기·연동
 
