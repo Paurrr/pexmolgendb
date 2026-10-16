@@ -48,6 +48,6 @@ GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest -
 uv run genviewer                          # GUI
 uv run genviewer status                   # 접속·스키마 진단
 uv run genviewer-init-db --dry-run        # 실행될 DDL만 본다
-sh -n tools/deploy.sh tools/initdb.sh     # 셸 문법 검사 (Windows는 Git Bash sh)
+sh -n tools/deploy.sh && sh -n tools/initdb.sh   # 셸 문법 검사 (Windows는 Git Bash sh). 파일마다 따로: `sh -n a b` 는 a 만 본다
 uv run python -X utf8 scripts/execute.py <phase>   # 하네스 phase 실행 (-X utf8: cp949 콘솔 대응)
 ```
