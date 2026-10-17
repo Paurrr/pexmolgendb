@@ -7,7 +7,8 @@
       "name": "schema-tab-config-test",
       "status": "completed",
       "started_at": "2026-10-17T21:45:07+0900",
-      "summary": "test_child_tables_match_tab_config 를 postgres_all_ddl 기준으로 바꿈(src 불변, sqlite 테스트는 step 2 가 지움). 변이: 컬럼 하나 뺌 → AssertionError: suffix_cell_name 의 컬럼이 tab_config 와 다르다 (assert [] == ['suffix_cell_name']), 테이블 하나 뺌 → assert set(got) == set(expected) | {...} 실패 (Extra items in the right set: 'add_fgr_first_metals'). DB 테스트: 542 passed / 9 skipped / 1 xfailed (skip 은 Windows 권한 테스트뿐)"
+      "summary": "test_child_tables_match_tab_config 를 postgres_all_ddl 기준으로 바꿈(src 불변, sqlite 테스트는 step 2 가 지움). 변이: 컬럼 하나 뺌 → AssertionError: suffix_cell_name 의 컬럼이 tab_config 와 다르다 (assert [] == ['suffix_cell_name']), 테이블 하나 뺌 → assert set(got) == set(expected) | {...} 실패 (Extra items in the right set: 'add_fgr_first_metals'). DB 테스트: 542 passed / 9 skipped / 1 xfailed (skip 은 Windows 권한 테스트뿐)",
+      "completed_at": "2026-10-17T21:49:28+0900"
     },
     {
       "step": 1,
