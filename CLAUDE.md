@@ -33,16 +33,17 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 - 루트 `scripts/` 는 하네스(execute.py)이고 `src/genviewer/scripts/` 는 관리 도구(init_db, import_sqlite)다. 헷갈리지 않는다.
 
 ## 테스트 관례
-- DB가 필요한 테스트는 `tests/conftest.py` 의 `pg_dsn`/`db` fixture를 쓴다. `GENDB_TEST_PG_DSN` 은 **관리자 DSN**이어야 한다(fixture가 `gendb_test_<pid>` 데이터베이스를 만들고 지운다. 권한 테스트는 CREATE ROLE까지 한다). 없으면 skip된다. 개발 PC 기준선(DB 없음, phase 3 완료 후 2026-10-17)은 Git Bash에서 342 passed / 124 skipped / 1 xfailed다. `sh` 가 PATH에 없는 셸(PowerShell)에서는 셸 스크립트 테스트 20개(`test_deploy_sh.py`, `test_initdb_sh.py`)가 더 skip되어 322 / 144 / 1이 된다. DB를 붙이면 457 passed / 9 skipped / 1 xfailed(Windows 권한 테스트만 skip)다.
+- DB가 필요한 테스트는 `tests/conftest.py` 의 `pg_dsn`/`db` fixture를 쓴다. `GENDB_TEST_PG_DSN` 은 **관리자 DSN**이어야 한다(fixture가 `gendb_test_<pid>` 데이터베이스를 만들고 지운다. 권한 테스트는 CREATE ROLE까지 한다). 없으면 skip된다. 개발 PC 기준선(DB 없음, phase 4 완료 후 2026-10-17)은 Git Bash에서 427 passed / 124 skipped / 1 xfailed다. `sh` 가 PATH에 없는 셸(PowerShell)에서는 셸 스크립트 테스트 20개(`test_deploy_sh.py`, `test_initdb_sh.py`)가 더 skip되어 407 / 144 / 1이 된다. DB를 붙이면 542 passed / 9 skipped / 1 xfailed(Windows 권한 테스트만 skip)다.
 - 재현했지만 고치지 않기로 한 버그의 테스트는 `pytest.mark.xfail(strict=True, reason="K<번호>: …")` 로 남기고 `docs/notes/known-issues.md` 의 그 항목에 테스트 이름을 적는다(지금은 K17 하나). 고치면 XPASS로 실패하므로 그때 xfail을 뗀다.
 - POSIX 권한·심볼릭 링크 테스트는 `posix_only` 로 Windows에서 skip된다. 버그 재현(RED)은 Windows에서 도는 테스트로 보인다.
 - 셸 스크립트는 stub 명령을 PATH 앞(initdb.sh 는 `PGBIN`)에 두고 실제로 실행해서 테스트한다(`tests/test_deploy_sh.py`, `tests/test_initdb_sh.py`). 텍스트 토큰 검사만으로 끝내지 않는다.
 - GUI 테스트는 `tests/gui/` 에 둔다(pytest-qt, `qt_api = "pyside6"`). `tests/gui/conftest.py` 가 PySide6 import 전에 `QT_QPA_PLATFORM=offscreen` 을 둔다. `tests/test_background.py` 는 자기 `qapp` fixture로 따로 돈다.
 - 모달은 autouse `dialogs` fixture가 대신한다. 예/아니오는 `dialogs.answer_question(...)`, 저장 충돌은 `dialogs.answer_conflict(RELOAD|OVERWRITE|CANCEL)` 로 미리 답하고, 뜬 문구는 `dialogs.shown` 의 `(kind, title, text)` 로 단언한다. 답하지 않은 모달·파일 대화상자·메뉴는 `AssertionError` 이고 앱이 삼켜도 teardown에서 실패한다(쓰지 않은 답도). 이유: `@report` 가 `AssertionError` 까지 알림으로 바꾼다.
-- GUI 테스트 헬퍼는 `tests/gui_support/` 에 두고 `from gui_support.dialogs import ...` 처럼 import한다(`pythonpath = ["tests"]`). conftest나 다른 테스트 모듈은 import하지 않는다. "아무 일도 일어나지 않음"은 고정 대기(`qtbot.wait`) 대신 fake가 기록한 호출이나 컨트롤러 상태를 `qtbot.waitUntil` 로 기다린 뒤 단언한다.
+- GUI 테스트 헬퍼는 `tests/gui_support/` 에 두고 `from gui_support.dialogs import ...` 처럼 import한다(`pythonpath = ["tests"]`). conftest나 다른 테스트 모듈은 import하지 않는다. "아무 일도 일어나지 않음"은 고정 대기(`qtbot.wait`) 대신 fake가 기록한 호출이나 컨트롤러 상태를 `qtbot.waitUntil` 로 기다린 뒤 단언한다. `waitUntil` 콜백은 bool을 돌려준다(`lambda: fake.sent != []`). 리스트를 돌려주면 pytest-qt가 `ValueError` 를 낸다.
 - GUI 테스트의 DB는 `tests/gui_support/fakes.py` 의 `FakeStore`/`Fake*Repository` 다. 의미는 실제 repo가 기준이고 `tests/gui/test_fake_repo_contract.py` 가 같은 기대값을 가짜와 실제 PostgreSQL(`GENDB_TEST_PG_DSN`)에 돌려 고정한다. `service/repo/` 의 의미를 바꾸는 step은 가짜와 contract test도 같이 고친다.
 - 컨트롤러 테스트는 `tests/gui/conftest.py` 의 `store`(시드: sf2p/nfet_a·nfet_b, sf4u/pfet_a, 탭 InstTerm·InstSchParam), `device_tab_ctrl`, `main_window` fixture와 `from gui_support.helpers import select_process, select_device_row, edit_device_cell, edit_tab_cell` 로 쓴다. 장애는 `store.fail_next(메서드, 예외)`, 남의 변경은 `store.touch_device`/`store.remove_device`, 일어난 일은 `store.calls`/`store.calls_of` 로 본다. actor는 `GENDB_APP_USER=tester` 다.
-- 외부 의존(Virtuoso 소켓, 실제 서버)은 테스트에서 붙지 않는다. 접속 실패 경로는 닫힌 포트(`127.0.0.1:1`)로 만든다.
+- 첫 DB 접속은 `DeviceTabController` 생성자가 `QTimer.singleShot(0)` 으로 예약한다. 컨트롤러나 창을 직접 만드는 테스트는 `qtbot.waitUntil(lambda: ctrl.connected is not None)` 로 기다린 뒤 단언한다(두 fixture는 이미 기다린다). 창 닫기는 `MainWindowController` 의 이벤트 필터(저장 확인)를 거치고, pytest-qt는 fixture 정리보다 **먼저** 등록한 창을 닫는다. 그래서 편집을 남길 수 있는 창은 `qtbot.addWidget(ui, before_close_func=…)` 에서 `shutdown()` 으로 필터를 먼저 뗀다(`main_window` fixture가 그렇게 한다).
+- 외부 의존(Virtuoso 소켓, 실제 서버)은 테스트에서 붙지 않는다. Virtuoso 소켓은 `tests/gui_support/fakes.py` 의 `FakeVirtuosoClient` 로 대신한다. 접속 실패 경로는 닫힌 포트(`127.0.0.1:1`)로 만든다.
 
 ## 명령어
 ```bash
