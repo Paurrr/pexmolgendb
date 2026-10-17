@@ -22,6 +22,7 @@ from psycopg_pool import ConnectionPool
 
 from genviewer.service.config import DbConfig
 from genviewer.service.errors import DbUnavailableError
+from genviewer.utils.logs import scrub
 
 
 class Database:
@@ -31,16 +32,18 @@ class Database:
             f"-c lock_timeout={cfg.lock_timeout_ms} "
             f"-c statement_timeout={cfg.statement_timeout_ms}"
         )
+        # 풀 실패의 원인을 알아보려고 직접 붙을 때도 같은 인자를 쓴다.
+        self._connect_kwargs = {
+            "row_factory": dict_row,
+            "application_name": f"genviewer:{cfg.app_user}",
+            "connect_timeout": cfg.connect_timeout,
+            "options": options,
+        }
         pool_kwargs = {
             "min_size": cfg.pool_min,
             "max_size": cfg.pool_max,
             "open": False,
-            "kwargs": {
-                "row_factory": dict_row,
-                "application_name": f"genviewer:{cfg.app_user}",
-                "connect_timeout": cfg.connect_timeout,
-                "options": options,
-            },
+            "kwargs": self._connect_kwargs,
         }
         # 구버전 psycopg_pool 호환 (fmserver 와 동일한 방어).
         check = getattr(ConnectionPool, "check_connection", None)
@@ -77,8 +80,25 @@ class Database:
                     self._pool.connection(timeout=self.cfg.connect_timeout)
                 )
             except psycopg.OperationalError as e:
-                raise DbUnavailableError(str(e)) from e
+                raise DbUnavailableError(self._failure_cause() or str(e)) from e
             yield conn
+
+    def _failure_cause(self) -> str:
+        """풀이 커넥션을 못 줬을 때 한 번 직접 붙어 실제 원인을 알아낸다.
+
+        PoolTimeout 에는 원인이 없고("couldn't get a connection after 5.00 sec"),
+        psycopg 3.3 은 접속 실패에 SQLSTATE 를 싣지 않는다. 그래서 직접 접속이 낸
+        오류의 첫 줄(서버·libpq 원문)을 가려서 돌려준다. 직접 접속이 되면 서버는
+        멀쩡하고 풀이 찬 것이므로 닫고 "" 를 돌려준다. 대기는 최대 connect_timeout
+        한 번 늘어난다.
+        """
+        try:
+            conn = psycopg.Connection.connect(self.cfg.dsn, **self._connect_kwargs)
+        except psycopg.Error as e:
+            lines = str(e).strip().splitlines()
+            return scrub(lines[0]).strip() if lines else ""
+        conn.close()
+        return ""
 
     def ping(self) -> bool:
         """Connect 다이얼로그의 '연결 테스트'."""

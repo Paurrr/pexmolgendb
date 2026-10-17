@@ -92,7 +92,7 @@ GENDB_PG_DSN ───────┴→ 있으면 그대로 사용 (설정 파�
 
 **DB 접속** (`DeviceTabController.connect_db`): 시작 접속은 생성자가 `QTimer.singleShot(0)` 으로 예약한다(창의 로그 패널·알림이 이어진 뒤에 돈다. 그때까지 `connected` 는 None). 새 DB를 먼저 연다(`run_blocking`). 실패하면 지금 DB·repo·폴링을 그대로 둔다. 성공하면 폴링 타이머를 멈추고 도는 폴링 `Task` 를 기다린 뒤 옛 DB를 닫고 `dbChanged(새)` 를 한 번 낸다. 로그 패널로 가는 DSN은 `scrub()` 을 거친다.
 
-**풀** (`service/pool.py`): `ConnectionPool(min 1, max 4, open=False, check=check_connection)`. 접속 옵션 `-c lock_timeout=5000 -c statement_timeout=15000`(의도된 값, ADR-008), `connect_timeout=5`, `application_name=genviewer:<user>`. `Database.connection()` 하나가 트랜잭션 하나(정상 종료 commit, 예외 rollback). 커넥션을 얻지 못한 것(`PoolTimeout`)만 `DbUnavailableError` 가 되고, `with` 본문·commit 에서 난 예외는 타입 그대로 올라간다(`user_message` 의 SQLSTATE별 안내가 살아 있게).
+**풀** (`service/pool.py`): `ConnectionPool(min 1, max 4, open=False, check=check_connection)`. 접속 옵션 `-c lock_timeout=5000 -c statement_timeout=15000`(의도된 값, ADR-008), `connect_timeout=5`, `application_name=genviewer:<user>`. `Database.connection()` 하나가 트랜잭션 하나(정상 종료 commit, 예외 rollback). 커넥션을 얻지 못한 것(`PoolTimeout`)만 `DbUnavailableError` 가 되고(그때 한 번 직접 접속해 실제 원인을 설명으로 싣는다), `with` 본문·commit 에서 난 예외는 타입 그대로 올라간다(`user_message` 의 SQLSTATE별 안내가 살아 있게).
 
 **device 저장** (`repo/device.py: upsert_devices`, 한 트랜잭션)
 ```
