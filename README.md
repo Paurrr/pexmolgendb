@@ -486,8 +486,8 @@ uv run pytest                     # DB 필요한 테스트는 skip 된다
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 99 passed / 86 skipped 다(`sh` 가 없는
-PowerShell 에서는 deploy.sh 테스트까지 skip 되어 88 / 97). skip 되는 DB 테스트가
+DB 없이 돌리면 지금 기준 Git Bash 에서 130 passed / 87 skipped 다(`sh` 가 없는
+PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 110 / 107). skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 
 `uv run pytest` 가 `uv trampoline failed to canonicalize script path` 로 죽으면 venv 를
