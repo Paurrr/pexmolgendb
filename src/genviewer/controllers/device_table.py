@@ -327,9 +327,15 @@ class DeviceTableController(QObject):
         saved["process_name"] = self.current_process
         return saved
 
-    def save_all(self):
+    def save_all(self) -> bool:
+        """화면의 device 를 저장한다.
+
+        True: 저장했다(덮어쓰기 포함), 또는 쓸 것이 없었다.
+        False: 충돌 대화상자에서 취소(창 닫기 포함)나 다시 읽기를 골랐다, 또는 접속 전이다.
+        예외는 잡지 않는다(접속 끊김 등). 호출부가 이 값을 보고 "Saved" 를 띄울지 정한다.
+        """
         if self.repo is None:
-            return
+            return False
 
         valid_celltypes = self._valid_celltypes()
 
@@ -348,7 +354,7 @@ class DeviceTableController(QObject):
         deleted = model.deleted_devices()
         result = self._write_devices(to_save, deleted)
         if result is None:
-            return
+            return False
 
         for d in to_save:
             d["process_id"] = self.current_process_id
@@ -361,6 +367,7 @@ class DeviceTableController(QObject):
         self.notifyRequested.emit("info", "Save Complete", summary)
         self.refresh_devices()
         self.logRequested.emit(f"Device Info: {summary}")
+        return True
 
     def _write_devices(
         self, to_save: list[dict], deleted: dict[int, int]
