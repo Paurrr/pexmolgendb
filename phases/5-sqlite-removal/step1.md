@@ -54,7 +54,7 @@
 
 - `README.md`
   - '배포' 절: "`[project.scripts]` 에 있는 명령이 전부 나온다(`genviewer`, `genviewer-init-db`, `genviewer-import-sqlite`)." 에서 `genviewer-import-sqlite` 를 뺀다.
-  - "## 기존 .sqlite 파일 옮기기" 절(~357-381, 다음 "## 동시 편집" 앞까지)을 통째로 지운다.
+  - "## 기존 .sqlite 파일 옮기기" 절(~360-384, 다음 "## 동시 편집" 앞까지)을 통째로 지운다.
     - 단, 이 절에만 있는 init-db 사실이 하나 있다. "`genviewer-init-db` 도 `genviewer.env` 를 읽지 않는다(그쪽은 `--dry-run` 만 DSN 없이 된다)".
     - 이 문장을 '개발 클러스터 (한 번만)' 절에서 `uv run genviewer-init-db …` 코드 블록 바로 뒤로 옮긴다. 예: "`genviewer-init-db` 는 `genviewer.env` 를 읽지 않는다. `--dsn` 이나 `GENDB_PG_DSN` 이 있어야 하고, `--dry-run` 만 DSN 없이 된다."
     - 옮기기 전에 `scripts/init_db.py` 와 맞는지 확인한다. 다르면 코드대로 적고 summary에 적는다.

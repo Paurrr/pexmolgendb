@@ -31,7 +31,7 @@
 ## 읽어야 할 파일
 
 - `/CLAUDE.md` — Python 3.9 import 규칙, "테스트 관례"의 기준선 문장
-- `/README.md` '검사' 절(~485-495 "DB 없이 돌리면 지금 기준 Git Bash 에서 … passed / … skipped 다")
+- `/README.md` '검사' 절(~518-523 "DB 없이 돌리면 지금 기준 Git Bash 에서 … passed / … skipped 다")
 - `src/genviewer/service/schema.py` 에서 읽을 부분:
   - 모듈 docstring(~1-11)
   - `_SQLITE_PROCESS_DDL`·`_SQLITE_DEVICE_DDL`·`_SQLITE_DEVICE_INDEXES`·`sqlite_child_ddl`·`sqlite_all_ddl`(~29-76)
@@ -87,13 +87,14 @@ uv run python -X utf8 -c "from genviewer.service import schema; print('\n;\n'.jo
 ### 5. 기준선 숫자
 
 - Git Bash에서 **DSN 없이** `env -u GENDB_TEST_PG_DSN uv run pytest -q` 를 돌린다. 그 숫자로 두 곳을 고친다.
-  - `CLAUDE.md` "테스트 관례"의 기준선 문장: 숫자와 날짜(실행한 날)
+  - `CLAUDE.md` "테스트 관례"의 기준선 문장: 숫자와 날짜(실행한 날), "phase 4 완료 후" → "phase 5 완료 후"
   - `README.md` '검사' 절의 숫자
-- PowerShell 숫자는 `sh` 가 필요한 셸 스크립트 테스트를 옮겨 적는다(passed −N, skipped +N). N은 Git Bash에서 `uv run pytest -q tests/test_deploy_sh.py tests/test_initdb_sh.py` 의 passed 수다(phase 1 뒤 2026-10-17 기준 20).
-- 예상값(직전 phase 기준선과의 차이):
-  - phase 4 완료 기준선에서 step 1이 6개(1 passed, 5 skipped)를, 이 step이 1개(passed)를 지운다. 그러니 passed −2, skipped −5다(PowerShell도 같은 차이).
-  - 다른 phase(특히 `2-gui-test-infra`)가 먼저 합쳐졌으면 숫자가 다르다.
+- PowerShell 숫자는 `sh` 가 필요한 셸 스크립트 테스트를 옮겨 적는다(passed −N, skipped +N). N은 Git Bash에서 `uv run pytest -q tests/test_deploy_sh.py tests/test_initdb_sh.py` 의 passed 수다(phase 4 뒤 2026-10-17 기준 20).
+- 예상값(phase 4 완료 기준선과의 차이):
+  - phase 4 완료 기준선(2026-10-17)은 DB 없이 Git Bash 427 passed / 124 skipped / 1 xfailed, PowerShell 407 / 144 / 1이다. DB를 붙이면 542 / 9 / 1이다.
+  - step 1이 6개(DB 없이 1 passed + 5 skipped)를, 이 step이 1개(passed)를 지운다. 그러니 DB 없이 passed −2, skipped −5다. 예상: Git Bash 425 / 119 / 1, PowerShell 405 / 139 / 1.
   - 예상과 다르면 실제 값을 적고 이유를 summary에 적는다.
+- `GENDB_TEST_PG_DSN` 이 있으면 DSN을 붙인 숫자도 **따로** 재서 `CLAUDE.md` 의 "DB를 붙이면 …" 숫자를 고친다(예상 535 passed / 9 skipped / 1 xfailed: 지운 7개가 모두 DB를 붙이면 돈다). DSN이 없으면 그 숫자는 그대로 두고 summary에 "DB 기준선 안 잼"이라고 적는다.
 
 ## Acceptance Criteria
 
@@ -115,7 +116,7 @@ git grep -n -i sqlite -- . ':!phases'        # 공통 4번 목록 + schema.py �
    - PostgreSQL DDL이 그대로인가(diff 비어 있음)?
    - `TABLE_COLUMNS`·`child_tables()` 가 그대로인가?
 3. 결과에 따라 `phases/5-sqlite-removal/index.json` 의 step 2를 업데이트한다:
-   - 성공 → `"status": "completed"`, `"summary": "schema.py SQLite 렌더러·test_schema 레거시 테스트·db/init.sqlite·.gitignore 줄 삭제, PostgreSQL DDL diff 없음. 변이: <단언>. 기준선 <P> passed / <S> skipped (PowerShell <P-11> / <S+11>). git grep sqlite 남은 것: <목록>. DB 테스트: <N passed | 안 돎(DSN 없음)>"`
+   - 성공 → `"status": "completed"`, `"summary": "schema.py SQLite 렌더러·test_schema 레거시 테스트·db/init.sqlite·.gitignore 줄 삭제, PostgreSQL DDL diff 없음. 변이: <단언>. 기준선 <P> passed / <S> skipped (PowerShell <P-20> / <S+20>), DB 붙임 <D passed | 안 잼>. git grep sqlite 남은 것: <목록>. DB 테스트: <N passed | 안 돎(DSN 없음)>"`
    - 수정 3회 시도 후에도 실패 → `"status": "error"`, `"error_message": "구체적 에러 내용"`
    - 사용자 개입 필요 → `"status": "blocked"`, `"blocked_reason": "구체적 사유"` 후 즉시 중단
 
@@ -125,6 +126,6 @@ git grep -n -i sqlite -- . ':!phases'        # 공통 4번 목록 + schema.py �
 - `from psycopg import sql  # noqa: E402` 의 위치나 그 밖의 코드를 정리하지 마라. 이유: 지우기만 하는 step이다(리팩터 금지).
 - 설계 이유 주석의 1~4 항목을 지우거나 바꾸지 마라. 이유: 그 컬럼 설계의 유일한 설명이다.
 - DDL 저장 파일을 저장소 안에 두지 마라. 이유: execute.py가 `git add -A` 로 커밋한다.
-- 기준선을 DSN을 켠 채로 재지 마라. 이유: CLAUDE.md·README의 기준선은 "DB 없음" 숫자다.
+- "DB 없음" 기준선을 DSN을 켠 채로 재지 마라. 이유: CLAUDE.md·README의 그 숫자는 DB 테스트가 skip된 숫자다. DB를 붙인 숫자는 `CLAUDE.md` 의 "DB를 붙이면" 문장에만 따로 적는다.
 - 공통 4번의 역사 설명 문장을 지우지 마라.
 - 기존 테스트를 깨뜨리지 마라.
