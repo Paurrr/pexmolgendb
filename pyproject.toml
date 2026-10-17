@@ -25,6 +25,7 @@ genviewer-import-sqlite = "genviewer.scripts.import_sqlite:main"
 [dependency-groups]
 dev = [
     "pytest>=8.3",
+    "pytest-qt>=4.5.0",
     "ruff>=0.14",
 ]
 
@@ -51,3 +52,5 @@ ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]   # GUI 테스트 헬퍼를 `from gui_support.dialogs import ...` 로 쓴다
+qt_api = "pyside6"

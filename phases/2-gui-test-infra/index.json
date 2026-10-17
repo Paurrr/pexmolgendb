@@ -2,8 +2,23 @@
   "project": "genviewer",
   "phase": "2-gui-test-infra",
   "steps": [
-    { "step": 0, "name": "pytest-qt-setup", "status": "pending" },
-    { "step": 1, "name": "fake-repos", "status": "pending" },
-    { "step": 2, "name": "controller-fixtures", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "pytest-qt-setup",
+      "status": "completed",
+      "started_at": "2026-10-17T12:04:09+0900",
+      "summary": "pytest-qt 4.5.0 dev 추가(qt_api=pyside6, pythonpath=tests). tests/gui/conftest.py: offscreen, autouse dialogs, _collect_previous_garbage. tests/gui_support/dialogs.py: FakeDialogs(answer_question/answer_conflict/shown/unexpected/record_notify/problems), install_dialogs. 자기 검사 47개(변이 검사 2건: 빈 큐 question→True, QUESTION_MODULES 누락 모두 잡힘). 기준선: DB 없음 177 passed/87 skipped, DB 255/9. 관찰: 없음"
+    },
+    {
+      "step": 1,
+      "name": "fake-repos",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "controller-fixtures",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-10-17T12:04:09+0900"
 }

@@ -36,7 +36,9 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 - DB가 필요한 테스트는 `tests/conftest.py` 의 `pg_dsn`/`db` fixture를 쓴다. `GENDB_TEST_PG_DSN` 은 **관리자 DSN**이어야 한다(fixture가 `gendb_test_<pid>` 데이터베이스를 만들고 지운다. 권한 테스트는 CREATE ROLE까지 한다). 없으면 skip된다. 개발 PC 기준선(DB 없음, phase 1 완료 후 2026-10-17)은 Git Bash에서 130 passed / 87 skipped다. `sh` 가 PATH에 없는 셸(PowerShell)에서는 셸 스크립트 테스트 20개(`test_deploy_sh.py`, `test_initdb_sh.py`)가 더 skip되어 110 / 107이 된다. DB를 붙이면 208 passed / 9 skipped(Windows 권한 테스트만 skip)다.
 - POSIX 권한·심볼릭 링크 테스트는 `posix_only` 로 Windows에서 skip된다. 버그 재현(RED)은 Windows에서 도는 테스트로 보인다.
 - 셸 스크립트는 stub 명령을 PATH 앞(initdb.sh 는 `PGBIN`)에 두고 실제로 실행해서 테스트한다(`tests/test_deploy_sh.py`, `tests/test_initdb_sh.py`). 텍스트 토큰 검사만으로 끝내지 않는다.
-- Qt 테스트는 `QT_QPA_PLATFORM=offscreen` 으로 돈다(`tests/test_background.py`). 예상하지 않은 모달 대화상자가 테스트를 멈추게 두지 않는다.
+- GUI 테스트는 `tests/gui/` 에 둔다(pytest-qt, `qt_api = "pyside6"`). `tests/gui/conftest.py` 가 PySide6 import 전에 `QT_QPA_PLATFORM=offscreen` 을 둔다. `tests/test_background.py` 는 자기 `qapp` fixture로 따로 돈다.
+- 모달은 autouse `dialogs` fixture가 대신한다. 예/아니오는 `dialogs.answer_question(...)`, 저장 충돌은 `dialogs.answer_conflict(RELOAD|OVERWRITE|CANCEL)` 로 미리 답하고, 뜬 문구는 `dialogs.shown` 의 `(kind, title, text)` 로 단언한다. 답하지 않은 모달·파일 대화상자·메뉴는 `AssertionError` 이고 앱이 삼켜도 teardown에서 실패한다(쓰지 않은 답도). 이유: `@report` 가 `AssertionError` 까지 알림으로 바꾼다.
+- GUI 테스트 헬퍼는 `tests/gui_support/` 에 두고 `from gui_support.dialogs import ...` 처럼 import한다(`pythonpath = ["tests"]`). conftest나 다른 테스트 모듈은 import하지 않는다. "아무 일도 일어나지 않음"은 고정 대기(`qtbot.wait`) 대신 fake가 기록한 호출이나 컨트롤러 상태를 `qtbot.waitUntil` 로 기다린 뒤 단언한다.
 - 외부 의존(Virtuoso 소켓, 실제 서버)은 테스트에서 붙지 않는다. 접속 실패 경로는 닫힌 포트(`127.0.0.1:1`)로 만든다.
 
 ## 명령어
@@ -45,6 +47,7 @@ uv sync                                   # 의존성 설치 (dev 그룹 포함)
 uv run ruff check src tests               # 린트
 uv run pytest -q                          # 전체 테스트 (DB 테스트는 skip)
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest -q   # DB 테스트까지
+uv run pytest tests/gui -q                # GUI 테스트만 (pytest-qt, offscreen)
 uv run genviewer                          # GUI
 uv run genviewer status                   # 접속·스키마 진단
 uv run genviewer-init-db --dry-run        # 실행될 DDL만 본다
