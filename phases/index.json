@@ -22,7 +22,8 @@
     },
     {
       "dir": "4-gui-robustness",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-10-17T18:32:34+0900"
     },
     {
       "dir": "5-sqlite-removal",
