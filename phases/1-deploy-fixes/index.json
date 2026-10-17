@@ -15,7 +15,8 @@
       "name": "deploy-locked",
       "status": "completed",
       "started_at": "2026-10-17T11:31:25+0900",
-      "summary": "deploy.sh uv sync 두 곳을 --frozen → --locked (lock 불일치면 배포 중단), 주석 정정. RED: test_uv_is_asked_for_a_locked_non_editable_install, test_deploy_python_is_passed_through (assert '--locked' in ['ARGS:', 'sync', '--frozen', '--no-dev', '--no-editable', ...]). 변이 검사: 분기마다 되돌리면 해당 테스트만 실패, --locked --frozen 동시도 둘 다 실패. README 배포·ADR-011·ARCHITECTURE 정리"
+      "summary": "deploy.sh uv sync 두 곳을 --frozen → --locked (lock 불일치면 배포 중단), 주석 정정. RED: test_uv_is_asked_for_a_locked_non_editable_install, test_deploy_python_is_passed_through (assert '--locked' in ['ARGS:', 'sync', '--frozen', '--no-dev', '--no-editable', ...]). 변이 검사: 분기마다 되돌리면 해당 테스트만 실패, --locked --frozen 동시도 둘 다 실패. README 배포·ADR-011·ARCHITECTURE 정리",
+      "completed_at": "2026-10-17T11:40:16+0900"
     },
     {
       "step": 2,
