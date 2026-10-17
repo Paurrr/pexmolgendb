@@ -23,7 +23,8 @@
       "name": "controller-fixtures",
       "status": "completed",
       "started_at": "2026-10-17T13:17:25+0900",
-      "summary": "tests/gui_support/helpers.py: seeded_store, install_fake_db, select_process/select_device_row/edit_device_cell/edit_tab_cell. conftest: autouse _app_user(GENDB_APP_USER=tester), store, device_tab_ctrl(notifyRequested→dialogs.record_notify), main_window(MainWindowController 반환). smoke 8개(tests/gui 3회 연속 178 passed). 변이 검사 2건(_open_database 패치 제거 → smoke 8개 실패, DeviceRepository 패치 제거 → 6개 실패) 모두 잡힘. pytest-qt 의 close()/deleteLater() 뒤 fixture teardown 에서도 컨트롤러·뷰·타이머 C++ 객체가 살아 있음(shiboken6.isValid 로 확인, before_close_func 불필요). 기준선 271 passed / 124 skipped(PowerShell 251/144, DB 386/9). 관찰: controllers/device_tab_toolbar.py:149 get_process_id — 예외를 str(e) 로 알림 본문에 싣는다(user_message 아님); controllers/device_tab.py:216 _on_poll_failed — 로그 패널에 {exc} 를 그대로 쓴다(user_message/scrub 아님). 둘 다 코드를 읽다 본 것이고 재현·단언하지 않음"
+      "summary": "tests/gui_support/helpers.py: seeded_store, install_fake_db, select_process/select_device_row/edit_device_cell/edit_tab_cell. conftest: autouse _app_user(GENDB_APP_USER=tester), store, device_tab_ctrl(notifyRequested→dialogs.record_notify), main_window(MainWindowController 반환). smoke 8개(tests/gui 3회 연속 178 passed). 변이 검사 2건(_open_database 패치 제거 → smoke 8개 실패, DeviceRepository 패치 제거 → 6개 실패) 모두 잡힘. pytest-qt 의 close()/deleteLater() 뒤 fixture teardown 에서도 컨트롤러·뷰·타이머 C++ 객체가 살아 있음(shiboken6.isValid 로 확인, before_close_func 불필요). 기준선 271 passed / 124 skipped(PowerShell 251/144, DB 386/9). 관찰: controllers/device_tab_toolbar.py:149 get_process_id — 예외를 str(e) 로 알림 본문에 싣는다(user_message 아님); controllers/device_tab.py:216 _on_poll_failed — 로그 패널에 {exc} 를 그대로 쓴다(user_message/scrub 아님). 둘 다 코드를 읽다 본 것이고 재현·단언하지 않음",
+      "completed_at": "2026-10-17T13:28:30+0900"
     }
   ],
   "created_at": "2026-10-17T12:04:09+0900"
