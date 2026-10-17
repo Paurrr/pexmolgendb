@@ -77,7 +77,7 @@
 ### ADR-014: init_db 는 RHEL 7 서버의 Python 3.9 에서 소스로 돈다
 **결정**: `scripts/init_db.py` 와 그것이 닿는 모듈은 Python 3.9 문법만 쓰고 psycopg 하나에만 의존한다. 서버에서는 패키지를 설치하지 않고 `PYTHONPATH=src python3.9 -m genviewer.scripts.init_db` 로 돌린다.
 **이유**: 슈퍼유저는 비밀번호가 없어서(ADR-010) 원격으로는 소유자 role에 `--createdb` 와 비밀번호를 줘야 한다. 서버에서 peer로 돌리는 쪽이 단순하다. 서버에는 Python 3.13이 없다.
-**트레이드오프**: 3.9에서 pip는 psycopg 3.2.x를 깔고, 코드는 3.2 이상을 필요로 한다. 이 호환을 지키는 자동 테스트가 아직 없다(리뷰로 지킨다).
+**트레이드오프**: 3.9에서 pip는 psycopg 3.2.x를 깔고, 코드는 3.2 이상을 필요로 한다. `tests/test_py39_compat.py` 가 init_db 에서 닿는 모듈의 문법과 3.10+ 이름을 정적으로 검사한다. 실제 3.9 인터프리터로 import해 보지는 않고, psycopg 3.2 API 차이는 검사 밖이다.
 
 ### ADR-015: 하네스로 유지보수, 버그만 고친다
 **결정**: 2026-10 부터 `pexqa` 와 같은 하네스(`scripts/execute.py`, `phases/`, `.claude/commands/{harness,review}.md`, Stop 훅 = `ruff check src tests && pytest -q -x`)로 유지보수한다. 기능 추가·리팩터는 하지 않고 에러·버그만 고친다. 버그 주장은 실패하는 테스트로 먼저 재현하고, 재현되지 않으면 고치지 않는다. 사용자에게 보이는 동작이 바뀌는 수정은 사용자가 승인한 것만 한다. 구조 개선은 `docs/notes/architecture-proposal.md` 에 제안으로만 둔다.

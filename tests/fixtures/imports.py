@@ -14,7 +14,7 @@ class _ScopedImports(ast.NodeVisitor):
 
     def __init__(self, package: str) -> None:
         self.package = package
-        self.found: list[tuple[str, str | None]] = []
+        self.found: list[tuple[str, str | None, int]] = []
         self._stack: list[str] = []
         self._functions = 0
 
@@ -39,15 +39,24 @@ class _ScopedImports(ast.NodeVisitor):
         self._enter(node, node.name, function=False)
 
     def visit_Import(self, node: ast.Import) -> None:
-        self.found.extend((alias.name, self._scope()) for alias in node.names)
+        self.found.extend((alias.name, self._scope(), node.lineno) for alias in node.names)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         base = node.module or ""
         if node.level:
             base = importlib.util.resolve_name("." * node.level + base, self.package)
         scope = self._scope()
-        self.found.append((base, scope))
-        self.found.extend((f"{base}.{alias.name}", scope) for alias in node.names)
+        self.found.append((base, scope, node.lineno))
+        self.found.extend((f"{base}.{alias.name}", scope, node.lineno) for alias in node.names)
+
+
+def located_imports(
+    source: str, module: str, *, is_package: bool = False
+) -> list[tuple[str, str | None, int]]:
+    """(import 이름, 감싼 함수 이름, 행) 목록. 이름과 함수 이름은 `scoped_imports` 와 같다."""
+    visitor = _ScopedImports(module if is_package else module.rpartition(".")[0])
+    visitor.visit(ast.parse(source))
+    return visitor.found
 
 
 def scoped_imports(
@@ -58,9 +67,10 @@ def scoped_imports(
     이름은 `imported_names` 와 같다. 함수 이름은 감싼 정의를 점으로 잇는다
     (`root`, `Exporter.write`, `outer.inner`).
     """
-    visitor = _ScopedImports(module if is_package else module.rpartition(".")[0])
-    visitor.visit(ast.parse(source))
-    return visitor.found
+    return [
+        (name, scope)
+        for name, scope, _ in located_imports(source, module, is_package=is_package)
+    ]
 
 
 def imported_names(source: str, module: str, *, is_package: bool = False) -> list[str]:

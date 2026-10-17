@@ -52,7 +52,7 @@ tools/                      # initdb.sh(클러스터 생성·기동), deploy.sh(
 tests/                      # pytest. conftest: pg_dsn/db fixture (GENDB_TEST_PG_DSN)
   gui/                      #   pytest-qt GUI 테스트. conftest: offscreen, autouse dialogs(모달 가짜), store/device_tab_ctrl/main_window
   gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository·FakeVirtuosoClient), helpers.py(시드, install_fake_db, 사용자 동작)
-  fixtures/                 #   Qt 없는 테스트 헬퍼 패키지(pythonpath=tests): imports.py(import 스캐너, test_boundaries.py 가 쓴다)
+  fixtures/                 #   Qt 없는 테스트 헬퍼 패키지(pythonpath=tests): imports.py(import 스캐너, test_boundaries.py·test_py39_compat.py 가 쓴다)
 scripts/                    # 하네스 execute.py (+ test_execute.py). 앱 코드가 아니다 (ruff 제외)
 phases/                     # 하네스 step 파일
 docs/                       # 이 문서들. notes/ 는 주입 제외
@@ -69,7 +69,7 @@ docs/                       # 이 문서들. notes/ 는 주입 제외
 | 4 | `controllers/`, `main.py` | 전부 |
 
 - models는 `utils.validators` 만 안다. `net/` 은 자기 안에서 닫혀 있다.
-- 강제: `tests/test_boundaries.py` 가 Qt 금지 구역(티어 0~2, 함수 안까지 보는 정적 스캔 + 새 인터프리터 import, 예외는 `cli.py` 의 `root` 안 `genviewer.main` 뿐)과 models·net 의 import 범위를 지킨다. Python 3.9 호환은 아직 리뷰(`/review`)로 지킨다.
+- 강제: `tests/test_boundaries.py` 가 Qt 금지 구역(티어 0~2, 함수 안까지 보는 정적 스캔 + 새 인터프리터 import, 예외는 `cli.py` 의 `root` 안 `genviewer.main` 뿐)과 models·net 의 import 범위를 지킨다. `tests/test_py39_compat.py` 가 init_db 에서 닿는 모듈을 import를 따라가며 찾아(함수 안 import·부모 패키지 포함) 3.9 문법·런타임 `X | Y`·3.10+ 키워드와 이름·PEP 701 f-string을 정적으로 검사한다(3.9 인터프리터로 import해 보지는 않는다).
 
 ### 현재 어긋난 곳 (따라 하지 않는다)
 - `dialogs/connection.py` 가 `service.pool.Database` 를 직접 만들어 ping한다(view 쪽에서 서비스 호출).

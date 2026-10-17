@@ -613,9 +613,10 @@ sudo -u postgres python3.9 -m pip install --user "psycopg[binary]>=3.2,<3.3"
 sudo -u postgres env PYTHONPATH="$PWD/src" python3.9 -m genviewer.scripts.init_db --dry-run
 ```
 
-이 3.9 호환을 지키는 자동 테스트는 아직 없다. `init_db` 가 닿는 모듈
-(`scripts/init_db.py`, `service/schema.py`, `config/config.py`)을 고칠 때는 `CLAUDE.md`
-의 규칙을 본다.
+이 3.9 호환은 `tests/test_py39_compat.py` 가 정적으로 검사한다(문법과 3.10+ 이름).
+`init_db` 가 닿는 모듈은 테스트가 import를 따라가며 찾는다. 실제 3.9 인터프리터로
+import해 보지는 않고, psycopg 3.2 API 차이는 검사 밖이다. 그 모듈들을 고칠 때는
+`CLAUDE.md` 의 규칙을 본다.
 
 ### 1. 클러스터
 
