@@ -8,7 +8,7 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 - GUI: PySide6 **6.9.3 고정**. RHEL 8(glibc 2.28)에 설치되는 마지막 릴리스다(6.10+ 는 manylinux_2_34). 그래서 앱은 RHEL 7에 올라가지 않는다
 - DB: `psycopg[binary,pool]` 3.3 (libpq 번들). 서버는 RHEL 7 + PostgreSQL 15, 최소 지원은 PG 10
 - 그 밖: pandas 3 / openpyxl (CSV·xlsx), typer (CLI, `rich_markup_mode=None`)
-- 테스트: pytest (DB 테스트는 `GENDB_TEST_PG_DSN`) / 린트: ruff (`ruff format` 은 쓰지 않는다)
+- 테스트: pytest (DB 테스트는 `GENDB_TEST_PG_DSN`), pytest-qt(GUI, `tests/gui/`, dev 그룹만) / 린트: ruff (`ruff format` 은 쓰지 않는다)
 - 형제 저장소가 기준이다: 배포·CLI는 `../Pexorche`, 서비스 계층(config/pool/user)은 fmserver, CSV 컬럼은 `../molgen`, 하네스는 `../pexqa`
 
 ## 아키텍처 규칙
