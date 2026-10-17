@@ -31,7 +31,8 @@
       "name": "log-dir-chmod",
       "status": "completed",
       "started_at": "2026-10-17T11:10:19+0900",
-      "summary": "logs.setup: 기본 디렉터리(Path.home()/.genviewer)만 chmod 0700, chmod 실패가 파일 로그를 끄지 않음(suppress(OSError, RuntimeError) — 경로 지정 시 홈을 못 찾아도 죽지 않음). RED (Windows, logs.os 만 _PosixOs 프록시): test_setup_keeps_the_file_log_when_a_chosen_dir_refuses_chmod[path/env] — assert None == …/elsewhere/gv.log, test_setup_leaves_a_chosen_dir_permissions_alone[path/env] — chmods == [(…/team-logs, 448)], test_setup_keeps_the_file_log_when_the_default_chmod_fails — assert None == …/.genviewer/genviewer.log. 기본 위치 chmod 1회·홈 없이 경로 지정은 특성 테스트로 통과. 변이 검사: 항상 chmod → 2개, suppress 제거 → 2개, chmod 제거 → 1개, RuntimeError 빼면 1개 실패. DB 테스트: 196 passed / 8 skipped, DB 없이 118 / 86"
+      "summary": "logs.setup: 기본 디렉터리(Path.home()/.genviewer)만 chmod 0700, chmod 실패가 파일 로그를 끄지 않음(suppress(OSError, RuntimeError) — 경로 지정 시 홈을 못 찾아도 죽지 않음). RED (Windows, logs.os 만 _PosixOs 프록시): test_setup_keeps_the_file_log_when_a_chosen_dir_refuses_chmod[path/env] — assert None == …/elsewhere/gv.log, test_setup_leaves_a_chosen_dir_permissions_alone[path/env] — chmods == [(…/team-logs, 448)], test_setup_keeps_the_file_log_when_the_default_chmod_fails — assert None == …/.genviewer/genviewer.log. 기본 위치 chmod 1회·홈 없이 경로 지정은 특성 테스트로 통과. 변이 검사: 항상 chmod → 2개, suppress 제거 → 2개, chmod 제거 → 1개, RuntimeError 빼면 1개 실패. DB 테스트: 196 passed / 8 skipped, DB 없이 118 / 86",
+      "completed_at": "2026-10-17T11:15:44+0900"
     }
   ],
   "created_at": "2026-10-17T10:52:27+0900"
