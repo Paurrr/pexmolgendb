@@ -64,7 +64,7 @@ docs/                       # 이 문서들. notes/ 는 주입 제외
 | 0 | `config/`, `utils/user.py`, `utils/logs.py`, `utils/validators.py`, `utils/lisp.py` | stdlib |
 | 1 | `service/`, `service/repo/` | 티어 0, psycopg, psycopg_pool, pandas(`repo/io.py`) |
 | 1 | `scripts/` | `service.schema`, `config`, `utils.user`, psycopg(함수 안) |
-| 2 | `cli.py`, `utils/exporter.py` | 티어 0·1. **PySide6 금지** (`cli.py` 는 `run_gui` 안에서만 `genviewer.main`) |
+| 2 | `cli.py`, `utils/exporter.py` | 티어 0·1. **PySide6 금지** (`cli.py` 는 typer 콜백 `root` 안에서만 `genviewer.main`) |
 | 3 | `models/`, `delegates/`, `views/`, `dialogs/`, `net/`, Qt `utils/*`(background, dialogs, file_dialogs, menus, palette, table_utils), `utils/reporting.py`(Qt 없음, `service.errors` 사용) | 아래 티어 전부, PySide6 |
 | 4 | `controllers/`, `main.py` | 전부 |
 

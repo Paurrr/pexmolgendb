@@ -4,7 +4,7 @@
 - **이 문서는 하네스 프롬프트에 주입되지 않는다**(`docs/notes/`). step 세션은 이것을 할 일로 읽으면 안 된다.
 - 지금 단계는 버그만 고친다(ADR-015). 아래 항목은 하나씩 사용자 승인을 받은 뒤 별도 phase로만 진행한다. 모든 항목이 **사용자가 보는 동작을 바꾸지 않는 것**을 전제로 한다.
 - **2026-10-17 사용자 승인**: P1~P7 전부 승인했다. 담당 phase는 아래와 같다. 끝나면 이 표에 완료를 적는다.
-  - P1 → `6-boundary-guards`
+  - P1 → `6-boundary-guards` — 2026-10-18 완료(`tests/test_boundaries.py`, `tests/test_py39_compat.py`, 헬퍼 `tests/fixtures/imports.py`)
   - P7 → `8-schema-migration`
   - P6 → `13-virtuoso-socket`. known-issues K14·K24·K39·K40을 먼저 재현한 뒤 재작성으로 없앤다.
   - P2 → `14-prompts`
