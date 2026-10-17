@@ -18,6 +18,7 @@
 2. **기술 스택 준수**: ADR에 정의된 기술 선택을 벗어나지 않았는가? 런타임 의존성이나 `uv.lock` 을 바꿨다면 RHEL 8(glibc 2.28)용 `manylinux_2_28` 이하 휠이 있는가(`uv pip compile pyproject.toml --python-version 3.13 --python-platform x86_64-manylinux_2_28`)? PySide6는 6.9.3 고정이다(6.10+ 는 manylinux_2_34).
 3. **테스트 존재**
    - 고친 버그마다 수정 전에 실패하던 테스트가 있는가? 수정을 되돌리는 변이로 확인한다. summary의 "RED 확인"도 주장이다. phase 브랜치면 step 커밋의 `src` 변경만 되돌려(`git diff <c>^ <c> -- src > p; git apply -R p`) 그 step의 새 테스트가 summary에 적힌 수만큼 실패하는지 보고 `git checkout -- src` 로 되돌린다(작업 트리가 깨끗할 때만). 테스트 지원 코드가 패치하는 import(예: `QUESTION_MODULES` 의 `question`)까지 사라지면 단언 실패 대신 fixture error가 나므로 그 import는 남기고 다시 본다.
+   - 승인된 정리(삭제) phase는 고친 버그가 없다. 지운 코드를 지키던 성질을 이제 누가 지키는지 보고, 남거나 옮긴 검사가 step이 보지 않은 변이에도 실패하는지 직접 본다(phase 5: 컬럼 순서·이름을 바꾸는 변이).
    - RED가 Windows 개발 PC에서 도는 테스트인가? `posix_only` 테스트만 있으면 개발 PC에서는 skip이라 증명이 안 된다.
    - 테스트가 이름·주석에 적은 성질을 실제로 검사하는가(같은 입력을 두 번 넣고 비교하는 형식적 테스트 금지)?
    - 저장 경로: 성공, 충돌(`stale`/`deleted`) × Reload/Overwrite/Cancel, 예외마다 dirty·baseline·version·알림이 맞는가? 저장 함수가 실패를 성공처럼 알리지 않는가("Saved" 문구)? 취소 뒤 이전 상태로 되돌리는 경로는 되돌릴 대상(이전 process·device)이 지워졌을 때도 콤보·표·탭이 같은 대상을 가리키는가?
