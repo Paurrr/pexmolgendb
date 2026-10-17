@@ -171,21 +171,22 @@ class MainWindowController(QObject):
             self.notify_status(f"Connection error: {e}", 5000)
 
     @Slot()
-    def _on_save_triggered(self):
+    def _on_save_triggered(self) -> None:
         fw = self.ui.focusWidget()
 
         # 세 갈래 중 둘은 아무것도 잡지 않고 있었다. 포커스가 어디 있느냐에 따라
         # 같은 Ctrl+S 가 메시지 박스로 끝나기도 하고 트레이스백이 되기도 했다.
+        # 상태 표시줄 문구는 저장했을 때만 낸다. 취소·실패 뒤에 "saved" 가 뜨면 안 된다.
         try:
             if self.device_tab.ui.device_table_view.isAncestorOf(fw):
-                self.device_tab.device_table.save_all()
-                self.notify_status("Device table saved")
+                if self.device_tab.device_table.save_all():
+                    self.notify_status("Device table saved")
             elif self.device_tab.ui.parameter_tab_view.isAncestorOf(fw):
-                self.device_tab.parameter_tab.save_all()
-                self.notify_status("Tab section data saved")
+                if self.device_tab.parameter_tab.save_all():
+                    self.notify_status("Tab section data saved")
             else:
-                self.device_tab.save_db()
-                self.notify_status("All device and tab data saved")
+                if self.device_tab.save_db():
+                    self.notify_status("All device and tab data saved")
         except Exception as e:
             log.error("저장 실패", exc_info=e)
             self.ui.notify("error", "Save Failed", user_message(e))

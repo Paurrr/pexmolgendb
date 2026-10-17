@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "save-entry-points",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T14:33:03+0900",
+      "summary": "save_db -> bool: 탭도 항상 저장(device 예외만 중단), 둘 다 True일 때만 'All changes have been saved.'. Ctrl+S 상태 문구는 True일 때만. RED: test_database_save_also_saves_tabs (replace_many_for_device 호출 없음 assert [] == [1]), test_cancelling_a_device_conflict_is_not_reported_as_saved·test_cancelling_a_tab_conflict_is_not_reported_as_saved·test_a_device_save_error_stops_before_the_tabs (assert None is False), test_ctrl_s_on_the_device_table_after_cancel_reports_nothing·test_ctrl_s_on_the_tabs_after_cancel_reports_nothing·test_ctrl_s_elsewhere_after_a_device_save_error_reports_nothing (상태 표시줄에 'Device table saved'/'Tab section data saved'/'All device and tab data saved' 가 그대로). test_ctrl_s_on_the_device_table_reports_a_save 는 회귀(수정 전에도 통과). 변이 검사 10개(current_device 검사 복원, 결과 검사 제거, 탭/device 결과 무시, device 예외 return None, device 예외 뒤 탭 저장, 끝의 return True 제거, Ctrl+S 세 갈래 결과 무시) 모두 잡힘. 끝의 return True 는 처음에 놓쳐서 test_ctrl_s_elsewhere_saves_devices_and_tabs 를 더해 잡았다. phase 2 테스트 중 save_db 동작을 고정한 것은 없었다. tests/gui/test_save_entry_points.py"
     },
     {
       "step": 3,

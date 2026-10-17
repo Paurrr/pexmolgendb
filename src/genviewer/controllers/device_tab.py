@@ -108,23 +108,33 @@ class DeviceTabController(QObject):
                 "error", "Connect Failed", "데이터베이스에 연결하지 못했다."
             )
 
-    def save_db(self):
+    def save_db(self) -> bool:
+        """device 와 탭을 저장한다. 둘 다 저장됐을 때만 True 이고 "Saved" 를 띄운다.
+
+        device 저장을 취소해도 탭은 저장한다(탭 편집도 저장을 요청받은 것이다).
+        device 저장이 예외로 실패하면 탭으로 가지 않는다. 접속이 끊겼으면 탭 저장도
+        실패해 오류 상자가 두 번 뜬다.
+        """
         try:
-            self.device_table.save_all()
+            devices_saved = self.device_table.save_all()
         except Exception as e:
             report_error(self, "Save Devices Failed", e, logger=log)
-            return
+            return False
 
-        current = getattr(self, "current_device", None)
-        if current:
-            try:
-                self.parameter_tab.save_all()
-            except Exception as e:
-                report_error(self, "Save Tabs Failed", e, logger=log)
-                return
+        # 예전에는 어디에서도 대입되지 않는 current_device 를 보고 있어서 탭을
+        # 한 번도 저장하지 않으면서 "All changes have been saved." 를 띄웠다.
+        # dirty 탭이 없으면 save_all 이 스스로 True 를 돌려준다.
+        try:
+            tabs_saved = self.parameter_tab.save_all()
+        except Exception as e:
+            report_error(self, "Save Tabs Failed", e, logger=log)
+            return False
 
+        if not (devices_saved and tabs_saved):
+            return False
         self.notifyRequested.emit("info", "Saved", "All changes have been saved.")
         self.logRequested.emit("Saved all device/tab changes.")
+        return True
 
     @staticmethod
     def _open_database(dsn: str) -> Database:
