@@ -8,6 +8,7 @@
     { "step": 3, "name": "device-sort", "status": "pending" },
     { "step": 4, "name": "connect-db", "status": "pending" },
     { "step": 5, "name": "window-guards", "status": "pending" },
-    { "step": 6, "name": "socket-workers", "status": "pending" }
+    { "step": 6, "name": "socket-workers", "status": "pending" },
+    { "step": 7, "name": "deleted-process-revert", "status": "pending" }
   ]
 }
