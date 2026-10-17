@@ -37,7 +37,8 @@
     },
     {
       "dir": "7-service-fixes",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-10-18T01:55:57+0900"
     },
     {
       "dir": "8-schema-migration",
