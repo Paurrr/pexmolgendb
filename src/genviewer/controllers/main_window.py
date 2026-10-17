@@ -102,6 +102,8 @@ class MainWindowController(QObject):
         if self.history_tab is not None:
             self.history_tab.shutdown()
         self.device_tab.close_db()
+        # 붙어 있던 Virtuoso 워커가 이 컨트롤러와 함께 지워지면 종료가 크래시가 된다.
+        self.connection_controller.shutdown()
 
     def _setup_actions(self):
         act_save = QAction("Save", self.ui)

@@ -1,9 +1,12 @@
+import logging
 import select
 from queue import Empty, Queue
 
 from PySide6.QtCore import QThread, Signal
 
 from genviewer.net.client import Client
+
+log = logging.getLogger(__name__)
 
 
 class ConnectWorker(QThread):
@@ -46,6 +49,12 @@ class SendWorker(QThread):
                 self.client.send(msg)
             except Empty:
                 continue
+            except Exception as e:
+                # run 밖으로 새면 PySide6 가 이 워커 스레드에서 sys.excepthook 을 부른다.
+                log.warning("Virtuoso 보내기 실패", exc_info=e)
+                self.sendWorkerSignal.emit(f"ERROR: send failed - {e}")
+                self._running = False
+                break
 
     def send(self, msg):
         self._queue.put(msg)

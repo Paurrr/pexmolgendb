@@ -53,7 +53,10 @@ def install_excepthooks() -> None:
             sys.__excepthook__(exc_type, exc, tb)
             return
         log.critical("처리되지 않은 예외", exc_info=(exc_type, exc, tb))
-        _show_unexpected(exc)
+        # QThread.run 에서 샌 예외는 PySide6 가 그 워커 스레드에서 이 hook 을 부른다.
+        # 상자는 GUI(메인) 스레드에서만 연다.
+        if threading.current_thread() is threading.main_thread():
+            _show_unexpected(exc)
 
     sys.excepthook = hook
 

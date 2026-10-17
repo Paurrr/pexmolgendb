@@ -35,6 +35,11 @@ class ConnectionController(QObject):
         return self._client
 
     def connect(self, host: str, port: int):
+        # 접속하는 중이다. 워커를 새 것으로 바꾸면 실행 중인 QThread 의 마지막 참조가 사라져
+        # 프로세스가 죽는다. 앞 시도의 결과를 기다린다.
+        if self._connectWorker is not None and self._connectWorker.isRunning():
+            return
+
         if self._connected:
             self._emit_status(True, f"Already connected: {host}:{port}")
             return
@@ -58,6 +63,18 @@ class ConnectionController(QObject):
             self._on_disconnect_worker_done
         )
         self._disconnectWorker.start()
+
+    def shutdown(self) -> None:
+        """창을 닫을 때 부른다. 받기·보내기 워커를 멈추고 기다린 뒤 클라이언트를 닫는다.
+
+        돌던 워커가 컨트롤러와 함께 지워지면 프로세스가 죽는다. 여러 번 불러도 된다.
+        창이 닫히는 중이라 상태를 알리지 않는다. 접속 중인 ConnectWorker 는 기다리지 않는다
+        (접속 타임아웃만큼 창이 굳는다).
+        """
+        self._stop_io_workers()
+        if self._client:
+            self._client.close()
+            self._client = None
 
     def send(self, msg: str) -> None:
         if self._sendWorker and self._sendWorker.isRunning():
@@ -106,6 +123,8 @@ class ConnectionController(QObject):
         self._receiveWorker.start()
 
         self._sendWorker = SendWorker(self._client)
+        # 보내기 실패도 받기 오류와 같은 길로 화면에 간다.
+        self._sendWorker.sendWorkerSignal.connect(self._on_received)
         self._sendWorker.start()
 
     def _stop_io_workers(self) -> None:

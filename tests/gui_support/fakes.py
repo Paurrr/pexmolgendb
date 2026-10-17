@@ -729,3 +729,60 @@ class FakeIORepository:
             rows.append(row)
 
         return headers, rows
+
+
+class FakeVirtuosoClient:
+    """`net.client.Client` 자리. 네트워크에 붙지 않는다.
+
+    `ConnectionController(client_factory=…)` 로 넣는다. 워커 스레드가 부르므로 기록은 리스트에
+    덧붙이기만 한다.
+
+    - `connect()` 는 `release` 가 set 될 때까지(최대 5초) 기다린 뒤 `result` 를 돌려준다. `release`
+      를 비우면 "접속 중" 이 이어진다. 타임아웃은 실패한 테스트가 영원히 멈추지 않게 하려는 것이다.
+    - `send()` 는 `sent` 에 남기고, `send_error` 가 있으면 그것을 낸다.
+    - `clientSocket` 은 ReceiveWorker 가 select 하는 소켓이다. `None` 이면 ReceiveWorker 는 곧바로
+      "DISCONNECTED" 를 내고 끝난다. 살아 있어야 하면 `socket.socketpair()` 의 한쪽을 넣는다.
+    """
+
+    def __init__(self, host: str = "h", port: int = 1, sock=None) -> None:
+        self.server_ip = host
+        self.server_port = port
+        self.clientSocket = sock
+        self.release = threading.Event()
+        self.release.set()
+        self.result: tuple = ("Disconnect", "Connected", True)
+        self.send_error: BaseException | None = None
+        self.sent: list[str] = []
+        self.calls: list[str] = []  # connect / close / disConnect 순서
+
+    def connect(self) -> tuple:
+        self.calls.append("connect")
+        self.release.wait(5)
+        return self.result
+
+    def send(self, command: str) -> None:
+        self.sent.append(command)
+        if self.send_error is not None:
+            raise self.send_error
+
+    def recv_all(self, total_size: int) -> bytes:
+        buffer = b""
+        while len(buffer) < total_size:
+            chunk = self.clientSocket.recv(total_size - len(buffer))
+            if not chunk:
+                raise ConnectionResetError("Server connection closed")
+            buffer += chunk
+        return buffer
+
+    def close(self) -> None:
+        self.calls.append("close")
+        self._close_socket()
+
+    def disConnect(self) -> tuple:
+        self.calls.append("disConnect")
+        self._close_socket()
+        return ("Connect", "Disconnected", False)
+
+    def _close_socket(self) -> None:
+        if self.clientSocket is not None:
+            self.clientSocket.close()
