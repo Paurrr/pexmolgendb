@@ -156,12 +156,31 @@ class DeviceTabToolBar(QWidget):
 
     @Slot()
     def set_processes(self, items: list[str]):
+        # clear() 와 addItems() 는 "" 와 첫 항목으로 currentTextChanged 를 두 번 낸다. 그 사이
+        # 지금 process 의 편집이 묻지도 않고 버려진다. 막고 다시 채운 뒤, 지금 process 가
+        # 목록에서 사라져 바뀐 경우에만 최종 이름으로 한 번 낸다.
+        current = self.process_selector.currentText()
+        self.process_selector.blockSignals(True)
         self.process_selector.clear()
         self.process_selector.addItems(items)
+        if current in items:
+            self.process_selector.setCurrentText(current)
+        self.process_selector.blockSignals(False)
+        selected = self.process_selector.currentText()
+        if selected != current:
+            self.process_selector.currentTextChanged.emit(selected)
 
     @Slot()
     def select_process(self, name: str):
         self.process_selector.setCurrentText(name)
+
+    def select_process_silently(self, name: str) -> None:
+        index = self.process_selector.findText(name)
+        if index == -1:
+            return
+        self.process_selector.blockSignals(True)
+        self.process_selector.setCurrentIndex(index)
+        self.process_selector.blockSignals(False)
 
     @Slot()
     def set_libraries(self, items: list[str]):

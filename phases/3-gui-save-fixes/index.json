@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "process-list-refresh",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T14:48:03+0900",
+      "summary": "set_processes: 시그널을 막고 다시 채워 현재 process 유지, 목록에서 사라져 바뀔 때만 최종 텍스트로 currentTextChanged 한 번(\"\"·중간 값 없음). remove_process 뒤 setProcessRequested(\"\") 대신 refresh_processes. select_process_silently(view+controller) 추가. RED: test_loading_a_csv_keeps_the_current_process_and_its_tab_edits·test_reconnecting_keeps_the_current_process (assert 'sf2p' == 'sf4u'), test_adding_a_process_asks_to_save_the_current_process_edits (질문 없이 upsert_devices waitUntil 타임아웃 + 쓰이지 않은 답 teardown 실패), test_when_another_user_deletes_the_current_process_the_first_one_is_selected_once (processChanged ['', 'sf2p'] == ['sf2p']), test_removing_a_process_drops_it_from_the_list (findText('sf4u') assert 1 == -1), test_a_removed_process_is_not_recreated_by_selecting_again (get_or_create_id 에 'sf4u'), test_select_process_silently_* (AttributeError). test_first_connect_selects_the_first_process_once 는 회귀(수정 전에도 통과). 변이 검사 7개(되살리기 제거, 최종 emit 제거=막기만, 바뀌지 않아도 emit, 시그널 막지 않음, remove_process 원래대로, silently 시그널 안 막음, silently 없는 이름 검사 제거) 모두 잡힘. phase 2 테스트 단언 변경 없음. 전체 427 passed / 9 skipped(DB 포함). tests/gui/test_process_list_refresh.py. 범위 밖: CSV 불러오기·재접속의 refresh_devices 가 device 편집을 버림"
     },
     {
       "step": 5,

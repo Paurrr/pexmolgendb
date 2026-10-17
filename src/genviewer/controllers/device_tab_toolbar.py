@@ -122,7 +122,9 @@ class DeviceTabToolBarController(QObject):
                 self.notifyRequested.emit(
                     "info", "Removed", f"Process '{name}' removed."
                 )
-                self.setProcessRequested.emit("")
+                # 비편집 콤보의 setCurrentText("") 는 아무것도 하지 않아 지운 이름이 목록에
+                # 남았다. 다시 고르면 get_or_create_id 가 빈 process 를 새로 만든다.
+                self.refresh_processes()
                 self.logRequested.emit(f"Process removed: {name}.")
         except Exception as e:
             report_error(self, f"Remove Failed: {name}", e)
@@ -133,6 +135,10 @@ class DeviceTabToolBarController(QObject):
             return
         self.setProcessesRequested.emit(self.repo.list_all())
         self.logRequested.emit("Process list refreshed.")
+
+    def select_process_silently(self, name: str) -> None:
+        """processChanged 없이 콤보만 name 으로 바꾼다. 목록에 없으면 그대로 둔다."""
+        self.ui.select_process_silently(name)
 
     def get_current_process(self) -> str:
         return self.ui.process_selector.currentText()
