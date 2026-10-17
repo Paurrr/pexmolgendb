@@ -102,7 +102,7 @@ fake 접속: `monkeypatch.setattr(DeviceTabController, "_open_database", staticm
 - **G13, 재접속 성공**: db1 → db2. `device_tab.dbChanged` 에 연결한 리스트가 정확히 `[db2]`(None 없음), db1은 한 번 닫혔고 db2는 열려 있다, `device_tab.db is db2`, `connected is True`, 로그 패널에 접속 줄.
 - **G13, 폴링 작업을 기다린 뒤 닫는다**: `threading.Event` 를 기다리는 `Task(lambda: ev.wait(5))` 를 시작해 `device_tab._poll_task` 에 넣고, `threading.Timer(0.2, ev.set)` 를 건다. db1의 `close()` 가 불리는 순간 그 Task가 끝나 있었는지(`isFinished()`)를 기록하게 하고 재접속 → 기록이 True. **수정 전에는 기다리지 않고 닫아 False라 실패해야 한다.** 테스트 끝에 Task를 반드시 `wait()` 한다(실행 중인 QThread가 지워지면 프로세스가 죽는다).
 - **G16, 시작 접속 실패가 화면에 보인다**: opener가 처음부터 `DbUnavailableError("down")` 를 내게 하고 창을 만든다 → `qtbot.waitUntil(lambda: ctrl.device_tab.connected is not None)` → `connected is False`, 로그 패널에 `"Database connect failed:"` 가 있다. `dialogs.shown` 에 새 상자가 없다. **수정 전에는 로그 패널에 없어 실패해야 한다.**
-- **G16, 시작 첫 조회 실패가 화면에 보인다**: opener는 성공하고 `store.fail_next("<process 목록 메서드>", DbUnavailableError("down"))`(fake repo에서 `ProcessRepository.list_all` 에 해당하는 이름) → 기다린 뒤 `dialogs.shown` 에 제목 "Process List Failed" 가 있다. **수정 전에는 없어 실패해야 한다.**
+- **G16, 시작 첫 조회 실패가 화면에 보인다**: opener는 성공하고 `store.fail_next("list_all", DbUnavailableError("down"))`(`FakeProcessRepository.list_all`) → 기다린 뒤 `dialogs.shown` 에 제목 "Process List Failed" 가 있다. **수정 전에는 없어 실패해야 한다.**
 - **G16, 시작 성공**: 기다린 뒤 `connected is True`, 로그 패널에 `"Database connected:"`, `dbChanged` 가 한 번.
 
 ### 2. 수정 (`controllers/device_tab.py`)
