@@ -328,6 +328,17 @@ _COLUMNS = (
 )
 
 
+def _aware(when: datetime) -> datetime:
+    """naive 시각은 클라이언트 로컬 시각으로 보고 tz 를 붙인다. aware 면 그대로.
+
+    psycopg 는 naive datetime 을 timestamp(without time zone) 로 보내고, 서버는
+    그것을 at(timestamptz) 와 비교하려고 세션 TimeZone 으로 읽는다. 호출자
+    (cli._parse_when, history_tab._since)는 로컬 시각을 넘기므로, 서버 세션이
+    UTC 이고 클라이언트가 KST 면 9시간 어긋난다.
+    """
+    return when.astimezone() if when.tzinfo is None else when
+
+
 class AuditRepository:
     def __init__(self, db: Database):
         self.db = db
@@ -356,10 +367,10 @@ class AuditRepository:
             params.append(after_id)
         if since is not None:
             where.append("at >= %s")
-            params.append(since)
+            params.append(_aware(since))
         if until is not None:
             where.append("at < %s")
-            params.append(until)
+            params.append(_aware(until))
         if actor:
             where.append("actor = %s")
             params.append(actor)
@@ -395,7 +406,8 @@ class AuditRepository:
     def count_before(self, before: datetime) -> int:
         with self.db.connection() as conn:
             row = conn.execute(
-                "SELECT count(*) AS n FROM change_log WHERE at < %s", (before,)
+                "SELECT count(*) AS n FROM change_log WHERE at < %s",
+                (_aware(before),),
             ).fetchone()
         return row["n"]
 
@@ -403,5 +415,5 @@ class AuditRepository:
         """before 이전 줄을 지운다. 지운 수를 돌려준다."""
         with self.db.connection() as conn:
             cur = conn.cursor()
-            cur.execute("DELETE FROM change_log WHERE at < %s", (before,))
+            cur.execute("DELETE FROM change_log WHERE at < %s", (_aware(before),))
             return cur.rowcount

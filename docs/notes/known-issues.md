@@ -34,7 +34,6 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | K2 | 풀이 `options`·`connect_timeout`·`application_name` 을 명시하므로 `PGOPTIONS`·`PGCONNECT_TIMEOUT`·`PGAPPNAME` 과 DSN 안의 `options=` 가 먹지 않는다 | `service/pool.py:27-41` | **고치지 않기로 함(2026-10-17).** 의도된 타임아웃(ADR-008)과 얽혀 있다. README에 `GENDB_PG_*` 를 쓰라고 적었다 |
 | K3 | 창의 시작·재접속 알림은 접속 실패의 실제 원인(비밀번호 틀림, DB 없음, 접속 수 초과)을 보여주지 않는다. `_open_database` 가 `ping()` 의 bool 만 보고 고정 문구("서버가 응답하지 않는다")를 낸다. CLI·status 는 2026-10-18 phase 7 에서 고침(풀이 커넥션을 못 주면 한 번 직접 접속해 그 오류의 첫 줄을 싣는다) | `controllers/device_tab.py` `_open_database` | GUI 시작·재접속 문구는 phase 11 step 1 |
 | K5 | CLI `load` 가 import 트랜잭션 내내 process 행을 잠근다(`ON CONFLICT DO UPDATE`, `statement_timeout` 0). 그동안 GUI에서 그 process를 고르면 `get_or_create_id` 가 5초 기다리다 55P03으로 실패한다 | `repo/io.py:59-63`, `repo/process.py:113-118` | 큰 파일 불러오기는 사람이 적을 때 한다 |
-| K6 | `log --since`·`--purge-before`·History 시간 필터가 naive 로컬 시각을 timestamptz와 비교한다. 서버 세션 TimeZone이 클라이언트와 다르면 어긋난다(UTC 서버 대 KST면 9시간) | `cli.py:305-322`, `repo/audit.py:357-362`, `controllers/history_tab.py:212-216` | 서버 TimeZone이 KST면 문제가 없다. 서버 설정부터 확인한다(`SHOW timezone`) |
 | K7 | 기존 탭에 컬럼을 추가해도 마이그레이션이 없다. 저장·import가 42703으로 실패하고 친절한 문구도 없다. `status` 는 테이블 존재만 본다 | `service/schema.py:212-222`, `diagnostics.py:161-169` | 기능 추가다(제안 P7) |
 | K8 | `init_db --owner` 를 `--owner` 없이 처음 만든 옛 DB에 다시 돌리면 "must be owner of table" 로 DDL 트랜잭션 전체가 롤백된다 | `scripts/init_db.py:90-100` | **고치지 않기로 함(2026-10-17).** 2026-09-15 이전 DB에만 해당한다. 그런 DB는 `ALTER TABLE … OWNER TO` 로 한 번 정리한다 |
 | K9 | 한 문장의 파라미터가 65,535개를 넘으면 실패한다(audit 약 7,281건, device 약 10,922개 재정렬) | `repo/audit.py:75-96`, `repo/device.py:320-349` | 지금 규모(process당 수백)에서는 닿지 않는다 |
@@ -42,6 +41,7 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | K32 | CSV 불러오기가 새로 만든 process에는 `process_add` 이력이 따로 남지 않는다(불러오기 한 줄에 포함된다) | `repo/io.py` import, `repo/audit.py` | 이력 형식 변경이다 |
 | K33 | `upsert_device` 에 `id` 가 있는 dict를 주면 version 검사 없이 덮어쓰고 `process_id` 도 바꾼다 | `repo/device.py:97-` | **고치지 않기로 함(2026-10-17).** 지금 호출자(붙여넣기 `paste_rows`)는 `id` 없는 dict만 넘겨 닿지 않는다. phase 2 step 1이 가짜를 만들다 본 것이고 재현하지 않았다. 가짜도 지금 동작을 그대로 흉내 낸다 |
 | K44 | CSV에 Description 컬럼이 없다(molgen 형식). 불러오기로 만든 device는 description이 비고, 내보내기도 Description을 쓰지 않아 내보낸 CSV를 다시 넣으면 description이 따라오지 않는다. 저장된 device의 description은 불러오기가 건드리지 않는다 | `repo/io.py:118-122` (device INSERT), `:217` (export 헤더), `controllers/device_table.py:461-470` (GUI 내보내기 device_info) | 2026-10-17 사용자 제보("CSV import 하면 description 이 날라간다")를 조사하다 확인했다. 저장하지 않은 편집이 사라지는 쪽은 K36이다. 사용자가 같은 날 왕복을 승인했다(phase 18). molgen `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 먼저 등록해야 한다. 안 그러면 셀마다 `Unknown header type` warn이 뜬다 |
+| K46 | 표시 시각이 서버 세션 TimeZone 기준이다. 서버 세션이 UTC면 `log` 출력·History·`log --out` CSV 의 `at` 이 UTC로 찍힌다. 시간 필터(`--since`·`--purge-before`·History 기간)는 2026-10-18 phase 7 에서 클라이언트 시각으로 고쳤다(K6) | `repo/audit.py` `format_line`, `controllers/history_tab.py`, `cli.py` `_write_log_csv` | 표시가 바뀌는 동작 변경이다. 서버 TimeZone이 KST면 문제가 없다(`SHOW timezone`) |
 
 ## 내보내기·연동
 

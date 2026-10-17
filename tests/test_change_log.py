@@ -9,7 +9,7 @@
   4. 이전 값과 이후 값이 둘 다 남는다. "무엇이 어떻게" 에 답할 수 있어야 한다.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -408,6 +408,62 @@ def test_purge_removes_only_what_is_older(db, log, process_id):
     assert log.count_before(tomorrow) == kept
     assert log.purge(tomorrow) == kept
     assert _rows(log) == []
+
+
+def _other_timezone() -> str:
+    """클라이언트 로컬과 다른 TimeZone. 같으면 naive 시각의 어긋남이 드러나지 않는다."""
+    return "UTC" if datetime.now().astimezone().utcoffset() else "Asia/Seoul"
+
+
+@pytest.fixture
+def other_tz_db(db, pg_dsn, monkeypatch):
+    """세션 TimeZone 이 클라이언트 로컬과 다른 Database. db 가 테이블을 비운 뒤에 연다.
+
+    PGTZ 는 libpq 가 접속할 때 TimeZone 으로 보낸다. 환경변수라 테스트가 끝나면
+    monkeypatch 가 되돌리고, DB 수준 설정은 건드리지 않는다.
+    """
+    from genviewer.service.config import load_config
+    from genviewer.service.pool import Database
+
+    tz = _other_timezone()
+    monkeypatch.setenv("PGTZ", tz)
+    database = Database(load_config(pg_dsn))
+    try:
+        with database.connection() as conn:
+            # 전제가 깨지면(세션 TZ 가 로컬과 같으면) 아래 테스트는 헛되이 통과한다.
+            assert conn.execute("SHOW TimeZone").fetchone()["TimeZone"] == tz
+        yield database
+    finally:
+        database.close()
+
+
+@pytest.mark.parametrize("aware", [False, True], ids=["naive", "aware"])
+def test_time_filters_use_the_client_clock_not_the_server_session(other_tz_db, aware):
+    """log --since/--purge-before 와 History 기간은 클라이언트 시각으로 고른다 (K6).
+
+    cli._parse_when 과 history_tab._since 는 naive 로컬 시각을 넘긴다. 그대로
+    바인드하면 서버가 세션 TimeZone 으로 읽어서, KST 클라이언트와 UTC 세션이면
+    9시간 어긋난다(--since 1h 가 비고, --purge-before 가 방금 쓴 줄을 지운다).
+    """
+    ProcessRepository(other_tz_db).add("sf9z", actor="tz")
+    repo = AuditRepository(other_tz_db)
+
+    def minutes_from_now(n):
+        if aware:
+            return datetime.now(UTC) + timedelta(minutes=n)
+        return datetime.now() + timedelta(minutes=n)
+
+    assert [r["process_name"] for r in repo.recent(since=minutes_from_now(-1))] == [
+        "sf9z"
+    ]
+    assert repo.recent(until=minutes_from_now(-1)) == []
+    assert [r["process_name"] for r in repo.recent(until=minutes_from_now(1))] == [
+        "sf9z"
+    ]
+    assert repo.count_before(minutes_from_now(-1)) == 0
+    assert repo.purge(minutes_from_now(-1)) == 0
+    assert [r["process_name"] for r in repo.recent()] == ["sf9z"]
+    assert repo.count_before(minutes_from_now(1)) == 1
 
 
 def test_the_source_is_recorded(db, log, process_id):
