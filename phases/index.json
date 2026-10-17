@@ -19,6 +19,10 @@
     {
       "dir": "4-gui-robustness",
       "status": "pending"
+    },
+    {
+      "dir": "5-sqlite-removal",
+      "status": "pending"
     }
   ]
 }

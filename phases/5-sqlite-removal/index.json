@@ -1,0 +1,9 @@
+{
+  "project": "genviewer",
+  "phase": "5-sqlite-removal",
+  "steps": [
+    { "step": 0, "name": "schema-tab-config-test", "status": "pending" },
+    { "step": 1, "name": "remove-import-sqlite", "status": "pending" },
+    { "step": 2, "name": "remove-sqlite-schema", "status": "pending" }
+  ]
+}

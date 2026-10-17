@@ -527,6 +527,7 @@ uv run python -X utf8 scripts/execute.py 0-service-fixes   # feat-0-service-fixe
 | `2-gui-test-infra` | pytest-qt, 가짜 repo, controller fixture (GUI 테스트 기반, 코드 불변) |
 | `3-gui-save-fixes` | 저장 안 되는 탭, 취소가 취소되지 않음, 내 저장에 내가 충돌, process 전환 시 편집 손실 |
 | `4-gui-robustness` | 탭 로드 실패, 정렬, 재접속, 창 닫기 확인, Virtuoso 소켓 워커 |
+| `5-sqlite-removal` | 쓰지 않는 `.sqlite` 이관 도구와 레거시 스키마 제거 (버그 수정이 아닌 승인된 정리) |
 
 ## 알려진 문제
 
