@@ -43,7 +43,6 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
-| K13 | SKILL 문자열을 이스케이프하지 않는다. process 이름이나 파라미터 값에 `"`·`\` 가 있으면 Virtuoso 명령이 깨지거나, 의도한 것 이상의 SKILL이 실행될 수 있다 | `service/virtuoso_protocol.py:13-14`, `utils/lisp.py:6-9` | 값은 팀 내부 사람이 넣고, Cadence 라이브러리 이름에는 따옴표가 없다. 고치면 보내는 문자열이 바뀐다 |
 | K14 | Virtuoso 수신 쪽이 연결이 끊긴 것("DISCONNECTED"/"ERROR: …")을 접속 상태에 반영하지 않는다. UI는 계속 Connected라고 한다. UTF-8이 아닌 응답이 오면 수신이 멈춘다 | `net/workers.py:85-110` | phase 4 step 6은 크래시만 막고, 보내기 실패를 받기 오류와 같은 길(Socket 탭 수신 칸)로 보이게 했다. 상태 표시는 동작 변경이다 |
 | K15 | Load Libs 요청이 빈 프레임이다(stub) | `service/virtuoso_protocol.py:17-18` | **고치지 않기로 함(2026-10-17).** 기능이 아직 없다(Virtuoso 쪽 함수가 정해지지 않았다) |
 | K16 | Virtuoso 목록 필터가 부분 문자열(`name in r["name"]`)이라 더 많이 걸릴 수 있다. 내보내기 형식은 메뉴가 정하는데 대화상자는 두 확장자를 다 허용해서, `.csv` 이름에 xlsx가 써질 수 있다 | `controllers/device_table.py:296, 473-484` | 필터: **고치지 않기로 함(2026-10-17).** 접미사가 붙은 이름까지 잡는 것이 의도다. 내보내기 형식: phase 11 에서 확장자로 고른다 |

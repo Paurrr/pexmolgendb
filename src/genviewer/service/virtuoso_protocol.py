@@ -1,3 +1,6 @@
+from genviewer.utils.lisp import skill_string
+
+
 def parse(raw: str) -> tuple[str, str]:
     # 앞뒤 큰따옴표 제거
     if raw.startswith('"') and raw.endswith('"'):
@@ -11,7 +14,7 @@ def parse(raw: str) -> tuple[str, str]:
 
 def make_filter_cell_has_symbol_layout(process_name: str) -> str:
     p = process_name.strip().lower()
-    return f'filterCellHasSymbolLayout(list("{p}" "{p}_esd"))'
+    return f"filterCellHasSymbolLayout(list({skill_string(p)} {skill_string(p + '_esd')}))"
 
 
 def make_library_list_request() -> str:
