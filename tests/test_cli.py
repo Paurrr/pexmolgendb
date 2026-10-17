@@ -12,6 +12,7 @@
 """
 
 import csv
+import errno
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -22,6 +23,7 @@ from typer.testing import CliRunner
 from genviewer import cli
 from genviewer.cli import app
 from genviewer.service.repo.process import ProcessRepository
+from genviewer.utils.exporter import write_csv
 
 runner = CliRunner()
 
@@ -146,6 +148,95 @@ def test_an_unexpected_failure_becomes_one_line(capsys):
     err = capsys.readouterr().err
     assert "오류:" in err
     assert "topsecret" not in err
+
+
+def _main_failing_with(monkeypatch, body):
+    """app 이 body() 를 부르다 죽는 상태로 cli.main() 을 돌린다.
+
+    (종료 코드, stdout 을 devnull 로 돌린 기록) 을 돌려준다. 닫힌 파이프 경로는
+    os.dup2 로 stdout 을 바꾼다. 진짜로 하면 이후 테스트 출력이 사라지고,
+    capsys 아래의 sys.stdout 은 fileno() 가 없다. 그래서 기록만 하는 가짜로
+    바꾸고, main() 이 끝나는 즉시 되돌린다.
+    """
+    redirected = []
+
+    class FakeStdout:
+        def fileno(self):
+            return 1
+
+    def fake_app(**kwargs):
+        body()
+
+    with monkeypatch.context() as m:
+        m.setattr(cli, "app", fake_app)
+        m.setattr(cli.os, "open", lambda path, flags: 99)
+        m.setattr(cli.os, "dup2", lambda fd, fd2: redirected.append((fd, fd2)))
+        m.setattr(cli.sys, "stdout", FakeStdout())
+        # main() 이 이력 출처를 "cli" 로 바꾼다. 다른 테스트에 새지 않게 한다.
+        m.setattr(cli.audit, "_source", "")
+        with pytest.raises(SystemExit) as caught:
+            cli.main()
+    return caught.value.code, redirected
+
+
+def _raise(exc):
+    def body():
+        raise exc
+
+    return body
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        # 윈도우에서 out?.csv, a:b.csv 같은 이름을 열면 이 모양이다.
+        OSError(errno.EINVAL, "Invalid argument", "out?.csv"),
+        OSError(errno.EACCES, "Permission denied", "out?.csv"),
+    ],
+    ids=["einval-with-filename", "eacces-with-filename"],
+)
+def test_a_file_that_cannot_be_opened_fails_with_one_line(monkeypatch, capsys, exc):
+    """파일을 못 연 것은 닫힌 파이프가 아니다. 성공처럼 0 으로 끝나면 안 된다."""
+    code, redirected = _main_failing_with(monkeypatch, _raise(exc))
+
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "오류:" in err
+    assert "out?.csv" in err
+    assert redirected == []
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        # 윈도우에서 읽는 쪽이 먼저 닫은 파이프. 파일 이름이 없다.
+        OSError(errno.EINVAL, "Invalid argument"),
+        BrokenPipeError(errno.EPIPE, "Broken pipe"),
+    ],
+    ids=["einval-windows-pipe", "epipe"],
+)
+def test_a_closed_pipe_ends_quietly(monkeypatch, capsys, exc):
+    """genviewer processes | head 는 앱의 잘못이 아니다. 조용히 0 으로 끝난다."""
+    code, redirected = _main_failing_with(monkeypatch, _raise(exc))
+
+    assert code == 0
+    assert "오류:" not in capsys.readouterr().err
+    assert len(redirected) == 1
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="윈도우의 잘못된 파일 이름")
+def test_an_invalid_windows_file_name_is_reported(monkeypatch, capsys, tmp_path):
+    """진짜 write_csv 가 윈도우에서 내는 예외 모양 그대로 확인한다."""
+    out = tmp_path / "out?.csv"
+
+    code, redirected = _main_failing_with(
+        monkeypatch, lambda: write_csv(str(out), ["a"], [["1"]])
+    )
+
+    assert code == 1
+    assert "오류:" in capsys.readouterr().err
+    assert redirected == []
+    assert not out.exists()
 
 
 # --------------------------------------------------------------------------

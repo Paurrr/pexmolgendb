@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "cli-oserror",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T11:05:00+0900",
+      "summary": "cli.main: filename 있는 OSError 는 파이프로 보지 않고 exit 1. RED: test_a_file_that_cannot_be_opened_fails_with_one_line[einval-with-filename], test_an_invalid_windows_file_name_is_reported (Windows, 진짜 write_csv) — assert 0 == 1. EACCES·EPIPE·EINVAL(파일 이름 없음) 경우는 특성 테스트로 통과. 변이 검사: filename 조건을 빼면 RED 2개, EINVAL 을 빼면 einval-windows-pipe 가 실패. DB 테스트: 189 passed / 8 skipped, DB 없이 111 / 86",
+      "completed_at": "2026-10-17T11:09:02+0900"
     },
     {
       "step": 3,

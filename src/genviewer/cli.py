@@ -485,7 +485,8 @@ def main() -> None:
     except OSError as exc:
         # 파이프를 읽는 쪽이 먼저 닫았다 (genviewer processes 를 head 로 받는 경우).
         # POSIX 는 EPIPE, 윈도우는 EINVAL 로 온다. 앱의 잘못이 아니다.
-        if exc.errno not in (errno.EPIPE, errno.EINVAL):
+        # 윈도우는 out?.csv 같은 파일 이름을 열 때도 EINVAL 이다. 그때는 filename 이 있다.
+        if exc.errno not in (errno.EPIPE, errno.EINVAL) or exc.filename is not None:
             _fail(exc)
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, sys.stdout.fileno())
