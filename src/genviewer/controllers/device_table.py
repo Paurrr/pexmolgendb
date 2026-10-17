@@ -183,6 +183,16 @@ class DeviceTableController(QObject):
         model = self.ui.model_safe()
         if not model or not self._copied_rows:
             return
+        if self.is_dirty():
+            # 붙여넣기는 바로 저장하고 목록을 다시 읽는다. 그러면 저장하지 않은 다른
+            # device 편집이 말없이 사라진다.
+            self.notifyRequested.emit(
+                "warn",
+                "Unsaved Changes",
+                "저장하지 않은 device 편집이 있어 붙여넣지 않았다.\n"
+                "붙여넣기는 바로 저장하고 목록을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+            )
+            return
 
         insert_row = rows[0] + 1 if rows else model.rowCount()
         columns = model._columns
@@ -334,6 +344,8 @@ class DeviceTableController(QObject):
 
         True: 저장했다(덮어쓰기 포함), 또는 쓸 것이 없었다.
         False: 충돌 대화상자에서 취소(창 닫기 포함)나 다시 읽기를 골랐다, 또는 접속 전이다.
+        편집한 행 일부를 CellType 때문에 저장하지 못했을 때도 False 다(나머지는 저장하고
+        "Save Skipped" 경고를 띄운다).
         예외는 잡지 않는다(접속 끊김 등). 호출부가 이 값을 보고 "Saved" 를 띄울지 정한다.
         """
         if self.repo is None:
@@ -343,15 +355,17 @@ class DeviceTableController(QObject):
 
         model = self.ui.model_safe()
         devices = model.get_devices()
-        invalid_devices: list[str] = []
+        # CellType 이 목록에 없는 행은 저장하지 않는다. 그중 편집한 행은 쓰기 뒤의
+        # refresh_devices 가 편집을 지우므로(기준점도 지운다) 쓰기 전에 이름을 모은다.
+        skipped_edits: list[str] = []
         to_save: list[dict] = []
 
         for i, d in enumerate(devices):
             d["order"] = i
             if d.get("celltype") in valid_celltypes:
                 to_save.append(d)
-            else:
-                invalid_devices.append(d.get("name", "<Unknown>"))
+            elif model.is_row_changed(i):
+                skipped_edits.append(d.get("name", "<Unknown>"))
 
         deleted = model.deleted_devices()
         # 쓰기가 새 version 을 이 dict 들에 덮어쓰므로 쓰기 전에 잡아 둔다.
@@ -374,6 +388,15 @@ class DeviceTableController(QObject):
         self.notifyRequested.emit("info", "Save Complete", summary)
         self.refresh_devices()
         self.logRequested.emit(f"Device Info: {summary}")
+        if skipped_edits:
+            self.notifyRequested.emit(
+                "warn",
+                "Save Skipped",
+                "CellType 이 목록에 없어 다음 device 의 편집은 저장하지 않았다"
+                "(다시 읽으면서 사라졌다).\n"
+                + "\n".join(f" - {name}" for name in skipped_edits),
+            )
+            return False
         return True
 
     def _emit_version_bumps(

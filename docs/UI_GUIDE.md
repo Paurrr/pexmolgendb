@@ -53,6 +53,8 @@
 
 - 저장·접속·CSV 불러오기 중에는 대기 커서를 띄우고 사용자 입력 이벤트를 처리하지 않는다(`run_blocking`). 위젯을 비활성화하지는 않는다.
 - 값 후보와 검증은 `delegate_config.json`(`items`, `items_by_celltype`, `strict`, `required`, `pattern`, `syntax`)이 정한다. 화면에서 따로 하드코딩하지 않는다.
+- device 표 붙여넣기는 바로 저장되고 목록을 다시 읽는다. 저장 안 한 device 편집이 있으면 붙여넣지 않고 경고한다(`Unsaved Changes`).
+- CellType이 `delegate_config` 목록에 없는 device는 저장하지 않는다. 그런 행을 편집했으면 저장 뒤 경고(`Save Skipped`)로 이름을 알린다.
 
 ## 하지 않는 것
 | 금지 | 이유 |

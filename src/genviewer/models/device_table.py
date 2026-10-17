@@ -263,6 +263,19 @@ class DeviceTableModel(QAbstractTableModel):
     def is_modified(self) -> bool:
         return self._devices != self._original_devices
 
+    def is_row_changed(self, row: int) -> bool:
+        """새 행이거나 표시 컬럼 하나라도 불러온 값과 다르면 True.
+
+        노란 셀이 있는 행과 같은 기준이다(_recompute_dirty_cells).
+        """
+        if not (0 <= row < len(self._devices)):
+            return False
+        original = self._original_for_device(row)
+        if original is None:
+            return True
+        device = self._devices[row]
+        return any(device.get(key, "") != original.get(key, "") for key in self._columns)
+
     def undo(self) -> bool:
         if not self._undo_stack:
             return False

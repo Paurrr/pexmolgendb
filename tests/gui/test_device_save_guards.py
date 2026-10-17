@@ -1,0 +1,239 @@
+"""device 표에서 편집이 경고 없이 사라지는 두 경로 (phase 3 step 7).
+
+G15a: save_all 은 CellType 이 delegate_config 목록에 없는 행을 저장하지 않는다(규칙은 그대로).
+그 뒤의 다시 읽기가 그 행의 편집을 지우므로, 편집한 행이 있었으면 "Save Skipped" 경고로 이름을
+알리고 False 를 돌려준다. 손대지 않은 목록 밖 행(CSV 로 들어온 옛 CellType)은 경고하지 않는다.
+
+G15b: 붙여넣기는 바로 저장하고 목록을 다시 읽는다. device 표에 저장 안 한 편집이 있으면
+붙여넣지 않고 "Unsaved Changes" 경고를 낸다.
+"""
+
+import pytest
+from gui_support.helpers import edit_device_cell, edit_tab_cell, select_device_row, select_process
+
+from genviewer.config.config import delegate_config
+from genviewer.dialogs.conflict import CANCEL, RELOAD
+
+EDITED = "edited by tester"
+OFF_LIST = "nmos_rf"  # delegate_config 의 device.celltype.items 에 없다
+TAB = "InstTerm"
+COLUMN = "cds_inst_term_name"
+ALL_SAVED = "All changes have been saved."
+
+
+def record_notifications(ctrl) -> list[tuple[str, str, str]]:
+    notes: list[tuple[str, str, str]] = []
+    ctrl.notifyRequested.connect(lambda *args: notes.append(args))
+    return notes
+
+
+def titled(notes, title: str) -> list[tuple[str, str, str]]:
+    return [n for n in notes if n[1] == title]
+
+
+def model_of(ctrl):
+    return ctrl.device_table.ui.model_safe()
+
+
+def sent_names(store) -> list[list[str]]:
+    return [[d["name"] for d in c["devices"]] for c in store.calls_of("upsert_devices")]
+
+
+def open_sf2p(ctrl) -> None:
+    select_process(ctrl, "sf2p")
+    names = [d["name"] for d in model_of(ctrl).get_devices()]
+    assert names == ["nfet_a", "nfet_b"]
+
+
+def give_nfet_a_an_old_celltype(ctrl, store) -> None:
+    """CSV 로 들어온 것처럼 nfet_a 의 CellType 이 DB 에서 이미 목록 밖이다(bob 의 저장)."""
+    assert OFF_LIST not in delegate_config["device"]["celltype"]["items"]
+    store.touch_device(store.find_device("nfet_a")["id"], actor="bob", celltype=OFF_LIST)
+    ctrl.device_table.refresh_devices()
+    assert model_of(ctrl).get_device(0)["celltype"] == OFF_LIST
+    assert not ctrl.device_table.is_dirty()
+
+
+# -- G15a: CellType 때문에 건너뛴 편집 --------------------------------------------
+
+
+def test_an_edited_row_with_an_off_list_celltype_is_skipped_with_a_warning(
+    device_tab_ctrl, store
+):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    notes = record_notifications(ctrl)
+    edit_device_cell(ctrl, 0, "celltype", OFF_LIST)
+    edit_device_cell(ctrl, 1, "description", EDITED)
+
+    assert ctrl.device_table.save_all() is False
+
+    assert sent_names(store) == [["nfet_b"]]
+    assert store.find_device("nfet_b")["description"] == EDITED
+    assert store.find_device("nfet_a")["celltype"] == "NFET"
+    assert titled(notes, "Save Complete") == [("info", "Save Complete", "1 updated.")]
+    assert titled(notes, "Save Skipped") == [
+        (
+            "warn",
+            "Save Skipped",
+            "CellType 이 목록에 없어 다음 device 의 편집은 저장하지 않았다"
+            "(다시 읽으면서 사라졌다).\n - nfet_a",
+        )
+    ]
+    # 건너뛴 행은 다시 읽으면서 DB 값으로 돌아갔다(경고가 그것을 알린다)
+    assert model_of(ctrl).get_device(0)["celltype"] == "NFET"
+    assert not ctrl.device_table.is_dirty()
+
+
+def test_an_untouched_row_with_an_off_list_celltype_is_not_warned_about(device_tab_ctrl, store):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    give_nfet_a_an_old_celltype(ctrl, store)
+    notes = record_notifications(ctrl)
+
+    assert ctrl.device_table.save_all() is True
+
+    assert titled(notes, "Save Skipped") == []
+    assert titled(notes, "Save Complete") == [("info", "Save Complete", "No changes to save.")]
+
+
+def test_editing_a_row_whose_celltype_came_off_list_from_the_db_is_warned_about(
+    device_tab_ctrl, store
+):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    give_nfet_a_an_old_celltype(ctrl, store)
+    notes = record_notifications(ctrl)
+    edit_device_cell(ctrl, 0, "description", EDITED)
+
+    assert ctrl.device_table.save_all() is False
+
+    assert sent_names(store) == [["nfet_b"]]
+    assert store.find_device("nfet_a")["description"] == ""
+    warnings = titled(notes, "Save Skipped")
+    assert len(warnings) == 1
+    assert " - nfet_a" in warnings[0][2]
+    assert model_of(ctrl).get_device(0)["description"] == ""
+
+
+def test_a_new_row_with_an_off_list_celltype_is_warned_about(device_tab_ctrl, store):
+    # celltype 은 required 라 빈 CellType 으로는 insert_row 가 행을 넣지 않는다.
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    notes = record_notifications(ctrl)
+    assert model_of(ctrl).insert_row(2, {"name": "new1", "celltype": OFF_LIST, "description": ""})
+
+    assert ctrl.device_table.save_all() is False
+
+    assert sent_names(store) == [["nfet_a", "nfet_b"]]
+    with pytest.raises(KeyError):
+        store.find_device("new1")
+    warnings = titled(notes, "Save Skipped")
+    assert len(warnings) == 1
+    assert " - new1" in warnings[0][2]
+    assert [d["name"] for d in model_of(ctrl).get_devices()] == ["nfet_a", "nfet_b"]
+
+
+@pytest.mark.parametrize("choice", [CANCEL, RELOAD])
+def test_a_save_that_was_not_written_does_not_warn_about_skipped_rows(
+    device_tab_ctrl, store, dialogs, choice
+):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    notes = record_notifications(ctrl)
+    edit_device_cell(ctrl, 0, "celltype", OFF_LIST)
+    edit_device_cell(ctrl, 1, "description", EDITED)
+    store.touch_device(store.find_device("nfet_b")["id"], actor="bob")
+    dialogs.answer_conflict(choice)
+
+    assert ctrl.device_table.save_all() is False
+
+    assert len(store.calls_of("upsert_devices")) == 1
+    assert titled(notes, "Save Skipped") == []
+    assert titled(notes, "Save Complete") == []
+
+
+def test_database_save_with_a_skipped_edit_is_not_reported_as_saved(
+    device_tab_ctrl, store, dialogs, qtbot
+):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    # nfet_b 의 탭을 고친다. device 행은 nfet_a 만 고치므로 탭 저장이 나 자신과 충돌하지 않는다.
+    select_device_row(ctrl, 1)
+    nfet_b = store.find_device("nfet_b")["id"]
+    qtbot.waitUntil(lambda: ctrl.parameter_tab.section(TAB).device_id == nfet_b)
+    qtbot.waitUntil(lambda: len(ctrl.parameter_tab.section(TAB).model.get_data()) == 2)
+    edit_tab_cell(ctrl, TAB, 0, COLUMN, "dd")
+    notes = record_notifications(ctrl)
+    edit_device_cell(ctrl, 0, "celltype", OFF_LIST)
+
+    assert ctrl.save_db() is False
+
+    assert len(titled(notes, "Save Skipped")) == 1
+    assert all(text != ALL_SAVED for _severity, _title, text in notes)
+    calls = store.calls_of("replace_many_for_device")
+    assert [c["device_id"] for c in calls] == [nfet_b]
+    assert store.rows("inst_terms", nfet_b)[0][COLUMN] == "dd"
+    assert not ctrl.parameter_tab.is_dirty()
+
+
+# -- G15b: 저장 안 한 편집이 있을 때 붙여넣기 ----------------------------------------
+
+
+def test_pasting_with_unsaved_device_edits_is_refused_with_a_warning(device_tab_ctrl, store):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    notes = record_notifications(ctrl)
+    edit_device_cell(ctrl, 0, "description", EDITED)
+    ctrl.device_table.copy_rows([1])
+
+    ctrl.device_table.paste_rows([1])
+
+    assert titled(notes, "Unsaved Changes") == [
+        (
+            "warn",
+            "Unsaved Changes",
+            "저장하지 않은 device 편집이 있어 붙여넣지 않았다.\n"
+            "붙여넣기는 바로 저장하고 목록을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+        )
+    ]
+    assert store.calls_of("upsert_device") == []
+    assert model_of(ctrl).rowCount() == 2
+    assert model_of(ctrl).get_device(0)["description"] == EDITED
+    assert ctrl.device_table.is_dirty()
+
+
+def test_pasting_without_unsaved_edits_saves_the_pasted_row(device_tab_ctrl, store):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    notes = record_notifications(ctrl)
+    ctrl.device_table.copy_rows([1])
+
+    ctrl.device_table.paste_rows([1])
+
+    assert len(store.calls_of("upsert_device")) == 1
+    assert model_of(ctrl).rowCount() == 3
+    assert [d["name"] for d in model_of(ctrl).get_devices()].count("nfet_b") == 2
+    assert titled(notes, "Unsaved Changes") == []
+
+
+# -- DeviceTableModel.is_row_changed ---------------------------------------------
+
+
+def test_is_row_changed_follows_the_loaded_values(device_tab_ctrl):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    model = model_of(ctrl)
+    assert not model.is_row_changed(0)
+    assert not model.is_row_changed(1)
+
+    edit_device_cell(ctrl, 0, "description", EDITED)
+    assert model.is_row_changed(0)
+    assert not model.is_row_changed(1)
+
+    edit_device_cell(ctrl, 0, "description", "")
+    assert not model.is_row_changed(0)
+
+    assert model.insert_row(2, {"name": "new1", "celltype": "NFET", "description": ""})
+    assert model.is_row_changed(2)
+    assert not model.is_row_changed(3)
