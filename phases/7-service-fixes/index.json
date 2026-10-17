@@ -71,7 +71,8 @@
       "name": "xlsx-literal",
       "status": "completed",
       "started_at": "2026-10-18T01:36:24+0900",
-      "summary": "write_xlsx: '=' 로 시작하는 문자열 셀을 data_type 's' 로 저장(GUI·CLI 공통, CSV 불변). 헤더와 행을 같은 루프에서 append 한 뒤 그 행에서 '=' 로 시작하는 str 값의 셀만 ws.cell(row, col).data_type = \"s\"(값은 그대로, ' 접두 없음, +·-·@ 불변, 새 셀을 만들지 않음). 저장 XML 은 <f> 대신 <c t=\"inlineStr\"><is><t>=1+1</t></is></c>, 다른 셀의 XML 은 수정 전과 같다. 수정 전 관찰: '=1+1'·'=SUM(A1:A2)' 는 다시 읽으면 'f', 빈 문자열은 <c t=\"inlineStr\"/> 라 (None, 'inlineStr') → 그대로 고정. 새 테스트(tests/test_export.py, DB 불필요, DSN 없이 3 passed / DB 2 skipped 확인): test_xlsx_writes_values_starting_with_equals_as_text, test_xlsx_writes_other_values_as_before·test_csv_keeps_values_starting_with_equals_as_written(회귀, 수정 전에도 통과). 처음 실패한 단언: assert ('=1+1', 'f') == ('=1+1', 's'). 변이: data_type 줄을 빼면 같은 단언으로 실패, 손으로 되돌림. README export 한 문장, known-issues K12 행 삭제. DB 테스트: 669 passed / 9 skipped(Windows posix_only) / 1 xfailed"
+      "summary": "write_xlsx: '=' 로 시작하는 문자열 셀을 data_type 's' 로 저장(GUI·CLI 공통, CSV 불변). 헤더와 행을 같은 루프에서 append 한 뒤 그 행에서 '=' 로 시작하는 str 값의 셀만 ws.cell(row, col).data_type = \"s\"(값은 그대로, ' 접두 없음, +·-·@ 불변, 새 셀을 만들지 않음). 저장 XML 은 <f> 대신 <c t=\"inlineStr\"><is><t>=1+1</t></is></c>, 다른 셀의 XML 은 수정 전과 같다. 수정 전 관찰: '=1+1'·'=SUM(A1:A2)' 는 다시 읽으면 'f', 빈 문자열은 <c t=\"inlineStr\"/> 라 (None, 'inlineStr') → 그대로 고정. 새 테스트(tests/test_export.py, DB 불필요, DSN 없이 3 passed / DB 2 skipped 확인): test_xlsx_writes_values_starting_with_equals_as_text, test_xlsx_writes_other_values_as_before·test_csv_keeps_values_starting_with_equals_as_written(회귀, 수정 전에도 통과). 처음 실패한 단언: assert ('=1+1', 'f') == ('=1+1', 's'). 변이: data_type 줄을 빼면 같은 단언으로 실패, 손으로 되돌림. README export 한 문장, known-issues K12 행 삭제. DB 테스트: 669 passed / 9 skipped(Windows posix_only) / 1 xfailed",
+      "completed_at": "2026-10-18T01:43:34+0900"
     },
     {
       "step": 9,
