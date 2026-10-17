@@ -13,6 +13,9 @@ lock_timeout / statement_timeout 이 없으면 다른 사용자의 FOR UPDATE �
 창이 굳는다.
 """
 
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
+
 import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
@@ -57,14 +60,25 @@ class Database:
         if not self._pool.closed:
             self._pool.close()
 
-    def connection(self):
-        """트랜잭션 하나. 정상 종료하면 commit, 예외면 rollback."""
+    @contextmanager
+    def connection(self) -> Iterator[psycopg.Connection]:
+        """트랜잭션 하나. 정상 종료하면 commit, 예외면 rollback.
+
+        커넥션을 얻지 못한 것(PoolTimeout 등)만 DbUnavailableError 로 바꾼다.
+        풀의 connection() 은 컨텍스트 매니저를 만들기만 하고 획득은 __enter__ 에서
+        하므로, 그 호출을 감싸야 한다. with 본문과 commit/rollback 에서 난 예외는
+        그대로 올린다. 바꾸면 user_message 의 SQLSTATE 별 안내가 사라진다.
+        """
         if self._pool.closed:
             self._pool.open()
-        try:
-            return self._pool.connection(timeout=self.cfg.connect_timeout)
-        except psycopg.OperationalError as e:
-            raise DbUnavailableError(str(e)) from e
+        with ExitStack() as stack:
+            try:
+                conn = stack.enter_context(
+                    self._pool.connection(timeout=self.cfg.connect_timeout)
+                )
+            except psycopg.OperationalError as e:
+                raise DbUnavailableError(str(e)) from e
+            yield conn
 
     def ping(self) -> bool:
         """Connect 다이얼로그의 '연결 테스트'."""
