@@ -466,9 +466,8 @@ SKIP_START=1 PGBIN="/c/Program Files/PostgreSQL/18/bin" ./tools/initdb.sh
 
 `SKIP_START=1` 로 처음 돌리면 클러스터는 만들어지지만 서버가 아직 안 떠 있어서
 마지막 `createdb` 가 "실패" 로 끝난다. 서버를 띄운 뒤 **같은 명령을 한 번 더**
-돌리면 initdb 는 건너뛰고 데이터베이스만 만든다. 리눅스에서 이미 떠 있는 클러스터에
-다시 돌리면 `pg_ctl start` 에서 멈춘다 — 그때는 `pg_ctl stop` 뒤에 돌린다(고치는
-작업이 `phases/1-deploy-fixes` 에 있다).
+돌리면 initdb 는 건너뛰고 데이터베이스만 만든다. 이미 떠 있는 클러스터에 다시
+돌리면(`pg_ctl status` 가 떠 있다고 하면) start 도 건너뛰고 데이터베이스만 확인한다.
 
 ```sh
 uv run genviewer-init-db --dry-run        # 접속하지 않고 실행될 SQL 만 본다

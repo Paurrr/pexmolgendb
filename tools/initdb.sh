@@ -74,6 +74,13 @@ fi
 
 if [ "$SKIP_START" = "1" ]; then
     echo "==> start 건너뜀 (SKIP_START=1)"
+# 이미 떠 있으면(이 스크립트로 띄웠든 systemd 로 띄웠든) start 하지 않는다. 떠 있는
+# 서버에 start 하면 pg_ctl 이 exit 1 이라 다시 돌린 실행이 createdb 전에 죽는다.
+# pg_ctl status 의 종료 코드: 0 떠 있음, 3 안 떠 있음, 4 데이터 디렉터리가 없거나 잘못됨.
+# 0 이 아니면 지금처럼 start 한다. start 를 '|| true' 로 넘기지 않는 이유: 포트 충돌·
+# 권한·잘못된 설정으로 진짜 못 띄운 경우는 여기서 멈춰야 한다.
+elif "$pg_ctl" -D "$PGDATA" status >/dev/null 2>&1; then
+    echo "==> start 건너뜀 (이미 떠 있다)"
 else
     echo "==> start (port $PGPORT)"
     "$pg_ctl" -D "$PGDATA" -o "-p $PGPORT" -l "$PGDATA/server.log" -w start

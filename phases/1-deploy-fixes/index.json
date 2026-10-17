@@ -29,7 +29,9 @@
     {
       "step": 3,
       "name": "initdb-rerun",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T11:50:34+0900",
+      "summary": "initdb.sh: pg_ctl status 가 0 이면 start 건너뜀 (SKIP_START 흐름 불변, start 실패는 그대로 중단). RED: test_a_second_run_on_a_running_cluster_succeeds (assert 1 == 0, stderr 'pg_ctl: could not start server'), test_a_second_run_says_start_was_skipped. tests/test_initdb_sh.py 추가(stub initdb/pg_ctl/createdb, 테스트 4개, start 실패·SKIP_START 테스트는 수정 전에도 통과). 변이 검사: 수정 제거 → 다시 돌리기 테스트 둘 실패, start || true → failing_start 실패, status 를 SKIP_START 앞으로 → skip_start 실패. README 개발 클러스터 정리. DB 테스트: 208 passed / 9 skipped (skip 은 posix_only 뿐)"
     }
   ],
   "created_at": "2026-10-17T11:23:58+0900"
