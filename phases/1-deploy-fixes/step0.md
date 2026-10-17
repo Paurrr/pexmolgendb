@@ -25,7 +25,7 @@
 - `src/genviewer/service/env_file.py` — `_site_roots()`(~89-110, docstring 마지막 문단 ~96-98), `candidates()`(~113-134), `load()`
 - `src/genviewer/service/config.py` — `CONFIG_ENV`, `resolve_dsn()`(`env_file.load(os.environ.get(CONFIG_ENV, "").strip())`)
 - `src/genviewer/service/diagnostics.py` — `inspect_config()`, `config_lines()`. `--check-config` 가 찍는 "설정 파일:"·"찾아본 곳:" 줄이 여기서 나온다
-- `src/genviewer/utils/logs.py` — 19행 주석("배포본에서는 런처가 GENDB_CONFIG 만 넘기므로 기본값을 쓴다")
+- `src/genviewer/utils/logs.py` — `LOG_ENV` 위 주석(~20행, "배포본에서는 런처가 GENDB_CONFIG 만 넘기므로 기본값을 쓴다")
 - `tests/test_deploy_sh.py` — `UV_STUB`(가짜 uv가 `venv/bin/python` 을 셸 스크립트로 만든다), `source_repo`/`stub`/`root` fixture, `deploy()` 헬퍼(`DEPLOY_`/`GENDB_`/`PG` 환경변수를 지운다), `test_a_launcher_runs_the_venv_interpreter_and_names_the_config`(~209-222)
 - `tests/test_env_file.py` — autouse `clean_env`, `site` fixture, `_fake_module_at`, `test_an_installed_package_does_not_invent_a_candidate`
 - `tests/test_cli.py` — `isolated` fixture(`GENDB_CONFIG` 를 없는 파일로 정해 개발자 홈의 설정을 막는다)
@@ -84,7 +84,7 @@ export GENDB_CONFIG
 - `README.md` '배포': 확인 항목 하나를 더한다(예: "마지막에 만든 런처를 실제로 실행해 본다" 항목 뒤). 내용: 배포한 뒤 `genviewer --check-config` 를 돌리면 "설정 파일:" 이 `<루트>/genviewer.env` 다. 그 계정에 `~/.genviewer.env` 가 있으면 그 파일이 대신 찍힌다('찾는 순서' 4번). 스크립트 마지막 확인은 `--help` 만 돌리므로 설정 문제는 거기서 드러나지 않는다.
 - `docs/ARCHITECTURE.md` 데이터 흐름 "접속 설정" 아래의 "- 배포 런처는 지금 `GENDB_CONFIG=<ROOT>/genviewer.env` 를 항상 넘긴다. …(phase `1-deploy-fixes` step 0에서 고친다)." 줄을 지운다. 그 위 흐름도는 그대로 맞다.
 - `src/genviewer/service/env_file.py` `_site_roots()` docstring 마지막 문단("그래도 런처는 GENDB_CONFIG 를 명시해서 넘긴다 - 추측이 하나라도 적은 편이 낫다."): 런처는 GENDB_CONFIG 를 정하지 않으므로 이 후보(`sys.prefix` 의 부모)가 배포본이 공용 파일을 찾는 길이다, 로 고친다.
-- `src/genviewer/utils/logs.py` 19행 주석: 런처는 환경변수를 정하지 않으므로 배포본도 따로 주지 않으면 기본 경로를 쓴다, 로 고친다.
+- `src/genviewer/utils/logs.py` `LOG_ENV` 위 주석(~20행): 런처는 환경변수를 정하지 않으므로 배포본도 따로 주지 않으면 기본 경로를 쓴다, 로 고친다.
 - `docs/ADR.md` 는 바꾸지 않는다. ADR-007의 "찾은 첫 파일 하나만" 이 그대로 맞다.
 
 ## Acceptance Criteria
