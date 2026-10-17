@@ -80,6 +80,9 @@ class DeviceTabController(QObject):
         self.parameter_tab.deviceVersionChanged.connect(
             self.device_table.set_device_version
         )
+        self.device_table.deviceVersionBumped.connect(
+            self.parameter_tab.adopt_device_version
+        )
         self.ui.refresh_banner.refreshRequested.connect(self._on_refresh_requested)
 
         self._poll_timer = QTimer(self)

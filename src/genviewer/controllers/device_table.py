@@ -37,6 +37,8 @@ class DeviceTableController(QObject):
     pasteRequested = Signal(object, str, dict)
     notifyRequested = Signal(str, str, str)
     logRequested = Signal(str)
+    # device_id, old_version, new_version. 내 저장(save_all)이 실제로 올린 행만 낸다.
+    deviceVersionBumped = Signal(int, int, int)
 
     def __init__(self, ui: DeviceTableView, repo: DeviceRepository | None = None):
         super().__init__(ui)
@@ -352,9 +354,14 @@ class DeviceTableController(QObject):
                 invalid_devices.append(d.get("name", "<Unknown>"))
 
         deleted = model.deleted_devices()
+        # 쓰기가 새 version 을 이 dict 들에 덮어쓰므로 쓰기 전에 잡아 둔다.
+        sent_versions = {
+            d["id"]: d.get("version") for d in to_save if d.get("id") is not None
+        }
         result = self._write_devices(to_save, deleted)
         if result is None:
             return False
+        self._emit_version_bumps(sent_versions, result)
 
         for d in to_save:
             d["process_id"] = self.current_process_id
@@ -368,6 +375,22 @@ class DeviceTableController(QObject):
         self.refresh_devices()
         self.logRequested.emit(f"Device Info: {summary}")
         return True
+
+    def _emit_version_bumps(
+        self, sent_versions: dict[int, int | None], result: SaveResult
+    ) -> None:
+        """이 쓰기가 version 을 바꾼 행마다 deviceVersionBumped 를 낸다.
+
+        탭이 같은 device 를 열어 두고 있으면 이 version 을 따라가야 다음 탭 저장이 나 자신과
+        충돌하지 않는다. 다시 읽은 목록이 아니라 쓰기가 돌려준 version 을 쓴다. 다시 읽은
+        version 에는 그 사이 남이 저장한 것이 섞일 수 있다. 새로 넣은 행(쓰기 전에 id 가
+        없었다)과 값이 같아 쓰이지 않은 행은 내지 않는다.
+        """
+        for d in result.devices:
+            old = sent_versions.get(d.get("id"))
+            if old is None or d.get("version") == old:
+                continue
+            self.deviceVersionBumped.emit(d["id"], old, d["version"])
 
     def _write_devices(
         self, to_save: list[dict], deleted: dict[int, int]

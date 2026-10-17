@@ -53,7 +53,9 @@
     {
       "step": 6,
       "name": "tab-version-sync",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T15:05:16+0900",
+      "summary": "DeviceTableController.deviceVersionBumped(id, old, new): 내 쓰기가 올린 행만(쓰기 전 {id: version} 과 SaveResult.devices 비교, 새 행·지운 행·다시 읽기·취소는 안 냄). ParameterTabController.adopt_device_version 은 같은 device + old 일치 + new == old+1 일 때만 current_version 만 바꿈(탭 모델·dirty 불변). device_tab.__init__ 에서 연결. RED: test_database_save_does_not_conflict_with_my_own_device_save (save_db assert False is True, 'Save Tabs Failed'), test_switching_device_after_a_device_save_saves_the_tabs_without_a_conflict (conflicts == [('conflict', 'Save Conflict', 'nfet_a: tester 님이 수정 (2026-10-17 09:00)')]), 신호·adopt 테스트는 AttributeError(새 API). test_another_users_save_still_conflicts_with_the_tabs 는 특성 테스트(수정 전에도 통과). K17 xfail(strict): test_clicking_the_same_row_after_a_device_save_keeps_the_tab_edits (수정 전후 모두 XFAIL). 변이 검사 10개(연결 제거, adopt 의 device/old/+1 검사 각각 제거, 무조건 받음, 새 행 old=0, 바뀌지 않은 행도 냄, 쓰기 뒤에 old 잡음, 다시 읽은 version 복사, 신호 안 냄) 모두 잡힘. old 검사 제거는 처음에 놓쳐서 단위 테스트 경우를 (A, v+1, v+2) 로 바꾸고 test_a_bump_from_a_version_the_tabs_never_saw_is_not_adopted 를 더해 잡았다. 덮어쓰기(+2) 뒤 탭 충돌 문구는 마지막 수정자(나)를 보인다. 기존 테스트 단언 변경 없음. 전체 447 passed / 9 skipped / 1 xfailed(DB 포함). tests/gui/test_tab_version_sync.py"
     },
     {
       "step": 7,

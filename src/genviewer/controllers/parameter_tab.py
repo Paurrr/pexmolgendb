@@ -116,6 +116,21 @@ class ParameterTabController(QObject):
         self.current_version = version
         self.deviceVersionChanged.emit(self.current_device_id, version)
 
+    def adopt_device_version(
+        self, device_id: int, old_version: int, new_version: int
+    ) -> None:
+        """내 device 저장이 지금 열린 device 의 version 을 올렸으면 따라간다.
+
+        탭이 들고 있는 version 에서 정확히 한 번(+1) 올린 것만 받는다. 덮어쓰기로 남의 변경
+        위에 올렸으면(+2 이상) 그 남의 변경은 다음 탭 저장에서 충돌로 보여야 한다(ADR-004).
+        탭 모델은 건드리지 않는다. 다시 읽으면 저장하지 않은 탭 편집이 사라진다.
+        """
+        if device_id != self.current_device_id or old_version != self.current_version:
+            return
+        if new_version != old_version + 1:
+            return
+        self.current_version = new_version
+
     def discard_all(self):
         for sec in self._sections.values():
             if sec.is_dirty():
