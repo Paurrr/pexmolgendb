@@ -64,7 +64,7 @@
       "status": "completed",
       "started_at": "2026-10-17T18:26:53+0900",
       "summary": "on_process_changed: 저장 취소·실패 뒤 이전 process가 목록에 없으면(지워짐) 되돌리지 않고 넘어간다(clear·배너 숨김·로그·get_process_id·set_current_process*·refresh_devices·_clear_tabs 평소대로, processChanged 다시 안 냄). select_process_silently -> bool(view·controller, 찾아서 골랐으면 True, 목록에 없으면 그대로 두고 False), True 일 때만 return. 이전 process 가 목록에 있으면 지금처럼 되돌린다(phase 3 step 5 테스트 그대로 통과). RED: test_cancelling_after_another_user_deleted_the_process_moves_to_the_first_process·test_a_save_error_after_another_user_deleted_the_process_moves_to_the_first_process(Save Devices Failed 는 뜸)·test_cancelling_a_tab_save_after_another_user_deleted_the_process_moves_on(가짜 replace_many_for_device 가 실제처럼 'deleted' StaleWriteError 를 내 충돌 대화상자 CANCEL 로 단언)·test_cancelling_after_removing_the_process_moves_to_the_first_process 모두 assert 'sf4u' == 'sf2p'(콤보는 sf2p, device_table.current_process 는 지워진 sf4u), test_select_process_silently_reports_whether_it_found_the_name (assert None is True). 아니오 회귀(test_answering_no_after_another_user_deleted_the_process_moves_on)는 특성 테스트(수정 전에도 통과). 넘어가는 경우마다 processChanged == ['sf2p'] 한 번. 변이 검사 4개(on_process_changed 가 결과 무시하고 항상 return, view 항상 True, view 항상 False, toolbar controller 가 결과를 버림) 모두 잡힘(뒤 둘은 phase 3 되돌림 테스트 5개도 실패). tests/gui/test_deleted_process_revert.py 추가(6개). 새 사용자 문구 없음, views 는 controllers 를 import 하지 않음. 범위 밖 관찰(바꾸지 않음): Remove Process 뒤 'Save Changes' 에 예로 답하면 방금 지운 process 의 device 를 저장하려다 반드시 'deleted' 충돌이 난다(질문 자체가 의미 없는 흐름). DB 테스트: 542 passed / 9 skipped / 1 xfailed",
-      "completed_at": "2026-10-17T18:31:10+0900"
+      "completed_at": "2026-10-17T18:32:34+0900"
     }
   ],
   "created_at": "2026-10-17T17:23:12+0900"
