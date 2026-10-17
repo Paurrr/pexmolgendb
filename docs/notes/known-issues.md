@@ -20,8 +20,9 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | 10-gui-edit-safety | K20, K37, K36, K42, K19 | 승인된 동작 변경 |
 | 11-gui-error-paths | K34, K35, K22(접속 실패 풀) | 버그 |
 | 11-gui-error-paths | K3(GUI), K21, K16(내보내기 형식), K18 | 승인된 동작 변경 |
-| 12-gui-async-cleanup | K23, K41, K22(Task·섹션·탭 페이지), history_tab 의 `{exc}` | 버그 |
+| 12-gui-async-cleanup | K23, K41, K22(Task·섹션·탭 페이지), history_tab 의 `{exc}`, K43 | 버그 |
 | 13-virtuoso-socket | K14, K24, K39, K40 (제안 P6 로 해소) | 버그 + 승인된 구조 변경 |
+| 18-csv-description | K44 | 승인된 기능 (molgen 쪽 Description 등록이 먼저) |
 
 - 고치지 않기로 함(2026-10-17): K2, K8, K15, K27 의 나머지(다시 돌릴 때 값 반영), K30, K33, K16 의 Virtuoso 목록 필터(부분 문자열 일치가 의도). K25 는 제안 P3(phase 16) 에서 지운다.
 
@@ -41,6 +42,7 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | K31 | `genviewer -v` 가 찍는 트레이스백은 `scrub()` 을 거치지 않는다. 접속 실패 예외의 conninfo(비밀번호 포함)가 그 터미널에 그대로 나올 수 있다 | `cli.py:467-468` (`_fail`) | 사용자가 자기 터미널에서 일부러 켜는 진단 출력이다. 가리면 출력이 바뀐다. 다른 사람에게 붙여 줄 때 주의한다 |
 | K32 | CSV 불러오기가 새로 만든 process에는 `process_add` 이력이 따로 남지 않는다(불러오기 한 줄에 포함된다) | `repo/io.py` import, `repo/audit.py` | 이력 형식 변경이다 |
 | K33 | `upsert_device` 에 `id` 가 있는 dict를 주면 version 검사 없이 덮어쓰고 `process_id` 도 바꾼다 | `repo/device.py:97-` | **고치지 않기로 함(2026-10-17).** 지금 호출자(붙여넣기 `paste_rows`)는 `id` 없는 dict만 넘겨 닿지 않는다. phase 2 step 1이 가짜를 만들다 본 것이고 재현하지 않았다. 가짜도 지금 동작을 그대로 흉내 낸다 |
+| K44 | CSV에 Description 컬럼이 없다(molgen 형식). 불러오기로 만든 device는 description이 비고, 내보내기도 Description을 쓰지 않아 내보낸 CSV를 다시 넣으면 description이 따라오지 않는다. 저장된 device의 description은 불러오기가 건드리지 않는다 | `repo/io.py:118-122` (device INSERT), `:217` (export 헤더), `controllers/device_table.py:461-470` (GUI 내보내기 device_info) | 2026-10-17 사용자 제보("CSV import 하면 description 이 날라간다")를 조사하다 확인했다. 저장하지 않은 편집이 사라지는 쪽은 K36이다. 사용자가 같은 날 왕복을 승인했다(phase 18). molgen `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 먼저 등록해야 한다. 안 그러면 셀마다 `Unknown header type` warn이 뜬다 |
 
 ## 내보내기·연동
 
@@ -74,6 +76,8 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | K40 | `ConnectWorker` 가 끝났지만 결과가 아직 GUI 큐에 있는 순간의 Connect는 "접속 중" 가드를 지나 새 시도를 시작한다. 두 결과가 다 성공이면 `_start_io_workers` 가 두 번 돌아 앞 IO 워커를 덮어쓸 수 있다 | `net/controller.py:37-52` (`connect`), `:85-99` | phase 4 step 6이 코드를 읽다 본 것이고 재현하지 않았다. Connect를 아주 빠르게 두 번 눌러야 닿는다 |
 | K41 | 재접속할 때 History 화면에서 도는 다시 읽기(`Task`)를 기다리지 않는다. 옛 풀이 닫힌 뒤 그 작업이 실패할 수 있고, 그 작업이 남아 있는 동안 `set_db(새)` 의 다시 읽기가 `_task` 가드로 건너뛰어 다음 자동 갱신(10초)까지 새 DB로 읽지 않는다 | `controllers/history_tab.py:76` (`set_db`), `:121-122` (`reload`), `controllers/device_tab.py:155-` (`connect_db`) | phase 4 step 4가 코드를 읽다 본 것이고 재현하지 않았다. History는 `--history` 로 띄웠을 때만 있고 보기 전용이다(K23과 같은 가드) |
 | K42 | 저장하지 않은 편집이 있는 process를 Remove Process로 지운 뒤 "Save Changes" 에 예로 답하면, 방금 지운 process의 device를 저장하려다 반드시 "deleted" 충돌이 난다 | `controllers/device_tab_toolbar.py:104-` (`remove_process`), `controllers/device_tab.py:434-` (`_save_before_process_change`) | `tests/gui/test_deleted_process_revert.py::test_cancelling_after_removing_the_process_moves_to_the_first_process` 가 이 흐름을 그대로 돈다(충돌 한 번, 취소하면 다음 process로 넘어간다). 충돌 대화상자에서 빠져나올 수 있고, 질문을 건너뛰게 하면 흐름이 바뀐다(동작 변경) |
+| K43 | device를 저장하면 "Save Complete"(모달 `QMessageBox`)가 떠 있는 동안 10초 폴링이 돈다. 그러면 "이 process 가 <나> 님에 의해 변경되었습니다." 배너가 다음 폴링까지 뜬다. `save_all` 이 알림을 `refresh_devices()`(→ `remember_etag`) **전에** 내서, 저장 뒤 etag를 저장 전 기준점과 비교하기 때문이다. 추가·수정·삭제·덮어쓰기 저장이 모두 해당한다 | `controllers/device_table.py:383-384` (`save_all`) | 2026-10-17 사용자 제보("device 추가 후 save 하면 '어떤 사용자가 …' 문구가 뜬다")로 찾았고 일회성 스크립트로 재현했다. phase 12 step 7에서 고친다 |
+| K45 | 내 쓰기가 시작되기 직전에 출발한 폴링의 결과가 `remember_etag` 뒤에 도착하면, 저장 전 etag와 새 기준점이 달라 거짓 배너가 뜰 수 있다 | `controllers/device_tab.py:196-230` (`_poll_remote_changes`, `_on_poll_result`), `controllers/device_table.py:306-` (`remember_etag`) | K43을 조사하다 코드를 읽고 본 것이고 재현하지 않았다. 폴링 쿼리가 저장 전체보다 오래 걸려야 닿아서 확률이 매우 낮다. 고치려면 결과를 시작할 때의 기준점에 묶는다(phase 12 step 3과 같은 방식) |
 
 ## 운영 스크립트
 

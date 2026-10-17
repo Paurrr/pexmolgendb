@@ -61,6 +61,10 @@
     {
       "dir": "13-virtuoso-socket",
       "status": "pending"
+    },
+    {
+      "dir": "18-csv-description",
+      "status": "pending"
     }
   ]
 }

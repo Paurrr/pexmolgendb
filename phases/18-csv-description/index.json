@@ -1,0 +1,9 @@
+{
+  "project": "genviewer",
+  "phase": "18-csv-description",
+  "steps": [
+    { "step": 0, "name": "send-fixed-columns", "status": "pending" },
+    { "step": 1, "name": "io-description", "status": "pending" },
+    { "step": 2, "name": "gui-export-description", "status": "pending" }
+  ]
+}

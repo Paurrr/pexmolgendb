@@ -8,6 +8,7 @@
     { "step": 3, "name": "poll-process-binding", "status": "pending" },
     { "step": 4, "name": "task-cleanup", "status": "pending" },
     { "step": 5, "name": "tab-section-model-leaks", "status": "pending" },
-    { "step": 6, "name": "parameter-tab-page-leaks", "status": "pending" }
+    { "step": 6, "name": "parameter-tab-page-leaks", "status": "pending" },
+    { "step": 7, "name": "own-save-banner", "status": "pending" }
   ]
 }
