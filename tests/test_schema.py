@@ -1,53 +1,12 @@
-"""생성된 스키마가 (a) tab_config.json 과 (b) 기존 DB 와 일치하는지 검증.
+"""생성된 스키마가 tab_config.json 과 일치하는지 검증.
 
-(a)는 탭을 추가할 때 DDL 을 같이 안 고쳐서 생기는 어긋남을 막고,
-(b)는 손으로 쓰던 DDL 을 생성으로 바꾸면서 스키마가 바뀌지 않았음을 보장한다.
+탭을 추가할 때 DDL 을 같이 안 고쳐서 생기는 어긋남을 막는다.
 """
 
 import re
-import sqlite3
-from pathlib import Path
-
-import pytest
 
 from genviewer.config.config import tab_config
 from genviewer.service import schema
-
-LEGACY_DB = Path(__file__).resolve().parent.parent / "db" / "init.sqlite"
-
-
-def _schema_of(conn) -> dict[str, list[tuple]]:
-    """테이블명 -> [(컬럼명, 타입, notnull, default, pk), ...]"""
-    tables = [
-        r[0]
-        for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' "
-            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
-        )
-    ]
-    return {
-        t: [(r[1], r[2], r[3], r[4], r[5]) for r in conn.execute(f"PRAGMA table_info({t})")]
-        for t in tables
-    }
-
-
-def _indexes_of(conn) -> set[str]:
-    return {
-        r[0]
-        for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
-        )
-    }
-
-
-@pytest.fixture
-def generated():
-    c = sqlite3.connect(":memory:")
-    for stmt in schema.sqlite_all_ddl():
-        c.execute(stmt)
-    yield c
-    c.close()
-
 
 _CREATE_TABLE = re.compile(r'CREATE TABLE IF NOT EXISTS\s+"?(\w+)"?\s*\(')
 _COLUMN = re.compile(r'\s*"?(\w+)"?\s')
@@ -86,27 +45,6 @@ def test_child_tables_match_tab_config():
     for table, columns in expected.items():
         payload = [c for c in got[table] if c not in ("id", "device_id")]
         assert payload == columns, f"{table} 의 컬럼이 tab_config 와 다르다"
-
-
-def test_generated_schema_matches_legacy_database(generated):
-    """기존 db/init.sqlite 에 있는 것은 생성본에서 하나도 달라지면 안 된다.
-
-    손으로 쓰던 _SCHEMA 를 생성으로 대체하면서 스키마가 바뀌지 않았다는 증거다.
-    완전 일치가 아니라 포함 관계인 이유: init.sqlite 는 그때 배포됐던 것의
-    스냅샷이라 탭이 추가되면 생성본에만 새 테이블이 생긴다. 그 파일에 새 탭을
-    끼워 넣으면 "그때 배포된 것" 이라는 증거로서의 값어치가 사라진다.
-    """
-    legacy = sqlite3.connect(f"file:{LEGACY_DB.as_posix()}?mode=ro", uri=True)
-    try:
-        legacy_schema = _schema_of(legacy)
-        got = _schema_of(generated)
-
-        assert set(legacy_schema) <= set(got), "기존 테이블이 사라졌다"
-        for table, columns in legacy_schema.items():
-            assert got[table] == columns, f"{table} 의 컬럼이 달라졌다"
-        assert _indexes_of(legacy) <= _indexes_of(generated), "기존 인덱스가 사라졌다"
-    finally:
-        legacy.close()
 
 
 # --------------------------------------------------------------------------

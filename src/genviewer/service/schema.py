@@ -5,9 +5,8 @@ db_init 이 그 목록을 손으로 한 번 더 적어두고 있었기 때문에
 추가하면 두 곳을 고쳐야 했고 어긋나도 아무도 알아채지 못했다. 여기서 생성해서
 그 위험을 없앤다.
 
-구조는 아래 상수로 선언하고 렌더러를 따로 둔다. 지금 쓰는 것은 PostgreSQL
-렌더러(postgres_all_ddl)이고, SQLite 쪽은 예전 .sqlite 파일을 읽어 들일 때만
-쓰는 레거시 경로다.
+구조는 아래 상수로 선언하고 PostgreSQL 렌더러(postgres_all_ddl)가 DDL 을
+만든다.
 """
 
 from genviewer.config.config import tab_config
@@ -26,61 +25,11 @@ def child_tables() -> dict[str, list[str]]:
 TABLE_COLUMNS = child_tables()
 
 
-_SQLITE_PROCESS_DDL = """
-    CREATE TABLE IF NOT EXISTS process (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE
-    )
-    """
-
-_SQLITE_DEVICE_DDL = """
-    CREATE TABLE IF NOT EXISTS device (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        process_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
-        celltype TEXT NOT NULL,
-        description TEXT,
-        "order" INTEGER DEFAULT 0,
-        FOREIGN KEY(process_id) REFERENCES process(id) ON DELETE CASCADE
-    )
-    """
-
-_SQLITE_DEVICE_INDEXES = [
-    "CREATE INDEX IF NOT EXISTS idx_device_process_id ON device(process_id)",
-    'CREATE INDEX IF NOT EXISTS idx_device_process_id_order ON device(process_id, "order")',
-]
-
-
-def sqlite_child_ddl(table: str, columns: list[str]) -> str:
-    payload = "".join(f"        {c} TEXT,\n" for c in columns)
-    return (
-        f"    CREATE TABLE IF NOT EXISTS {table} (\n"
-        f"        id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-        f"        device_id INTEGER,\n"
-        f"{payload}"
-        f"        FOREIGN KEY(device_id) REFERENCES device(id) ON DELETE CASCADE\n"
-        f"    )\n"
-    )
-
-
-def sqlite_all_ddl() -> list[str]:
-    """레거시 SQLite 스키마.
-
-    앱은 더 이상 SQLite 를 쓰지 않는다. 생성된 스키마가 실제로 배포됐던 것과
-    같다는 것을 증명하는 테스트(tests/test_schema.py)와, 기존 .sqlite 파일을
-    읽어 들이는 임포터의 검증에 쓴다.
-    """
-    out = [_SQLITE_PROCESS_DDL, _SQLITE_DEVICE_DDL, *_SQLITE_DEVICE_INDEXES]
-    for table, columns in child_tables().items():
-        out.append(sqlite_child_ddl(table, columns))
-    return out
-
-
 # ---------------------------------------------------------------------------
 # PostgreSQL
 # ---------------------------------------------------------------------------
 #
-# SQLite 스키마 대비 의도적으로 조인 부분:
+# 예전 SQLite 스키마 대비 의도적으로 조인 부분:
 #
 #  1. device_id 를 NOT NULL 로 하고 인덱스를 붙였다. 모든 조회가 이 컬럼으로
 #     필터링하는데 지금까지 인덱스가 없었다.

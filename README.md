@@ -494,8 +494,8 @@ uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscr
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 427 passed / 124 skipped / 1 xfailed 다(`sh` 가
-없는 PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 407 / 144 / 1). xfail 하나는
+DB 없이 돌리면 지금 기준 Git Bash 에서 425 passed / 119 skipped / 1 xfailed 다(`sh` 가
+없는 PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 405 / 139 / 1). xfail 하나는
 고치지 않기로 한 문제(known-issues K17)의 재현 테스트다. skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 

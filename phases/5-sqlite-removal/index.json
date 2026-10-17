@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "remove-sqlite-schema",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T21:55:10+0900",
+      "summary": "schema.py SQLite 렌더러·test_schema 레거시 테스트·db/init.sqlite·.gitignore 줄 삭제, PostgreSQL DDL diff 없음(TABLE_COLUMNS·child_tables 불변, 3.9 ast.parse 통과, init-db --dry-run 정상). 변이: pg_child_ddl 에서 마지막 컬럼을 뺌 → AssertionError: inst_terms 의 컬럼이 tab_config 와 다르다 (Right contains one more item: 'cds_inst_term_name'), 손으로 되돌림. 기준선 425 passed / 119 skipped / 1 xfailed (PowerShell 405 / 139 / 1, 셸 스크립트 테스트 20 passed), DB 붙임 535 passed / 9 skipped / 1 xfailed — 모두 예상값과 같음. git grep sqlite 남은 것: README 첫 문단·PRD 첫 문단·ADR-001·background.py docstring·test_export.py 주석(역사 설명), schema.py '예전 SQLite 스키마 대비' 주석, README 하네스 표 5-sqlite-removal 행. DB 테스트: 535 passed (skip 9 는 Windows 권한 테스트뿐)"
     }
   ],
   "created_at": "2026-10-17T21:45:07+0900"

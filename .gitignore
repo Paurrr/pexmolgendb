@@ -15,10 +15,6 @@ genviewer.env
 .ruff_cache/
 .pytest_cache/
 
-# SQLite DB — 샘플/픽스처만 추적
-*.sqlite
-!db/init.sqlite
-
 # 빌드 산출물
 dist/
 build/
