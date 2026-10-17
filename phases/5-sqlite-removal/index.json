@@ -15,7 +15,8 @@
       "name": "remove-import-sqlite",
       "status": "completed",
       "started_at": "2026-10-17T21:49:28+0900",
-      "summary": "import_sqlite 도구·테스트·진입점 삭제. README(배포 명령 목록, 이관 절 삭제 → init-db 문장을 개발 클러스터 절로 옮김, 트리)·CLAUDE.md·ARCHITECTURE·ADR-005/012·PRD·known-issues K4/K11 정리. 옮긴 init-db 문장은 scripts/init_db.py 와 맞음(env_file 을 import 하지 않고 --dry-run 만 DSN 없이 됨). uv lock --check 통과(uv.lock 불변), venv 의 genviewer-import-sqlite.exe 는 uv sync 로 사라짐. DB 테스트: 536 passed / 9 skipped / 1 xfailed (삭제한 6개만큼 줄었고 skip 은 Windows 권한 테스트뿐)"
+      "summary": "import_sqlite 도구·테스트·진입점 삭제. README(배포 명령 목록, 이관 절 삭제 → init-db 문장을 개발 클러스터 절로 옮김, 트리)·CLAUDE.md·ARCHITECTURE·ADR-005/012·PRD·known-issues K4/K11 정리. 옮긴 init-db 문장은 scripts/init_db.py 와 맞음(env_file 을 import 하지 않고 --dry-run 만 DSN 없이 됨). uv lock --check 통과(uv.lock 불변), venv 의 genviewer-import-sqlite.exe 는 uv sync 로 사라짐. DB 테스트: 536 passed / 9 skipped / 1 xfailed (삭제한 6개만큼 줄었고 skip 은 Windows 권한 테스트뿐)",
+      "completed_at": "2026-10-17T21:55:09+0900"
     },
     {
       "step": 2,
