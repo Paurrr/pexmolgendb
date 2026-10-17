@@ -184,9 +184,13 @@ class ParameterTabController(QObject):
         self.set_device_to_section(device_id, device_type, version)
         pasted = []
         for tab_name, rows in payload.items():
-            if sec := self._sections.get(tab_name):
-                sec._paste_rows(0, rows)
-                pasted.append(sec)
+            sec = self._sections.get(tab_name)
+            # 행을 읽지 못한 탭(모델 없음, 이미 "Load Failed" 로 알렸다)은 건너뛴다. 쓰면
+            # 읽지 못한 서버 행을 지우게 된다.
+            if sec is None or sec.model is None:
+                continue
+            sec._paste_rows(0, rows)
+            pasted.append(sec)
         if not pasted:
             return
         # N번이 아니라 한 번. version 은 한 번만 올라간다.

@@ -186,7 +186,16 @@ class TabSectionController(QObject):
 
         model = self.get_or_create_model(self.device_id)
         model.set_device_celltype(self.device_celltype)
-        rows = self.repo.fetch_by_device(self.table_name, self.columns, self.device_id)
+        try:
+            rows = self.repo.fetch_by_device(self.table_name, self.columns, self.device_id)
+        except Exception:
+            # 표에는 아직 이전 device 의 모델(다시 읽기라면 버리려던 편집)이 붙어 있다. 그대로
+            # 두면 그 행을 고쳐 저장했을 때 이 device 에 통째로 써진다. 읽지 못한 캐시 모델도
+            # 붙이지 않는다("행 없음" 으로 보이고, 저장하면 서버 행을 지운다). 비우고 dirty 를
+            # 풀어 저장 대상에서 뺀다. 다시 올려야 @report 가 "Load Failed" 를 띄운다.
+            self.clear_model()
+            self.set_dirty(False)
+            raise
         self.bind_model(model)
         model.set_data(rows)
         self.set_dirty(False)
