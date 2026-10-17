@@ -300,3 +300,58 @@ def test_an_installed_package_does_not_invent_a_candidate(monkeypatch, tmp_path)
     roots = env_file._site_roots()
 
     assert tmp_path / "venv" / "lib" / "python3.13" not in roots
+
+
+# --------------------------------------------------------------------------
+# tools/deploy.sh 배포본 - 런처가 GENDB_CONFIG 를 정하지 않으므로 앱이 스스로 찾는다
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def deployed(tmp_path, monkeypatch):
+    """<ROOT>/venv 가 sys.prefix 인 비-editable 배포본처럼 꾸민다.
+
+    site fixture 와 달리 _site_roots 를 패치하지 않는다. sys.prefix 에서 배포 루트를
+    계산하는 것까지 봐야 한다 - 런처가 GENDB_CONFIG 를 넘기지 않으면 그것이 공용
+    파일을 찾는 유일한 길이다.
+    """
+    root = tmp_path / "deployed"
+    monkeypatch.setattr(sys, "prefix", str(root / "venv"))
+    fake = _fake_module_at(
+        root, "venv", "lib", "python3.13", "site-packages",
+        "genviewer", "service", "env_file.py",
+    )
+    monkeypatch.setattr(env_file, "__file__", str(fake))
+    user = tmp_path / "home" / ".genviewer.env"
+    monkeypatch.setattr(env_file, "USER_ENV", user)
+    return {"root": root, "shared": root / env_file.SITE_NAME, "user": user}
+
+
+def test_a_deployed_install_finds_the_shared_file(deployed):
+    """홈에 아무것도 없는 사람이 <ROOT>/genviewer.env 로 붙어야 한다."""
+    write(deployed["shared"], "PGHOST=shared\n")
+
+    used, _ = env_file.load()
+
+    assert used == deployed["shared"]
+    assert os.environ["PGHOST"] == "shared"
+
+
+def test_a_deployed_install_prefers_the_personal_file(deployed):
+    """개인 파일이 있으면 그것 하나만 읽는다. 공용 파일의 키가 섞이지 않는다."""
+    write(deployed["shared"], "PGHOST=shared\nPGPORT=1\n")
+    write(deployed["user"], "PGHOST=personal\n")
+
+    used, _ = env_file.load()
+
+    assert used == deployed["user"]
+    assert os.environ["PGHOST"] == "personal"
+    assert "PGPORT" not in os.environ
+
+
+def test_a_deployed_install_looks_in_readme_order(deployed):
+    assert env_file.candidates() == [
+        deployed["user"],
+        deployed["root"] / "venv" / env_file.SITE_NAME,
+        deployed["shared"],
+    ]

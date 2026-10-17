@@ -125,6 +125,9 @@ fi
 # 런처는 자기 실제 경로에서 환경을 찾는다. 그래서 사용자 PATH 에 있는 아무
 # 디렉터리로나 심볼릭 링크할 수 있다. 복사본에는 여기로 돌아올 실제 경로가 없으므로
 # 애매하게 실패하는 대신 그렇다고 말한다.
+#
+# 런처는 설정 파일을 고르지 않는다(GENDB_CONFIG 를 정하지 않는다). 앱이
+# ~/.genviewer.env -> <ROOT>/genviewer.env(sys.prefix 의 부모) 순으로 찾는다.
 
 marker="genviewer deploy.sh 가 생성"
 
@@ -153,10 +156,6 @@ if [ ! -x "\$here/../venv/bin/python" ]; then
     # 127 = '명령을 실행할 수 없음'. 배포 끝의 확인이 이 값을 본다.
     exit 127
 fi
-# 설정은 venv 바깥에 있다. 앱이 sys.prefix 의 부모에서 스스로도 찾지만, 명시하면
-# 추측이 없어진다.
-GENDB_CONFIG="\${GENDB_CONFIG:-\$here/../genviewer.env}"
-export GENDB_CONFIG
 exec "\$here/../venv/bin/python" "\$here/../venv/bin/$cmd" "\$@"
 LAUNCHER
     chmod 755 "$root/bin/$cmd"

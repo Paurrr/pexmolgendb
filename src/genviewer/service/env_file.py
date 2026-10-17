@@ -94,8 +94,8 @@ def _site_roots() -> list[Path]:
     - 패키지에서 세 단계 위: src 레이아웃으로 직접 돌릴 때의 저장소 루트
 
     tools/deploy.sh 로 설치한 배포본은 <ROOT>/venv 가 sys.prefix 라서 그 부모인
-    <ROOT>/genviewer.env 가 두 번째 후보로 걸린다. 그래도 런처는 GENDB_CONFIG 를
-    명시해서 넘긴다 - 추측이 하나라도 적은 편이 낫다.
+    <ROOT>/genviewer.env 가 두 번째 후보로 걸린다. 런처는 GENDB_CONFIG 를 정하지
+    않으므로 이 후보가 배포본이 공용 파일을 찾는 길이다.
     """
     prefix = Path(sys.prefix)
     roots = [prefix, prefix.parent]

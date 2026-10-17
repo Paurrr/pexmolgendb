@@ -126,6 +126,37 @@ def deploy(root, source_repo, stub, tag="v1.0.0", with_url=True, **env):
     )
 
 
+def run_launcher(root, **env):
+    """배포가 만든 런처를 실행하고 CompletedProcess 를 준다.
+
+    환경은 deploy() 처럼 비우고 주어진 값만 더한다. 개발자 셸의 GENDB_CONFIG 가
+    섞이면 런처가 무엇을 넘기는지 볼 수 없다.
+    """
+    environ = dict(os.environ)
+    for key in list(environ):
+        if key.startswith(("DEPLOY_", "GENDB_", "PG")):
+            environ.pop(key)
+    environ.update({k: str(v) for k, v in env.items()})
+    return subprocess.run(
+        ["sh", str(root / "bin" / "genviewer")], capture_output=True, text=True,
+        encoding="utf-8", errors="replace", env=environ,
+    )
+
+
+def echo_config_interpreter(root):
+    """venv 의 python 을 넘겨받은 GENDB_CONFIG 를 찍는 셸 스크립트로 바꾼다.
+
+    런처가 [ -x .../venv/bin/python ] 로 확인하므로 실행 비트를 준다. Git Bash 는
+    #! 로 시작하는 파일을 실행 가능으로 본다.
+    """
+    python = root / "venv" / "bin" / "python"
+    python.write_text(
+        '#!/bin/sh\necho "GENDB_CONFIG=${GENDB_CONFIG-unset}"\n',
+        encoding="utf-8", newline="\n",
+    )
+    python.chmod(0o755)
+
+
 def pinned_tag(root):
     out = subprocess.run(
         ["git", "-C", str(root / "src"), "describe", "--exact-match", "--tags", "HEAD"],
@@ -206,9 +237,7 @@ def test_one_launcher_per_command(root, source_repo, stub):
     assert names == ["genviewer", "genviewer-init-db"]
 
 
-def test_a_launcher_runs_the_venv_interpreter_and_names_the_config(
-    root, source_repo, stub
-):
+def test_a_launcher_runs_the_venv_interpreter(root, source_repo, stub):
     """사용자에게 uv 나 자기 파이썬을 요구하지 않는 것이 이 런처의 요점이다."""
     deploy(root, source_repo, stub)
 
@@ -218,8 +247,32 @@ def test_a_launcher_runs_the_venv_interpreter_and_names_the_config(
     exec_line = text.split("exec ", 1)[1]
     assert "/venv/bin/python" in exec_line
     assert "uv" not in exec_line, "실행 줄이 uv 를 부르고 있다"
-    assert "GENDB_CONFIG" in text and "genviewer.env" in text
     assert "\r" not in text, "CRLF shebang 은 리눅스에서 bad interpreter 가 된다"
+
+
+def test_a_launcher_does_not_choose_the_config_file(root, source_repo, stub):
+    """런처가 GENDB_CONFIG 를 정하면 앱은 그 파일만 보고 ~/.genviewer.env 를 건너뛴다.
+
+    정하지 않아도 공용 파일은 찾는다 - 앱이 sys.prefix(<ROOT>/venv) 의 부모를 본다.
+    """
+    deploy(root, source_repo, stub)
+    echo_config_interpreter(root)
+
+    result = run_launcher(root)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "GENDB_CONFIG=unset"
+
+
+def test_a_launcher_passes_the_users_config_through(root, source_repo, stub):
+    """사용자가 셸에서 정한 값은 그대로 앱에 닿아야 한다."""
+    deploy(root, source_repo, stub)
+    echo_config_interpreter(root)
+
+    result = run_launcher(root, GENDB_CONFIG="/x")
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "GENDB_CONFIG=/x"
 
 
 def test_a_renamed_command_leaves_no_stale_launcher(root, source_repo, stub):

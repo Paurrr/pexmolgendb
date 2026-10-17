@@ -72,9 +72,6 @@ PGPASSWORD=...
 - 1·2 에서 접속 정보(`--dsn`, `GENDB_PG_DSN`)가 정해지면 **설정 파일은 아예 읽지 않는다.**
 - "덮어쓴다" 는 파일 단위다. `~/.genviewer.env` 가 있으면 공용 파일은 통째로 안 읽힌다.
   키 단위로 섞지 않는다.
-- **현재 배포본(`tools/deploy.sh` 의 런처)은 3번 `GENDB_CONFIG` 를 항상 공용 파일로
-  고정해서 넘긴다.** 그래서 배포본에서는 4번 개인 파일이 읽히지 않는다. 이 표대로
-  동작하게 고치는 작업이 `phases/1-deploy-fixes` 에 있다.
 
 무엇이 읽혔는지는 값 노출 없이 확인할 수 있다. 접속이 안 될 때 첫 번째로 볼 것:
 
@@ -286,6 +283,9 @@ DEPLOY_LINK_DIR=/usr/local/bin ./tools/deploy.sh /opt/genviewer v0.3.0
 - 마지막에 **만든 런처를 실제로 실행해 본다.** 사용자가 치는 것은 콘솔 스크립트가
   아니라 런처다. 권한이나 경로가 틀렸으면 내일 남의 터미널이 아니라 여기서 드러나야
   한다. `DEPLOY_LINK_DIR` 을 썼으면 링크로도 한 번 더 본다.
+- 그 확인은 `--help` 만 돌리므로 설정 문제는 거기서 드러나지 않는다. 배포한 뒤
+  `genviewer --check-config` 를 돌리면 "설정 파일:" 이 `<루트>/genviewer.env` 다.
+  그 계정에 `~/.genviewer.env` 가 있으면 그 파일이 대신 찍힌다('찾는 순서' 4번).
 - venv 인터프리터가 **배포한 사람 홈 안**이면 경고한다. uv 가 관리하는 CPython 을
   쓰면 그렇게 되는데, 그러면 배포한 사람만 실행되고 나머지는 `Permission denied` 를
   본다. `UV_PYTHON_INSTALL_DIR=<루트>/python uv python install 3.13` 으로 파이썬을

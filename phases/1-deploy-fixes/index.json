@@ -2,9 +2,28 @@
   "project": "genviewer",
   "phase": "1-deploy-fixes",
   "steps": [
-    { "step": 0, "name": "launcher-config", "status": "pending" },
-    { "step": 1, "name": "deploy-locked", "status": "pending" },
-    { "step": 2, "name": "deploy-python-perms", "status": "pending" },
-    { "step": 3, "name": "initdb-rerun", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "launcher-config",
+      "status": "completed",
+      "started_at": "2026-10-17T11:23:58+0900",
+      "summary": "deploy.sh 런처가 GENDB_CONFIG 를 정하지 않음(사용자 값은 통과), 배포본도 ~/.genviewer.env → <ROOT>/genviewer.env. RED: test_a_launcher_does_not_choose_the_config_file (assert 'GENDB_CONFIG=/tmp/.../deployed/bin/../genviewer.env' == 'GENDB_CONFIG=unset'). README 찾는 순서·배포, ARCHITECTURE, env_file docstring, logs.py 주석 정리"
+    },
+    {
+      "step": 1,
+      "name": "deploy-locked",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "deploy-python-perms",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "initdb-rerun",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-10-17T11:23:58+0900"
 }

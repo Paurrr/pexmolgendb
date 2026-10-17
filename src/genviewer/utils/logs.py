@@ -17,7 +17,8 @@ from contextlib import suppress
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-# 경로를 바꾸고 싶을 때. 배포본에서는 런처가 GENDB_CONFIG 만 넘기므로 기본값을 쓴다.
+# 경로를 바꾸고 싶을 때. 런처는 환경변수를 정하지 않으므로 배포본도 따로 주지
+# 않으면 기본 경로를 쓴다.
 LOG_ENV = "GENDB_LOG"
 
 DEFAULT_DIR = ".genviewer"
