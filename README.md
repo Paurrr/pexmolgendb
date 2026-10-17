@@ -479,6 +479,7 @@ uv run genviewer-init-db --dsn "postgresql://<내계정>@127.0.0.1:55433/molgen"
 ```sh
 uv run ruff check .
 uv run pytest                     # DB 필요한 테스트는 skip 된다
+uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscreen)
 
 # DB 를 붙이면 전부 돈다. 테스트용 데이터베이스를 만들고 끝나면 지운다.
 # 관리자 DSN 이어야 한다 - 픽스처가 CREATE DATABASE 를 하고, 권한 테스트는
@@ -486,8 +487,8 @@ uv run pytest                     # DB 필요한 테스트는 skip 된다
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 130 passed / 87 skipped 다(`sh` 가 없는
-PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 110 / 107). skip 되는 DB 테스트가
+DB 없이 돌리면 지금 기준 Git Bash 에서 271 passed / 124 skipped 다(`sh` 가 없는
+PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 251 / 144). skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 
 `uv run pytest` 가 `uv trampoline failed to canonicalize script path` 로 죽으면 venv 를

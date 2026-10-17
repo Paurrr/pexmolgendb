@@ -1,6 +1,8 @@
 """GUI 테스트(pytest-qt) 공통 fixture.
 
 창은 띄우지 않는다(offscreen). 모달은 autouse `dialogs` 가 대신한다.
+컨트롤러 테스트는 `store`(시드: tests/gui_support/helpers.py) 위에 붙은 `device_tab_ctrl` 또는
+`main_window` 로 쓴다. 사용자 동작은 `gui_support.helpers` 의 select_*/edit_* 로 흉내 낸다.
 """
 
 import gc
@@ -13,7 +15,14 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from gui_support.dialogs import FakeDialogs, install_dialogs  # noqa: E402
+from gui_support.fakes import FakeStore  # noqa: E402
+from gui_support.helpers import install_fake_db, seeded_store  # noqa: E402
 from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
+
+from genviewer.controllers.device_tab import DeviceTabController  # noqa: E402
+from genviewer.controllers.main_window import MainWindowController  # noqa: E402
+from genviewer.views.device_tab import DeviceTab  # noqa: E402
+from genviewer.views.main_window import MainWindow  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -50,3 +59,51 @@ def _collect_previous_garbage() -> None:
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     gc.collect()
     gc.freeze()
+
+
+@pytest.fixture(autouse=True)
+def _app_user(monkeypatch) -> None:
+    """current_user() 를 "tester" 로 정한다. 저장의 actor 와 updated_by 가 이 이름이 된다."""
+    monkeypatch.setenv("GENDB_APP_USER", "tester")
+
+
+@pytest.fixture
+def store() -> FakeStore:
+    """시드한 가짜 서버. sf2p(nfet_a, nfet_b), sf4u(pfet_a), 탭 InstTerm·InstSchParam."""
+    return seeded_store()
+
+
+@pytest.fixture
+def device_tab_ctrl(qtbot, monkeypatch, store, dialogs) -> Iterator[DeviceTabController]:
+    """store 에 붙은 실제 DeviceTabController (MainWindow 없이).
+
+    접속 직후에는 첫 process(sf2p)가 골라져 있다(콤보의 addItems 가 currentTextChanged 를 낸다).
+    알림은 MainWindow 대신 `dialogs.shown` 에 남는다. 생성 **뒤에** 잇는 것은
+    MainWindowController 와 같은 순서다(생성 중의 알림은 실제 앱에서도 어디에도 가지 않는다).
+    """
+    install_fake_db(monkeypatch, store)
+    view = DeviceTab()
+    qtbot.addWidget(view)
+    ctrl = DeviceTabController(view, "")
+    ctrl.notifyRequested.connect(dialogs.record_notify)
+    # 지금은 생성자 안에서 접속이 끝나 바로 참이다. 첫 접속이 비동기가 되어도 그대로 돈다.
+    qtbot.waitUntil(lambda: ctrl.connected is not None)
+    yield ctrl
+    ctrl.close_db()  # 이미 닫혔으면 아무것도 하지 않는다
+
+
+@pytest.fixture
+def main_window(qtbot, monkeypatch, store, dialogs) -> Iterator[MainWindowController]:
+    """store 에 붙은 실제 MainWindowController. `.ui` 가 MainWindow, `.device_tab` 이 컨트롤러다.
+
+    창은 띄우지 않는다. 포커스가 필요한 테스트는 `main_window.ui.show()` 와
+    `qtbot.waitExposed(main_window.ui)` 를 직접 한다. History 화면은 만들지 않는다.
+    """
+    install_fake_db(monkeypatch, store)
+    ui = MainWindow("localhost")
+    qtbot.addWidget(ui)
+    controller = MainWindowController(ui, "")
+    qtbot.waitUntil(lambda: controller.device_tab.connected is not None)
+    yield controller
+    controller.shutdown()  # 테스트가 먼저 불렀어도 안전하다
+    ui.close()
