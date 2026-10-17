@@ -23,7 +23,8 @@
       "name": "parameter-add-tab",
       "status": "completed",
       "started_at": "2026-10-17T17:37:11+0900",
-      "summary": "ParameterTab.add_tab(name, cfg, on_created) 구현(rebuild_tabs 와 탭 생성 본문 _insert_section 공유, '+' 앞 insertTab 후 현재 탭, 같은 이름이면 기존 섹션 반환), on_tab_clicked 가 tab_config[selected] 와 _attach_section 으로 붙임. RED: test_choosing_a_tab_from_plus_does_not_raise 외 10개 (AttributeError: 'ParameterTab' object has no attribute 'add_tab'), test_clicking_plus_with_the_mouse_adds_the_chosen_tab (실제 tabBarClicked 경로, ['Summary', '+'] != ['Summary', 'AddLayer', '+'] + Qt 이벤트 루프의 같은 AttributeError). 취소·접속 후 '+'(후보 없음, 선택기 안 만듦)는 특성 테스트(수정 전에도 통과). 변이 검사 5개(on_created 미전달, '+' 뒤 삽입, 현재 탭 안 바꿈, 중복 가드 제거, dirty 표시 연결 제거) 모두 잡힘. tests/gui/test_parameter_add_tab.py 추가(13개, FakeTabSelector 는 파일 안). DB 테스트: 492 passed / 9 skipped / 1 xfailed"
+      "summary": "ParameterTab.add_tab(name, cfg, on_created) 구현(rebuild_tabs 와 탭 생성 본문 _insert_section 공유, '+' 앞 insertTab 후 현재 탭, 같은 이름이면 기존 섹션 반환), on_tab_clicked 가 tab_config[selected] 와 _attach_section 으로 붙임. RED: test_choosing_a_tab_from_plus_does_not_raise 외 10개 (AttributeError: 'ParameterTab' object has no attribute 'add_tab'), test_clicking_plus_with_the_mouse_adds_the_chosen_tab (실제 tabBarClicked 경로, ['Summary', '+'] != ['Summary', 'AddLayer', '+'] + Qt 이벤트 루프의 같은 AttributeError). 취소·접속 후 '+'(후보 없음, 선택기 안 만듦)는 특성 테스트(수정 전에도 통과). 변이 검사 5개(on_created 미전달, '+' 뒤 삽입, 현재 탭 안 바꿈, 중복 가드 제거, dirty 표시 연결 제거) 모두 잡힘. tests/gui/test_parameter_add_tab.py 추가(13개, FakeTabSelector 는 파일 안). DB 테스트: 492 passed / 9 skipped / 1 xfailed",
+      "completed_at": "2026-10-17T17:43:44+0900"
     },
     {
       "step": 3,
