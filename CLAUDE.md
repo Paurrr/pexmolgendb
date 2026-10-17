@@ -33,9 +33,9 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 - 루트 `scripts/` 는 하네스(execute.py)이고 `src/genviewer/scripts/` 는 관리 도구(init_db, import_sqlite)다. 헷갈리지 않는다.
 
 ## 테스트 관례
-- DB가 필요한 테스트는 `tests/conftest.py` 의 `pg_dsn`/`db` fixture를 쓴다. `GENDB_TEST_PG_DSN` 은 **관리자 DSN**이어야 한다(fixture가 `gendb_test_<pid>` 데이터베이스를 만들고 지운다. 권한 테스트는 CREATE ROLE까지 한다). 없으면 skip된다. 개발 PC 기준선(DB 없음, phase 0 완료 후 2026-10-17)은 Git Bash에서 118 passed / 86 skipped다. `sh` 가 PATH에 없는 셸(PowerShell)에서는 deploy.sh 테스트 11개가 더 skip되어 107 / 97이 된다. DB를 붙이면 196 passed / 8 skipped(Windows 권한 테스트만 skip)다.
+- DB가 필요한 테스트는 `tests/conftest.py` 의 `pg_dsn`/`db` fixture를 쓴다. `GENDB_TEST_PG_DSN` 은 **관리자 DSN**이어야 한다(fixture가 `gendb_test_<pid>` 데이터베이스를 만들고 지운다. 권한 테스트는 CREATE ROLE까지 한다). 없으면 skip된다. 개발 PC 기준선(DB 없음, phase 1 완료 후 2026-10-17)은 Git Bash에서 130 passed / 87 skipped다. `sh` 가 PATH에 없는 셸(PowerShell)에서는 셸 스크립트 테스트 20개(`test_deploy_sh.py`, `test_initdb_sh.py`)가 더 skip되어 110 / 107이 된다. DB를 붙이면 208 passed / 9 skipped(Windows 권한 테스트만 skip)다.
 - POSIX 권한·심볼릭 링크 테스트는 `posix_only` 로 Windows에서 skip된다. 버그 재현(RED)은 Windows에서 도는 테스트로 보인다.
-- 셸 스크립트는 stub 명령을 PATH 앞에 두고 실제로 실행해서 테스트한다(`tests/test_deploy_sh.py`). 텍스트 토큰 검사만으로 끝내지 않는다.
+- 셸 스크립트는 stub 명령을 PATH 앞(initdb.sh 는 `PGBIN`)에 두고 실제로 실행해서 테스트한다(`tests/test_deploy_sh.py`, `tests/test_initdb_sh.py`). 텍스트 토큰 검사만으로 끝내지 않는다.
 - Qt 테스트는 `QT_QPA_PLATFORM=offscreen` 으로 돈다(`tests/test_background.py`). 예상하지 않은 모달 대화상자가 테스트를 멈추게 두지 않는다.
 - 외부 의존(Virtuoso 소켓, 실제 서버)은 테스트에서 붙지 않는다. 접속 실패 경로는 닫힌 포트(`127.0.0.1:1`)로 만든다.
 
