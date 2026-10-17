@@ -2,7 +2,7 @@
 
 ## 배경 (phase 4 공통)
 
-이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
+이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 그 밖에 `deviceVersionBumped`/`adopt_device_version`(내 device 저장 뒤 탭이 version을 따라간다), `DeviceTabController._save_before_process_change`(process 전환 전 질문·저장), `DeviceTableModel.is_row_changed`, device 표 붙여넣기의 `Unsaved Changes` 거부, `save_all` 의 `Save Skipped` 경고가 있다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
 
 모든 step에 같은 규칙이 적용된다.
 1. 아래 "버그"는 **분석 에이전트의 주장**이다. 먼저 실패하는 테스트로 재현하고, RED 출력(테스트 이름과 실패한 단언)을 summary에 적는다.
@@ -43,11 +43,11 @@ GUI 테스트 기반은 phase 2(`2-gui-test-infra`)가 만들었다. 아래 이�
 ## 읽어야 할 파일
 
 - `/CLAUDE.md`(CRITICAL: 비밀번호를 화면·로그에 남기지 않는다, `scrub()`), `/docs/ADR.md`(ADR-009, ADR-013: 로그 패널로 직접 보내는 문자열은 호출자가 `scrub()`), `/docs/ARCHITECTURE.md`(스레딩, 변경 감지), `/docs/UI_GUIDE.md`(문구: `notifyRequested`/`logRequested`)
-- `src/genviewer/controllers/device_tab.py` — `__init__` (~44-89, 마지막 줄에서 `self.connect_db(dsn)`), `set_repo` (~91-97), `_on_connect` (~102-109, "Connected"/"Connect Failed" 알림), `_open_database` (~129-136), `connect_db` (~138-169: ~140-142 에서 옛 DB를 먼저 닫고, ~168 에서 DSN을 그대로 로그), `_poll_remote_changes`/`_clear_poll_task` (~175-200), `close_db` (~234-251, 폴링 작업을 기다린 뒤 닫고 `dbChanged(None)`), `apply_db` (~253-259)
+- `src/genviewer/controllers/device_tab.py` — `__init__` (~44-92, 마지막 줄 ~92 에서 `self.connect_db(dsn)`), `set_repo` (~94-100), `_on_connect` (~105-112, "Connected"/"Connect Failed" 알림), `_open_database` (~142-149), `connect_db` (~151-182: ~153-155 에서 옛 DB를 먼저 닫고, ~181 에서 DSN을 그대로 로그), `_poll_remote_changes`/`_clear_poll_task` (~188-213), `close_db` (~247-264, 폴링 작업을 기다린 뒤 닫고 `dbChanged(None)`), `apply_db` (~266-272)
 - `src/genviewer/controllers/main_window.py` — `__init__` (~21-62: `DeviceTabController` 를 만든 **뒤에** ~47-49 에서 `notifyRequested`·`logRequested` 를 창에 잇는다. ~59-60 이력 화면 `dbChanged` 연결)
 - `src/genviewer/controllers/history_tab.py` — `set_db` (~76-93)
-- `src/genviewer/controllers/device_tab_toolbar.py` — `refresh_processes` (~130-135, `@report("Process List Failed")`)
-- `src/genviewer/utils/logs.py` — `scrub` (~41-48, `password=…` 와 `://user:secret@` 를 가린다)
+- `src/genviewer/controllers/device_tab_toolbar.py` — `refresh_processes` (~133-138, `@report("Process List Failed")`)
+- `src/genviewer/utils/logs.py` — `scrub` (~43-50, `password=…` 와 `://user:secret@` 를 가린다)
 - `src/genviewer/utils/background.py` — `run_blocking`, `Task`, `is_busy`
 - `.venv/Lib/site-packages/psycopg_pool/base.py` — `_check_open`: 닫힌 풀은 `PoolClosed("pool has already been opened/closed and cannot be reused")`
 - `tests/gui/conftest.py`(`device_tab_ctrl`·`main_window` 가 `_open_database` 를 어떻게 바꾸고 무엇을 기다리는지), `tests/gui_support/fakes.py`(`FakeDatabase`)
@@ -89,16 +89,17 @@ except Exception as e:
 | 접속하는 동안 또 Connect | `run_blocking` 이 사용자 입력을 막아 닿지 않는다. 테스트하지 않는다 | |
 | 첫 접속이 돌기 전에 정리(`shutdown`) | `close_db()` 는 `db is None` 이라 아무것도 닫지 않는다. 예약된 접속은 context 객체가 사라지거나 이벤트 루프가 끝나 돌지 않는다 | |
 
+- phase 3 이후 재접속 성공의 `apply_db`: `refresh_processes` 가 지금 process를 유지하고 `processChanged` 를 내지 않는다. 그래서 재접속 때 "Save Changes" 질문도 `on_process_changed`·`_clear_tabs` 도 없다. 대신 `refresh_devices` 와 `rebuild_all_sections` 가 device·탭 편집을 묻지 않고 버린다(known-issues K36. 고치지 않는다). 재접속 테스트에서 질문을 기대하지 마라.
 - 폴링 결과가 재접속 뒤에 도착해 엉뚱한 배너가 뜰 수 있는 문제는 known-issues K23과 같은 종류다. 고치지 않는다.
 - 접속에 실패한 새 `Database` 의 풀을 닫지 않는 누수는 known-issues K22다. 고치지 않는다.
 - 재접속 순간 이력 화면(`--history`)의 진행 중 `Task` 는 기다리지 않는다(이력은 `dbChanged(새)` 를 받아 다시 읽는다). 발견하면 summary에 적는다.
 
 ### 1. 테스트 먼저 (`tests/gui/test_connect_db.py`, 새 파일)
 
-fake 접속: `monkeypatch.setattr(DeviceTabController, "_open_database", staticmethod(opener))`. `opener(dsn)` 는 큐에 넣어 둔 예외가 있으면 그것을 내고, 없으면 `cfg.dsn == dsn` 인 `FakeDatabase(store)` 를 만들어 기록한 뒤 돌려준다. `FakeDatabase` 에 dsn을 넣을 방법이나 닫힘 기록(`closed`, 닫힌 횟수)이 없으면 `tests/gui_support/fakes.py` 에 더한다. `main_window` fixture가 `_open_database` 를 이미 바꾼다면, 재접속 테스트는 fixture 뒤에 다시 바꾸면 된다. 시작 접속을 바꿔야 하는 테스트는 fixture와 같은 방식으로 `MainWindow` + `MainWindowController` 를 직접 만들거나, fixture에 opener를 넘길 수 있는 인자를 더한다(기존 사용처의 동작은 그대로). 로그 패널은 `ui.log_te.toPlainText()` 로 읽는다.
+fake 접속은 이미 있다. 새 opener를 만들지 않는다: `install_fake_db(monkeypatch, store)` 가 `_open_database` 를 `store.open_database` 로 바꾸고(`cfg.dsn == dsn` 인 열린 `FakeDatabase`, `store.calls` 에 dsn이 남는다), `store.fail_next("open_database", exc)` 가 다음 접속 하나를 실패시킨다. `FakeDatabase` 에는 `closed` 플래그만 있고 닫힌 횟수는 없다(`calls` 의 `("db.close", {})` 는 어느 DB인지 모른다). "한 번 닫혔다" 를 단언하려면 `tests/gui_support/fakes.py` 에 횟수를 더한다. 시작 접속을 바꿔야 하는 테스트는 fixture와 같은 방식으로 `MainWindow` + `MainWindowController` 를 직접 만들거나, fixture에 opener를 넘길 수 있는 인자를 더한다(기존 사용처의 동작은 그대로). 로그 패널은 `ui.log_te.toPlainText()` 로 읽는다.
 
 - **S8, 비밀번호가 로그 패널에 없다**: 붙은 `main_window` 에서 `ui.device_tab_view.dbConnectRequested.emit("host=127.0.0.1 dbname=molgen user=app password=s3cret")` → 성공 후 로그 패널에 `"Database connected:"` 가 있고 `"s3cret"` 은 없다. URL 형식 `"postgresql://app:s3cret@127.0.0.1/molgen"` 도 같다. **수정 전에는 `s3cret` 이 보여 실패해야 한다.**
-- **G13, 재접속 실패가 옛 DB를 지킨다**: 붙은 상태(db1)에서 opener가 `DbUnavailableError("down")` 를 내게 하고 다시 접속 → `device_tab.db is db1`, db1이 닫히지 않았다, `device_tab.connected is True`, `dialogs.shown` 에 "Connect Failed". 이어서 `select_process(…, "sf2p")` 가 오류 없이 device를 보여 준다. **수정 전에는 db1이 닫히고 `db is None` 이라 실패해야 한다.** (FakeDatabase가 닫힌 뒤의 호출을 실패시키지 않으면 `db is db1`·닫힘 기록으로 단언한다.)
+- **G13, 재접속 실패가 옛 DB를 지킨다**: 붙은 상태(db1)에서 opener가 `DbUnavailableError("down")` 를 내게 하고 다시 접속 → `device_tab.db is db1`, db1이 닫히지 않았다, `device_tab.connected is True`, `dialogs.shown` 에 "Connect Failed". 이어서 `select_process(…, "sf4u")` 후 `current_process == "sf4u"` 와 행 1개를 `qtbot.waitUntil` 로 기다려 옛 DB로 계속 읽히는지 본다(sf2p는 이미 골라져 있어 다시 골라도 시그널도 repo 호출도 없다). **수정 전에는 db1이 닫히고 `db is None` 이라 실패해야 한다.** (FakeDatabase는 닫힌 뒤의 호출을 실패시키지 않는다. `db is db1`·`db1.closed is False` 로 단언한다.)
 - **G13, 재접속 성공**: db1 → db2. `device_tab.dbChanged` 에 연결한 리스트가 정확히 `[db2]`(None 없음), db1은 한 번 닫혔고 db2는 열려 있다, `device_tab.db is db2`, `connected is True`, 로그 패널에 접속 줄.
 - **G13, 폴링 작업을 기다린 뒤 닫는다**: `threading.Event` 를 기다리는 `Task(lambda: ev.wait(5))` 를 시작해 `device_tab._poll_task` 에 넣고, `threading.Timer(0.2, ev.set)` 를 건다. db1의 `close()` 가 불리는 순간 그 Task가 끝나 있었는지(`isFinished()`)를 기록하게 하고 재접속 → 기록이 True. **수정 전에는 기다리지 않고 닫아 False라 실패해야 한다.** 테스트 끝에 Task를 반드시 `wait()` 한다(실행 중인 QThread가 지워지면 프로세스가 죽는다).
 - **G16, 시작 접속 실패가 화면에 보인다**: opener가 처음부터 `DbUnavailableError("down")` 를 내게 하고 창을 만든다 → `qtbot.waitUntil(lambda: ctrl.device_tab.connected is not None)` → `connected is False`, 로그 패널에 `"Database connect failed:"` 가 있다. `dialogs.shown` 에 새 상자가 없다. **수정 전에는 로그 패널에 없어 실패해야 한다.**
@@ -121,7 +122,7 @@ class DeviceTabController(QObject):
 - 옛 DB를 닫으려고 `close_db()` 를 그대로 부르지 않는다(`dbChanged(None)` 이 한 번 더 나간다). 기다리고 닫는 부분을 함께 쓰고 싶으면 `dbChanged` 를 내지 않는 내부 함수로 나눈다.
 - 화면 문구는 그대로다("Database connected: …", "Database connect failed: …", `_on_connect` 의 "Connected"/"Connect Failed").
 
-**구조가 바뀌므로(하네스 규칙 14) 기존 테스트를 확인한다.** 첫 접속이 비동기가 되었으므로, `DeviceTabController`·`MainWindowController` 를 만든 직후 접속된 상태를 가정하는 테스트는 `connected is not None` 을 기다려야 한다. `device_tab_ctrl` 은 이미 기다린다. `main_window` fixture와 `grep -rn "DeviceTabController(\|MainWindowController(" tests` 로 찾은 곳이 기다리지 않으면 `qtbot.waitUntil(lambda: <controller>.connected is not None)` 를 더한다. 기다리지 않은 채 fixture가 정리되면 예약된 접속이 다음 테스트 도중에 돌 수 있다.
+**구조가 바뀌므로(하네스 규칙 14) 기존 테스트를 확인한다.** 첫 접속이 비동기가 되었으므로, `DeviceTabController`·`MainWindowController` 를 만든 직후 접속된 상태를 가정하는 테스트는 `connected is not None` 을 기다려야 한다. `device_tab_ctrl`·`main_window` 둘 다 이미 `connected is not None` 을 기다린다(conftest). tests 안에서 두 컨트롤러를 직접 만드는 곳은 conftest뿐이다(`grep -rn "DeviceTabController(\|MainWindowController(" tests` 로 다시 확인한다). 새 순서를 지키는 기존 테스트는 `tests/gui/test_process_list_refresh.py::test_reconnecting_keeps_the_current_process` 와 `tests/gui/test_smoke.py::test_the_main_window_starts_and_shuts_down_cleanly` 다. 뒤의 것은 시작 뒤 `dialogs.shown == []` 를 단언하는데, G16을 고치면 시작 중 알림("Connected" 등)이 화면에 닿아 이 단언이 바뀔 수 있다. 바꾸면 그 이유를 summary에 적는다. 기다리지 않은 채 fixture가 정리되면 예약된 접속이 다음 테스트 도중에 돌 수 있다.
 
 ### 3. 문서
 

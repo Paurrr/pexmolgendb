@@ -2,7 +2,7 @@
 
 ## 배경 (phase 4 공통)
 
-이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
+이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 그 밖에 `deviceVersionBumped`/`adopt_device_version`(내 device 저장 뒤 탭이 version을 따라간다), `DeviceTabController._save_before_process_change`(process 전환 전 질문·저장), `DeviceTableModel.is_row_changed`, device 표 붙여넣기의 `Unsaved Changes` 거부, `save_all` 의 `Save Skipped` 경고가 있다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
 
 모든 step에 같은 규칙이 적용된다.
 1. 아래 "버그"는 **분석 에이전트의 주장**이다. 먼저 실패하는 테스트로 재현하고, RED 출력(테스트 이름과 실패한 단언)을 summary에 적는다.
@@ -45,8 +45,8 @@ GUI 테스트 기반은 phase 2(`2-gui-test-infra`)가 만들었다. 아래 이�
 - `src/genviewer/views/tab_section.py` — `__init__` (~28-48, `device_id`/`device_celltype` 를 만들지 않는다), `on_device_changed` (~95-98, 여기서 처음 생긴다), `open_insert_dialog` (~100-107), `open_edit_dialog` (~109-126), `edit_selected_row` (~128-139, Edit 버튼), `keyPressEvent` (~170-187, Ctrl+E가 `open_edit_dialog(rows[0], {})` ~180-183)
 - `src/genviewer/dialogs/insert.py` — `InsertDialog.__init__(device_celltype, table_name, field_names, headers, parent, prefill=None, window_title="Insert")`, `_make_searchable_combo`(잠기지 않은 콤보는 `setCurrentIndex(-1)`, strict 콤보는 첫 항목), `get_data`
 - `src/genviewer/controllers/tab_section.py` — `set_device` (`deviceChanged` → `ui.on_device_changed`), `_on_context_menu` (~43-61, 메뉴의 Insert는 `ui.open_insert_dialog()`, Edit은 `_row_to_dict` 로 값을 채운다), `insert_row`/`update_row` (`if not self.model: return`)
-- `src/genviewer/controllers/parameter_tab.py` — `_clear_tabs` (~132-135, 모든 섹션을 `set_device(None, None)`), `rebuild_all_sections` (~137-140)
-- `src/genviewer/controllers/device_tab.py` — `apply_db` (~253-259: `refresh_processes()` 가 첫 process를 고르고 `_clear_tabs()` 가 돈 **뒤에** `rebuild_all_sections()` 가 새 섹션을 만든다. 그래서 접속 직후의 섹션에는 `device_celltype` 이 없다)
+- `src/genviewer/controllers/parameter_tab.py` — `_clear_tabs` (~155-158, 모든 섹션을 `set_device(None, None)`), `rebuild_all_sections` (~160-163)
+- `src/genviewer/controllers/device_tab.py` — `apply_db` (~266-272: 첫 접속에서는 `refresh_processes()` 가 첫 process를 고르고 `_clear_tabs()` 가 돈 **뒤에** `rebuild_all_sections()` 가 새 섹션을 만든다. 재접속에서는 phase 3부터 `set_processes` 가 지금 process를 시그널 없이 유지하므로 `on_process_changed`·`_clear_tabs` 가 돌지 않는다. 어느 쪽이든 `rebuild_all_sections()` 가 섹션을 늘 새로 만들므로 접속 직후의 섹션에는 `device_celltype` 이 없다)
 - `tests/gui/conftest.py`, `tests/gui_support/`
 - 이전 step에서 수정된 파일: `src/genviewer/controllers/tab_section.py`(`update_model` 실패 시 모델 비움), `tests/gui/test_tab_section_load.py`
 

@@ -2,7 +2,7 @@
 
 ## 배경 (phase 4 공통)
 
-이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
+이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 그 밖에 `deviceVersionBumped`/`adopt_device_version`(내 device 저장 뒤 탭이 version을 따라간다), `DeviceTabController._save_before_process_change`(process 전환 전 질문·저장), `DeviceTableModel.is_row_changed`, device 표 붙여넣기의 `Unsaved Changes` 거부, `save_all` 의 `Save Skipped` 경고가 있다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
 
 모든 step에 같은 규칙이 적용된다.
 1. 아래 "버그"는 **분석 에이전트의 주장**이다. 먼저 실패하는 테스트로 재현하고, RED 출력(테스트 이름과 실패한 단언)을 summary에 적는다.
@@ -42,16 +42,16 @@ GUI 테스트 기반은 phase 2(`2-gui-test-infra`)가 만들었다. 아래 이�
 ## 읽어야 할 파일
 
 - `/CLAUDE.md`, `/docs/UI_GUIDE.md`(원칙 2·4, 문구: `question` 은 Yes/No 두 개뿐), `/docs/ARCHITECTURE.md`(레이어 표: views는 controllers를 모른다, "현재 어긋난 곳"), `/docs/ADR.md`(ADR-004, ADR-009)
-- `src/genviewer/controllers/main_window.py` — `__init__` (~21-62), `shutdown` (~64-69), `_on_received_from_controller` (~125-142, DeviceList면 dirty 검사 없이 `refresh_devices()`), `_on_notify_requested` (~222-230)
+- `src/genviewer/controllers/main_window.py` — `__init__` (~21-62), `shutdown` (~64-69), `_on_received_from_controller` (~125-142, DeviceList면 dirty 검사 없이 `refresh_devices()`), `_on_notify_requested` (~223-231)
 - `src/genviewer/views/main_window.py` — `MainWindow`(QMainWindow). `closeEvent` 가 없다
-- `src/genviewer/controllers/device_tab.py` — `save_db` (phase 3에서 `-> bool`), `_on_refresh_requested` (~218-232, 기존 질문 문구), `on_process_changed` (~378-403, "Save Changes" 질문)
+- `src/genviewer/controllers/device_tab.py` — `save_db` (~114-140, phase 3에서 `-> bool`: device 저장 뒤 탭도 늘 저장하고 둘 다 True일 때만 True. device 충돌을 취소해도 탭은 저장하고, device 예외면 탭으로 가지 않는다), `_on_refresh_requested` (~231-245, 기존 질문 문구), `_save_before_process_change` (~418-454, "Save Changes" 질문 ~428-432. process 전환용이다)
 - `src/genviewer/controllers/device_table.py` — `is_dirty`, `refresh_devices` (`update_devices` → `reset_modified()`)
 - `src/genviewer/controllers/parameter_tab.py` — `is_dirty`
 - `src/genviewer/utils/dialogs.py` — `question(parent, title, message) -> bool`
 - `src/genviewer/utils/background.py` — `is_busy()`(지금 `run_blocking` 안인가)
 - `src/genviewer/main.py` — `run_gui`(`app.exec()` 뒤 `controller.shutdown()`)
 - `tests/gui/conftest.py`(`main_window` 의 정리 순서), `tests/gui_support/`
-- 이전 step에서 수정된 파일: `src/genviewer/controllers/device_tab.py`(첫 접속이 `QTimer.singleShot` 으로 미뤄짐, 재접속 순서), `tests/gui/test_connect_db.py`, `tests/gui/conftest.py`(접속 대기를 더했다면)
+- 이전 step에서 수정된 파일: `src/genviewer/controllers/device_tab.py`(첫 접속이 `QTimer.singleShot` 으로 미뤄짐, 재접속 순서), `tests/gui/test_connect_db.py`, `tests/gui/conftest.py`
 
 ## 버그
 
@@ -92,14 +92,15 @@ class MainWindowController(QObject):
 | 상태 | 동작 |
 |---|---|
 | 편집 없음 (`device_table.is_dirty()`·`parameter_tab.is_dirty()` 모두 False) | 묻지 않고 닫는다(지금과 같다) |
-| 편집 있음, Yes | `self.device_tab.save_db()`. True면 닫는다. False(저장 실패, 충돌에서 취소·다시 읽기)면 창을 남긴다 |
+| 편집 있음, Yes | `self.device_tab.save_db()`. True면 닫는다. False(저장 실패, 충돌에서 취소·다시 읽기, `Save Skipped`, 탭 저장 실패)면 창을 남긴다. `Save Skipped` 뒤에는 다시 읽기로 dirty가 지워지므로 다음 닫기는 묻지 않고 닫힌다 |
 | 편집 있음, No | 저장하지 않고 닫는다 |
 | `is_busy()`(저장·접속·CSV 불러오기 중. `run_blocking` 의 이벤트 처리는 사용자 입력만 막고 창 닫기 요청은 막지 않는다) | 묻지 않고 닫기를 무시한다(창이 남는다). 끝난 뒤 다시 닫으면 된다 |
 | DB 없음 | `current_process_id` 가 없어 dirty가 될 수 없다 → 그냥 닫는다 |
 | `shutdown()` 뒤 | 필터가 없으므로 묻지 않는다 |
 
-- 질문 문구는 기존 것을 그대로 쓴다: `question(self.ui, "Save Changes", "You have unsaved changes. Do you want to save them?")`(`on_process_changed` 와 같은 문구). 새 문구를 만들지 않는다.
-- Yes 뒤 알림("Saved", "Save Devices Failed" 등)은 `save_db()` 가 지금처럼 낸다.
+- 질문 문구는 기존 것을 그대로 쓴다: `question(self.ui, "Save Changes", "You have unsaved changes. Do you want to save them?")`(process 전환의 `_save_before_process_change`, device 전환의 `_switch_device_by_index` 와 같은 문구). 새 문구를 만들지 않는다.
+- Yes 뒤 알림("Saved", "Save Devices Failed" 등)은 `save_db()` 가 지금처럼 낸다. 성공하면 알림이 2~3개 뜰 수 있다(device "Save Complete"/"No changes to save.", 탭 "Saved", "All changes have been saved."). 지금 Database → Save 와 같은 동작이다.
+- 닫기에는 `save_db()` 를 쓴다(승인된 G6: 저장에 성공했을 때만 닫는다). process 전환용 `_save_before_process_change` 를 가져다 쓰지 마라. 그 함수는 다시 읽기를 "넘어가도 된다"(True)로 보므로 위 표와 어긋난다.
 
 ### 결과 × 상태 (DeviceList 응답)
 
@@ -124,8 +125,8 @@ class MainWindowController(QObject):
 - **device 편집 + No**: `select_process(…, "sf2p")`, `edit_device_cell` 로 하나 고침, `dialogs.answer_question(False)` → `close()` 가 True, `dialogs.shown` 에 질문 "Save Changes" 가 있다, `store.calls` 에 `upsert_devices` 가 없다. **수정 전에는 질문이 없어 실패해야 한다.**
 - **device 편집 + Yes, 성공**: `answer_question(True)` → `close()` 가 True, `upsert_devices` 가 불렸고 store에 편집이 반영됐다.
 - **Yes, 저장 실패**: `store.fail_next("upsert_devices", DbUnavailableError("down"))` + Yes → `close()` 가 False, 모델에 편집이 남아 있다, 실패 알림이 `dialogs.shown` 에 있다.
-- **Yes, 충돌 후 취소**: FakeStore로 `StaleWriteError` 를 내게 하고 `dialogs.answer_conflict(CANCEL)` → `close()` 가 False.
-- **탭만 편집**: device를 고르고 `edit_tab_cell` → Yes → 탭 저장(`replace_many_for_device`)이 불리고 `close()` 가 True. (phase 3 이후의 `save_db()` 가 탭을 저장하지 않으면 그 사실을 summary에 적고 이 테스트는 `save_db()` 의 실제 계약에 맞춘다.)
+- **Yes, 충돌 후 취소**: `store.touch_device(store.find_device("nfet_a")["id"], actor="bob")` 로 충돌을 만들고 `dialogs.answer_conflict(CANCEL)` → `close()` 가 False.
+- **탭만 편집**: device를 고르고 `edit_tab_cell` → Yes → 탭 저장(`replace_many_for_device`)이 불리고 `close()` 가 True. (phase 3 이후 `save_db()` 는 탭을 저장한다. 탭만 고쳐도 `device_table.save_all` 이 화면의 device 전부로 `upsert_devices` 를 부르고 "No changes to save." 를 먼저 띄우므로, 이 테스트에서 `upsert_devices` 가 없다고 단언하지 마라.)
 - **저장 중**: `monkeypatch.setattr("genviewer.controllers.main_window.is_busy", lambda: True)`(import 방식에 맞춰 바꾼다) + 편집 있음 → `close()` 가 False, 질문 없음, 저장 호출 없음.
 - **shutdown 뒤**: 편집 있음 → `mw.shutdown()` → `mw.ui.close()` 가 질문 없이 True.
 
@@ -134,13 +135,14 @@ DeviceList:
 - **편집 있음 + No**: `edit_device_cell` 후 `answer_question(False)` + 응답 → `dialogs.shown` 에 "Refresh" 질문, 모델이 편집을 그대로 갖고 있다(`is_modified()` True, 고친 값, dirty 셀), `device_state_data` 와 Virtuoso 표(`ui.device_tab_view.virtuoso_device_table.get_devices()`)는 새 목록, 응답 뒤 device 목록 조회가 늘지 않았다. **수정 전에는 편집이 사라져 실패해야 한다.**
 - **편집 있음 + Yes**: 다시 읽어 편집이 사라진다(지금 동작).
 
-**구조가 바뀌므로(하네스 규칙 14) fixture를 확인한다.** `main_window` 정리가 `close()` 를 `shutdown()` **보다 먼저** 부르면, 편집을 남긴 채 끝나는 테스트마다 질문이 떠 AssertionError가 난다. 정리 순서를 shutdown → close로 맞춘다(shutdown이 필터를 뗀다). 다른 GUI 테스트가 `close()` 를 직접 부르며 편집을 남기면 답을 넣거나 순서를 맞춘다.
+**구조가 바뀌므로(하네스 규칙 14) fixture를 확인한다.** `main_window` 정리가 `close()` 를 `shutdown()` **보다 먼저** 부르면, 편집을 남긴 채 끝나는 테스트마다 질문이 떠 AssertionError가 난다. 지금 conftest는 이미 shutdown → close 순서다(shutdown이 필터를 떼야 한다). 이 순서를 바꾸지 않는다. 다른 GUI 테스트가 `close()` 를 직접 부르며 편집을 남기면 답을 넣거나 순서를 맞춘다.
 
 ### 2. 수정 (`controllers/main_window.py`)
 
 - `__init__` 끝에서 `self.ui.installEventFilter(self)`. `eventFilter` 는 `obj is self.ui and event.type() == QEvent.Type.Close` 일 때만 위 표대로 판단하고, 그 밖에는 False.
 - `shutdown()` 은 먼저 `self.ui.removeEventFilter(self)` 한 뒤 지금처럼 이력·DB를 정리한다.
 - `_on_received_from_controller` 의 DeviceList 분기는 위 표대로: Virtuoso 표·`device_state_data` 갱신과 로그 한 줄은 늘 하고, `refresh_devices()` 는 device 표가 dirty가 아니거나 질문에 Yes일 때만 부른다.
+- `controllers/main_window.py` 가 `from genviewer.utils.dialogs import question` 으로 이름을 묶으면 `tests/gui_support/dialogs.py` 의 `QUESTION_MODULES` 에 `"genviewer.controllers.main_window"` 를 더한다. 빠지면 `tests/gui/test_dialogs_fixture.py::test_every_dialogs_import_is_patched` 가 실패한다.
 - `views/main_window.py` 와 `controllers/device_tab.py` 는 바꾸지 않는다.
 
 ### 3. 문서
@@ -152,7 +154,7 @@ DeviceList:
 ```bash
 uv run pytest tests/gui/test_window_guards.py -q   # 새 테스트 통과 (수정 전에는 닫기 질문·DeviceList No 테스트가 실패해야 한다)
 uv run ruff check src tests
-uv run pytest tests/gui -q                         # fixture 정리 순서를 바꾼 뒤에도 모든 GUI 테스트 통과
+uv run pytest tests/gui -q                         # 이벤트 필터를 단 뒤에도 모든 GUI 테스트 통과
 uv run pytest -q
 ```
 
@@ -164,7 +166,7 @@ uv run pytest -q
    - 새 문구 없이 기존 질문 문구만 썼는가(ADR-015, UI_GUIDE 문구)?
    - 저장이 실패·취소됐을 때 창을 닫지 않는가(UI_GUIDE 원칙 4)?
 3. 결과에 따라 `phases/4-gui-robustness/index.json` 의 step 5를 업데이트한다:
-   - 성공 → `"status": "completed"`, `"summary": "MainWindowController: 창 Close 이벤트 필터(dirty 면 Save Changes 질문, Yes=save_db()가 True일 때만 닫음, No=닫음, is_busy 면 무시), shutdown 이 필터 제거. DeviceList 는 device 표 dirty 면 Refresh 질문, No 면 Virtuoso 표만 갱신. fixture 정리 순서 shutdown→close. RED: <테스트 이름>. tests/gui/test_window_guards.py 추가"`
+   - 성공 → `"status": "completed"`, `"summary": "MainWindowController: 창 Close 이벤트 필터(dirty 면 Save Changes 질문, Yes=save_db()가 True일 때만 닫음, No=닫음, is_busy 면 무시), shutdown 이 필터 제거. DeviceList 는 device 표 dirty 면 Refresh 질문, No 면 Virtuoso 표만 갱신. RED: <테스트 이름>. tests/gui/test_window_guards.py 추가"`
    - 재현 안 됨 → `"status": "completed"`, `"summary": "not reproduced: <이유>"`
    - 수정 3회 시도 후에도 실패 → `"status": "error"`, `"error_message": "구체적 에러 내용"`
    - 사용자 개입 필요 → `"status": "blocked"`, `"blocked_reason": "구체적 사유"` 후 즉시 중단
@@ -176,6 +178,6 @@ uv run pytest -q
 - 저장이 실패하거나 취소됐는데 창을 닫지 마라. 이유: 실패를 성공처럼 다루면 편집이 사라진다(UI_GUIDE 원칙 4). 판단은 알림 문구가 아니라 `save_db()` 의 반환값으로 한다.
 - `is_busy()` 중에 질문을 띄우거나 `save_db()` 를 부르지 마라. 이유: 진행 중인 `run_blocking` 안에서 저장이 겹쳐 돈다.
 - DeviceList를 받고 No를 골랐을 때 Virtuoso 표·`device_state_data` 갱신까지 건너뛰지 마라. 이유: 목록은 받은 것이 맞고, 지켜야 할 것은 device 표 편집뿐이다.
-- process·device 바꾸기 경로의 질문(`on_process_changed`, `_switch_device_by_index`)과 배너 새로고침을 바꾸지 마라. 이유: 이 step의 범위가 아니다.
+- process·device 바꾸기 경로의 질문(`on_process_changed`, `_save_before_process_change`, `_switch_device_by_index`, `select_process_silently`)과 배너 새로고침을 바꾸지 마라. 이유: 이 step의 범위가 아니다.
 - Virtuoso 끊김을 접속 상태에 반영하는 일(known-issues K14)을 하지 마라. 이유: 동작 변경이라 기록만 했다.
 - 기존 테스트를 깨뜨리지 마라.

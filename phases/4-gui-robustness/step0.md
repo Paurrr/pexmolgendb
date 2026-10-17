@@ -2,7 +2,7 @@
 
 ## 배경 (phase 4 공통)
 
-이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
+이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 그 밖에 `deviceVersionBumped`/`adopt_device_version`(내 device 저장 뒤 탭이 version을 따라간다), `DeviceTabController._save_before_process_change`(process 전환 전 질문·저장), `DeviceTableModel.is_row_changed`, device 표 붙여넣기의 `Unsaved Changes` 거부, `save_all` 의 `Save Skipped` 경고가 있다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
 
 모든 step에 같은 규칙이 적용된다.
 1. 아래 "버그"는 **분석 에이전트의 주장**이다. 먼저 실패하는 테스트로 재현하고, RED 출력(테스트 이름과 실패한 단언)을 summary에 적는다.
@@ -41,10 +41,10 @@ device를 바꿀 때 탭 하나의 행 읽기가 실패하면, 그 탭은 **이�
 
 - `/CLAUDE.md`, `/docs/ARCHITECTURE.md`(데이터 흐름의 탭 저장, 스레딩), `/docs/ADR.md`(ADR-004, ADR-009), `/docs/UI_GUIDE.md`(원칙 4·5)
 - `src/genviewer/controllers/tab_section.py` — `set_device` (~63-67), `payload_fragment` (~115-121), `_on_dirty_changed`/`is_dirty`/`set_dirty` (~146-161), `get_buffer_rows` (~163-164), `get_or_create_model`·`model_by_device` (~166-177), `update_model` (~181-192, `@report("Load Failed")`), `bind_model`/`clear_model` (~194-199)
-- `src/genviewer/controllers/parameter_tab.py` — `set_device_to_section` (~117-127, `current_device_id` 를 먼저 바꾼 뒤 섹션마다 `set_device`), `save_all`/`_write` (~55-91, RELOAD 분기가 `update_model` 을 부른다), `discard_all` (~111-115)
+- `src/genviewer/controllers/parameter_tab.py` — `set_device_to_section` (~140-150, `current_device_id` 를 먼저 바꾼 뒤 섹션마다 `set_device`), `save_all` (~55-78)/`_write` (~80-99, RELOAD 분기 ~89-93 이 dirty 탭만이 아니라 `_sections` 전부를 순서대로 `update_model` 한다), `discard_all` (~134-138), `paste_payload` (~177-188, `set_device_to_section` 뒤 섹션마다 `sec._paste_rows`)
 - `src/genviewer/utils/reporting.py` — `report`(예외를 잡아 `notifyRequested("error", title, user_message(exc))` 와 파일 로그)
 - `src/genviewer/views/tab_section.py` — `_wire_model_dirty`, `mark_dirty_ui`
-- `src/genviewer/controllers/device_tab.py` — `_switch_device_by_index` (~420-454)
+- `src/genviewer/controllers/device_tab.py` — `_switch_device_by_index` (~471-508)
 - `tests/gui/conftest.py`, `tests/gui_support/fakes.py`, `tests/gui_support/helpers.py`
 - 이전 step에서 수정된 파일: 이 phase의 첫 step이다. phase 3이 바꾼 저장 경로(`controllers/parameter_tab.py`, `controllers/device_table.py`, `controllers/device_tab.py`)와 그 테스트를 먼저 읽어라.
 
@@ -72,7 +72,7 @@ device A를 보다가 B를 고른다. `ParameterTabController.set_device_to_sect
 - 저장하면 `payload_fragment()` 가 `self.model.get_data()`, 즉 **A의 행**을 돌려주고, `_write` 는 `current_device_id = B` 로 `replace_many_for_device` 를 부른다. B의 그 탭 행이 A의 행으로 통째로 바뀐다(데이터 손상, 이력에도 B의 변경으로 남는다).
 - 덤으로 `model_by_device[B]` 에는 읽지 못한 빈 모델이 캐시되어 있다. 그것을 그대로 붙이면 "B는 행이 없다" 로 보이고, 저장하면 B의 행을 지운다. 그래서 고칠 때 빈 캐시 모델을 붙여서도 안 된다.
 
-재현: `device_tab_ctrl` 에서 sf2p → nfet_a 선택 → `store.fail_next("fetch_by_device", DbUnavailableError("down"))` → nfet_b 선택. 처음 읽는 섹션(`_sections` 순서상 첫 탭)이 실패하고, 그 섹션의 `model` 이 nfet_a의 모델이다.
+재현: `device_tab_ctrl` 에서 sf2p → nfet_a 선택 → `store.fail_next("fetch_by_device", DbUnavailableError("down"))` → nfet_b 선택. 처음 읽는 섹션(`_sections` 순서상 첫 탭 `SuffixCellName`, 테이블·컬럼 `suffix_cell_name`)이 실패하고, 그 섹션의 `model` 이 nfet_a의 모델이다.
 
 이것은 주장이다. 먼저 재현하라.
 
@@ -82,11 +82,12 @@ device A를 보다가 B를 고른다. `ParameterTabController.set_device_to_sect
 
 ### 1. 테스트 먼저 (`tests/gui/test_tab_section_load.py`, 새 파일)
 
-공통 준비: `device_tab_ctrl`, `store`. `select_process(…, "sf2p")`, `select_device_row(…, "nfet_a")`. 실패시킬 탭(첫 섹션)에서 nfet_a와 nfet_b가 **서로 다른 행**을 갖게 한다(시드에 없으면 테스트에서 store에 넣는다). 이 fixture는 창에 연결되어 있지 않으므로 알림은 `ctrl.notifyRequested` 에 리스트를 연결해 모은다. 실패시킬 예외는 `genviewer.service.errors.DbUnavailableError`.
+공통 준비: `device_tab_ctrl`, `store`. `select_process(…, "sf2p")`, `select_device_row(ctrl, 0)`(행 번호를 받는다. 0이 nfet_a, 1이 nfet_b). 실패시킬 탭(첫 섹션 `SuffixCellName`)에서 nfet_a와 nfet_b가 **서로 다른 행**을 갖게 한다. 시드에는 이 탭의 행이 없으므로 `store.set_rows("suffix_cell_name", device_id, [...])` 로 넣는다(넣지 않으면 `edit_tab_cell` 이 0행을 찾지 못한다). 알림은 `dialogs.shown` 에서 본다(`device_tab_ctrl` 이 `notifyRequested` 를 `dialogs.record_notify` 에 이어 두었다). 실패시킬 예외는 `genviewer.service.errors.DbUnavailableError`.
 
 - **로드 실패 뒤 불변식**: `fail_next("fetch_by_device", …)` 후 nfet_b 선택. 모든 섹션(`ctrl.parameter_tab._sections.values()`)에서 `sec.device_id == B`, `sec.model is None or sec.model is sec.model_by_device[B]`, `sec.ui.table_view.model() is sec.model`. 실패한 섹션이 정확히 하나 있고 그 섹션은 `model is None`, `is_dirty() is False`. 모은 알림에 `("error", "Load Failed", …)` 가 있다(오류는 여전히 보인다). 다른 섹션은 B의 행을 보여 준다. **수정 전에는 실패한 섹션의 `model` 이 A의 모델이라 실패해야 한다.**
 - **데이터 무결성**: 같은 상황에서 실패한 섹션의 표에 모델이 붙어 있으면(수정 전) `edit_tab_cell` 로 셀 하나를 고친다. 그 뒤 `ctrl.parameter_tab.save_all()` 을 부른다. store의 B 행은 시드 그대로이고, `store.calls` 에 device B로 A의 행을 쓴 `replace_many_for_device` 가 없다. **수정 전에는 B의 행이 A의 행으로 바뀌어 실패해야 한다.** (수정 뒤에는 표에 모델이 없어 편집 자체가 안 된다. 테스트는 그 분기를 `if` 로 다룬다.)
-- **dirty가 남아 있던 경우**: B에 편집이 남은 채로 다시 읽다 실패하는 경로(`discard_all()` 이나 RELOAD 가 `update_model()` 을 부르는데 그때 `fetch_by_device` 가 실패)에서도 실패한 섹션은 `model is None`, `is_dirty() is False` 이고, `save_all()` 이 예외 없이 끝난다(`None.get_data()` 의 AttributeError가 나지 않는다).
+- **dirty가 남아 있던 경우**: B에 편집이 남은 채로 다시 읽다 실패하는 경로(`discard_all()` 이나 RELOAD 가 `update_model()` 을 부르는데 그때 `fetch_by_device` 가 실패)에서도 실패한 섹션은 `model is None`, `is_dirty() is False` 이고, `save_all()` 이 예외 없이 끝난다(`None.get_data()` 의 AttributeError가 나지 않는다). 경로를 만드는 법: (a) RELOAD는 `store.touch_device(B, actor="bob")` + `dialogs.answer_conflict(RELOAD)` 로 만들고, 편집은 실패시킬 `SuffixCellName` 섹션에 한다(RELOAD는 섹션 전부를 순서대로 다시 읽으므로 `fail_next` 가 첫 섹션을 친다). (b) discard는 `ctrl.parameter_tab.discard_all()` 을 직접 부른다(device 전환의 "아니오" 는 discard 뒤 `set_device_to_section(cur)` 까지 가서 불변식을 볼 수 없다).
+- **붙여넣기 중 로드 실패**: 수정 뒤에는 실패한 섹션의 `model` 이 None이므로 `paste_payload` → `sec._paste_rows` 가 `None.insert_row` 로 AttributeError를 낸다. 실패한 섹션은 붙여넣기를 건너뛰게 한다(`_paste_rows` 가 `model is None` 이면 0을 돌려준다. 실패는 이미 "Load Failed" 로 알렸다). 테스트: `fail_next("fetch_by_device", …)` 후 `ctrl.parameter_tab.paste_payload(B, celltype, {"SuffixCellName": [...], "InstTerm": [...]}, version)` → 예외 없음, InstTerm에는 붙었다.
 - **회복**: 실패 뒤 nfet_a를 골랐다가 다시 nfet_b를 고르면(이번에는 실패 없음) 그 섹션의 `model` 이 `model_by_device[B]` 이고 store의 B 행과 같다.
 - **정상 경로(회귀)**: 실패가 없으면 device를 바꿀 때마다 모든 섹션의 `model` 이 `model_by_device[새 device]` 이고 행이 store와 같으며 dirty가 아니다.
 
@@ -135,5 +136,5 @@ uv run pytest -q                                      # 전체 통과 (DB 테스
 - 실패했을 때 `model_by_device[B]` 의 빈 캐시 모델을 표에 붙이지 마라. 이유: "B는 행이 없다" 로 보이고, 그 상태로 저장하면 B의 행이 지워진다. 불변식은 "새로 읽은 모델 또는 None" 이다.
 - `ParameterTabController.set_device_to_section` 의 순서나 `current_device_id` 를 바꾸지 마라. 이유: 다른 탭은 B를 제대로 읽었고 그 저장 대상은 B가 맞다. 이 step은 `controllers/tab_section.py` 하나만 고친다.
 - 탭 로드를 워커 스레드(`run_blocking`/`Task`)로 옮기지 마라. 이유: GUI 스레드의 동기 탭 로드는 알려진 상태(ARCHITECTURE 스레딩 절)이고 이 step의 범위가 아니다.
-- 같은 device를 다시 클릭할 때 탭이 다시 읽히는 문제(known-issues K17)를 고치지 마라. 이유: 선택 추적 구조 문제라 따로 다룬다.
+- 같은 device를 다시 클릭할 때 탭이 다시 읽히는 문제(known-issues K17)를 고치지 마라. 이유: 선택 추적 구조 문제라 따로 다룬다. 그 재현 테스트(`tests/gui/test_tab_version_sync.py::test_clicking_the_same_row_after_a_device_save_keeps_the_tab_edits`)는 strict xfail이라, 동작이 바뀌면 XPASS로 실패한다.
 - 기존 테스트를 깨뜨리지 마라.

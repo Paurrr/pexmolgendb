@@ -2,7 +2,7 @@
 
 ## 배경 (phase 4 공통)
 
-이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
+이 저장소는 이미 여러 명이 쓰는 도구다. 지금은 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 4는 GUI가 실패·경합 상황에서 데이터를 잘못 쓰거나 죽는 버그를 한 step에 하나씩 고친다(탭 로드 실패, 탭 섹션 입력, "+" 탭, 필터 중 정렬, DB 재접속, 창 닫기, Virtuoso 소켓 워커). phase 3(`3-gui-save-fixes`)이 먼저 끝나 있다. 저장 함수가 결과를 돌려주고(`save_all() -> bool`, `DeviceTabController.save_db() -> bool`), `select_process_silently` 가 생겼다. 그 밖에 `deviceVersionBumped`/`adopt_device_version`(내 device 저장 뒤 탭이 version을 따라간다), `DeviceTabController._save_before_process_change`(process 전환 전 질문·저장), `DeviceTableModel.is_row_changed`, device 표 붙여넣기의 `Unsaved Changes` 거부, `save_all` 의 `Save Skipped` 경고가 있다. 정확한 반환 계약은 코드와 `phases/3-gui-save-fixes/index.json` 의 summary로 확인하라.
 
 모든 step에 같은 규칙이 적용된다.
 1. 아래 "버그"는 **분석 에이전트의 주장**이다. 먼저 실패하는 테스트로 재현하고, RED 출력(테스트 이름과 실패한 단언)을 summary에 적는다.
@@ -41,9 +41,9 @@ GUI 테스트 기반은 phase 2(`2-gui-test-infra`)가 만들었다. 아래 이�
 
 - `/CLAUDE.md`, `/docs/UI_GUIDE.md`(파라미터 탭 순서: `Summary`, tab_config 순서, 마지막 `+`), `/docs/ARCHITECTURE.md`(레이어 표, "현재 어긋난 곳")
 - `src/genviewer/views/parameter_tab.py` — `__init__` (~12-21, "Summary" 와 "+" 만 만든다), `rebuild_tabs` (~23-48, 탭 하나를 만드는 본문 ~28-44), `_set_dirty_marker` (~72-78), `find_tab` (~86-92), `on_tab_changed` (~94-102)
-- `src/genviewer/controllers/parameter_tab.py` — `_attach_section` (~35-42), `section` (~44-45), `rebuild_all_sections` (~137-140), `on_tab_clicked` (~142-152, `self.ui.add_tab(selected)` 를 부르는데 그런 메서드가 없다)
+- `src/genviewer/controllers/parameter_tab.py` — `_attach_section` (~35-42), `section` (~44-45), `rebuild_all_sections` (~160-163), `on_tab_clicked` (~165-175, `self.ui.add_tab(selected)` 를 부르는데 그런 메서드가 없다)
 - `src/genviewer/dialogs/tab_selector.py` — `TabSelectorDialog(available_tabs, parent)`, `exec_()`, `get_selected_tab()`
-- `src/genviewer/controllers/device_tab.py` — `__init__` (~58, `ParameterTabController` 를 repo 없이 만든다), `apply_db` (~253-259, 접속에 성공해야만 `rebuild_all_sections()`)
+- `src/genviewer/controllers/device_tab.py` — `__init__` (~58, `ParameterTabController` 를 repo 없이 만든다), `apply_db` (~266-272, 접속에 성공해야만 `rebuild_all_sections()`)
 - `src/genviewer/config/tab_config.json` — 탭 이름 → `{"table", "columns", "headers", …}`
 - `tests/gui/conftest.py`, `tests/gui_support/`
 - 이전 step에서 수정된 파일: `src/genviewer/controllers/tab_section.py`, `src/genviewer/views/tab_section.py`, `tests/gui/test_tab_section_load.py`, `tests/gui/test_tab_section_view.py` (이 step은 `TabSection` 을 만들기만 하고 그 내부는 바꾸지 않는다)
