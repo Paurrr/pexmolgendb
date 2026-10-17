@@ -117,17 +117,12 @@ class DeviceTableController(QObject):
         menu.exec_(global_pos)
 
     def sort_and_commit(self, col: int, order: Qt.SortOrder):
-        self.ui.proxy_model.sort(col, order)
+        # 모델의 모든 행을 정렬한다. 프록시가 보여 주는 행으로 모델을 다시 만들면 필터에 가려진
+        # device 가 사라지고, set_devices 는 기준점까지 새로 잡아 지운 device·편집 표시·undo 를
+        # 지운다. 프록시는 정렬하지 않으므로 화면은 모델 순서 그대로이고 필터도 그대로다.
         model = self.ui.model_safe()
-        sorted_data = []
-        for row in range(self.ui.proxy_model.rowCount()):
-            proxy_index = self.ui.proxy_model.index(row, 0)
-            source_index = self.ui.proxy_model.mapToSource(proxy_index)
-            sorted_data.append(model.get_devices()[source_index.row()])
-
-        model.set_devices(sorted_data)
-        self.ui.proxy_model.sort(-1)
-        self.ui.proxy_model.invalidate()
+        if model:
+            model.sort_rows(col, order)
 
     def insert_row(self, values: dict):
         model = self.ui.model_safe()

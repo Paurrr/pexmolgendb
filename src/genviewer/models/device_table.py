@@ -250,6 +250,35 @@ class DeviceTableModel(QAbstractTableModel):
         self._emit_modified()
         return True
 
+    def sort_rows(self, column: int, order: Qt.SortOrder) -> bool:
+        """모든 행을 그 컬럼의 표시 값으로 정렬한다. 순서가 바뀌었으면 True.
+
+        moveRows 와 같은 "저장 안 한 변경" 이다. 기준점(_original_*)은 서버에서 읽은
+        상태라 건드리지 않는다. 그래야 지운 device, 고친 셀 표시, undo 가 정렬 뒤에도 남는다.
+        안정 정렬이라 같은 값끼리는 지금 순서를 지킨다(내림차순도).
+        """
+        if not (0 <= column < len(self._columns)):
+            return False
+        key = self._columns[column]
+
+        def sort_key(device: dict) -> str:
+            value = device.get(key)
+            return "" if value is None else str(value)
+
+        devices = sorted(
+            self._devices, key=sort_key, reverse=order == Qt.DescendingOrder
+        )
+        if all(a is b for a, b in zip(devices, self._devices, strict=True)):
+            return False
+
+        self._push_undo()
+        self.beginResetModel()
+        self._devices = devices
+        self._recompute_dirty_cells()
+        self.endResetModel()
+        self._emit_modified()
+        return True
+
     def set_required_column(self, column_name: str):
         self.required_columns.add(column_name)
 
