@@ -16,6 +16,7 @@
 6. 고쳤으면 `docs/notes/known-issues.md` 에서 그 K 행을 지운다(재현 안 됐으면 남기고 summary에 적는다). 사용자에게 보이는 동작이 바뀌면 README 의 해당 절을 고친다. CLAUDE.md 의 테스트 기준선 숫자는 고치지 않는다(phase 마무리에서 고친다).
 7. 이 파일의 행 번호는 2026-10-17(phase 5 직후) 기준 대략값이다. 앞 step 이 같은 파일을 바꿨을 수 있다(`cli.py`: step 0·1·4, `service/pool.py`: 2, `repo/audit.py`: 3·4·6·7, `repo/io.py`: 5·6). 이름으로 찾고, 앞 step 의 summary(`phases/7-service-fixes/index.json`)를 먼저 읽어라.
 8. 비밀번호를 화면·로그·argv에 남기지 마라. 예외 문구는 `user_message(exc)`, DSN·접속 문자열은 `utils.logs.scrub()` 을 거친다(CLAUDE.md CRITICAL).
+9. 경계는 테스트가 지킨다(phase 6). `tests/test_boundaries.py` 는 Qt 금지 구역(이 phase 가 고치는 `cli.py`·`service/`·`utils/exporter.py`·`utils/lisp.py` 전부)이 PySide6·티어 3·4 모듈을 import 하지 않는지(함수 안 import 포함)를, `tests/test_py39_compat.py` 는 init_db 에서 닿는 모듈의 Python 3.9 호환을 본다. 새 import 가 이 테스트를 깨면 import 를 다시 생각한다. 이 두 테스트와 `tests/fixtures/imports.py` 를 고쳐서 통과시키지 마라. 이유: CLAUDE.md CRITICAL 경계 규칙을 지키는 그물이다.
 
 DB 테스트는 `tests/conftest.py` 의 `pg_dsn`(세션마다 만드는 `gendb_test_<pid>` DB 의 DSN)과 `db`(스키마가 적용된 빈 `Database`, 테스트마다 TRUNCATE) fixture를 쓴다.
 
