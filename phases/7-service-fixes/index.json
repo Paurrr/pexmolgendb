@@ -15,7 +15,8 @@
       "name": "status-dsn-override",
       "status": "completed",
       "started_at": "2026-10-18T00:26:24+0900",
-      "summary": "status: --dsn/GENDB_PG_DSN 이면 inspect_config(read_file=False), 첫 줄 '설정 파일: (읽지 않음 - --dsn 또는 GENDB_PG_DSN 이 있다)', 찾아본 곳 블록 없음. --check-config 불변. 처음 실패한 테스트: test_status_with_a_dsn_does_not_read_the_config_file[status-dsn], [root-dsn], [env-dsn] (첫 줄 단언: 실제 '설정 파일: C:\\...\\genviewer.env' = 파일을 읽음). 회귀 test_status_without_a_dsn_still_reads_the_config_file 는 수정 전에도 통과. 변이: status override 에서 GENDB_PG_DSN 제거 → [env-dsn] 실패, read_file 무시 → 셋 다 'PGPASSWORD=(설정됨)' not in output 실패. 테스트 후 os.environ 에 PGHOST/PGPORT/PGPASSWORD 남지 않음 확인. README·known-issues K1 고침(--check-config 만 남김). DB 테스트: 639 passed / 9 skipped(Windows posix_only) / 1 xfailed"
+      "summary": "status: --dsn/GENDB_PG_DSN 이면 inspect_config(read_file=False), 첫 줄 '설정 파일: (읽지 않음 - --dsn 또는 GENDB_PG_DSN 이 있다)', 찾아본 곳 블록 없음. --check-config 불변. 처음 실패한 테스트: test_status_with_a_dsn_does_not_read_the_config_file[status-dsn], [root-dsn], [env-dsn] (첫 줄 단언: 실제 '설정 파일: C:\\...\\genviewer.env' = 파일을 읽음). 회귀 test_status_without_a_dsn_still_reads_the_config_file 는 수정 전에도 통과. 변이: status override 에서 GENDB_PG_DSN 제거 → [env-dsn] 실패, read_file 무시 → 셋 다 'PGPASSWORD=(설정됨)' not in output 실패. 테스트 후 os.environ 에 PGHOST/PGPORT/PGPASSWORD 남지 않음 확인. README·known-issues K1 고침(--check-config 만 남김). DB 테스트: 639 passed / 9 skipped(Windows posix_only) / 1 xfailed",
+      "completed_at": "2026-10-18T00:34:25+0900"
     },
     {
       "step": 2,
