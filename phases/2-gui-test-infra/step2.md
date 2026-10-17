@@ -125,7 +125,7 @@ def main_window(qtbot, monkeypatch, store, dialogs) -> Iterator[MainWindowContro
 ### 4. 문서
 
 - `CLAUDE.md` "테스트 관례"에 한 줄: 컨트롤러 테스트는 `tests/gui/conftest.py` 의 `store`(시드: sf2p/nfet_a·nfet_b, sf4u/pfet_a, 탭 InstTerm·InstSchParam), `device_tab_ctrl`, `main_window` fixture와 `from gui_support.helpers import select_process, select_device_row, edit_device_cell, edit_tab_cell` 로 쓴다. 장애는 `store.fail_next(메서드, 예외)`, 남의 변경은 `store.touch_device`/`store.remove_device`, 일어난 일은 `store.calls`/`store.calls_of` 로 본다. actor는 `GENDB_APP_USER=tester` 다.
-- 기준선 숫자: Git Bash에서 `uv run pytest -q` 결과로 `CLAUDE.md` "테스트 관례"의 기준선과 `README.md` "검사" 절의 숫자를 고친다. PowerShell 숫자는 deploy.sh 테스트 11개를 옮겨 적는다(passed −11, skipped +11). 날짜도 고친다.
+- 기준선 숫자: Git Bash에서 `uv run pytest -q` 결과로 `CLAUDE.md` "테스트 관례"의 기준선과 `README.md` "검사" 절의 숫자를 고친다. PowerShell 숫자는 `sh` 가 필요한 셸 스크립트 테스트를 옮겨 적는다(passed −N, skipped +N). N은 Git Bash에서 `uv run pytest -q tests/test_deploy_sh.py tests/test_initdb_sh.py` 의 passed 수다(phase 1 뒤 2026-10-17 기준 20). 날짜도 고친다.
 - `README.md` "검사" 절 명령 블록에 `uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscreen)` 을 더한다.
 - `docs/ARCHITECTURE.md` 디렉토리 구조: `gui/` 줄에 `store/device_tab_ctrl/main_window`, `gui_support/` 줄에 `helpers.py(시드, install_fake_db, 사용자 동작)` 를 더한다.
 

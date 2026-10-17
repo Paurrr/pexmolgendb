@@ -89,10 +89,9 @@ uv run python -X utf8 -c "from genviewer.service import schema; print('\n;\n'.jo
 - Git Bash에서 **DSN 없이** `env -u GENDB_TEST_PG_DSN uv run pytest -q` 를 돌린다. 그 숫자로 두 곳을 고친다.
   - `CLAUDE.md` "테스트 관례"의 기준선 문장: 숫자와 날짜(실행한 날)
   - `README.md` '검사' 절의 숫자
-- PowerShell 숫자는 deploy.sh 테스트 11개를 옮겨 적는다(passed −11, skipped +11).
-- 2026-10-17 기준 예상값:
-  - phase 5만 반영되면 97 passed / 81 skipped, PowerShell은 86 / 92다.
-  - step 1이 6개(1 passed, 5 skipped)를, 이 step이 1개(passed)를 지운다.
+- PowerShell 숫자는 `sh` 가 필요한 셸 스크립트 테스트를 옮겨 적는다(passed −N, skipped +N). N은 Git Bash에서 `uv run pytest -q tests/test_deploy_sh.py tests/test_initdb_sh.py` 의 passed 수다(phase 1 뒤 2026-10-17 기준 20).
+- 예상값(직전 phase 기준선과의 차이):
+  - phase 4 완료 기준선에서 step 1이 6개(1 passed, 5 skipped)를, 이 step이 1개(passed)를 지운다. 그러니 passed −2, skipped −5다(PowerShell도 같은 차이).
   - 다른 phase(특히 `2-gui-test-infra`)가 먼저 합쳐졌으면 숫자가 다르다.
   - 예상과 다르면 실제 값을 적고 이유를 summary에 적는다.
 
