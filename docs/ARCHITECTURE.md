@@ -51,7 +51,7 @@ src/genviewer/
 tools/                      # initdb.sh(클러스터 생성·기동), deploy.sh(태그 설치·런처)
 tests/                      # pytest. conftest: pg_dsn/db fixture (GENDB_TEST_PG_DSN)
   gui/                      #   pytest-qt GUI 테스트. conftest: offscreen, autouse dialogs(모달 가짜)
-  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py
+  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository)
 scripts/                    # 하네스 execute.py (+ test_execute.py). 앱 코드가 아니다 (ruff 제외)
 phases/                     # 하네스 step 파일
 docs/                       # 이 문서들. notes/ 는 주입 제외

@@ -39,6 +39,7 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 - GUI 테스트는 `tests/gui/` 에 둔다(pytest-qt, `qt_api = "pyside6"`). `tests/gui/conftest.py` 가 PySide6 import 전에 `QT_QPA_PLATFORM=offscreen` 을 둔다. `tests/test_background.py` 는 자기 `qapp` fixture로 따로 돈다.
 - 모달은 autouse `dialogs` fixture가 대신한다. 예/아니오는 `dialogs.answer_question(...)`, 저장 충돌은 `dialogs.answer_conflict(RELOAD|OVERWRITE|CANCEL)` 로 미리 답하고, 뜬 문구는 `dialogs.shown` 의 `(kind, title, text)` 로 단언한다. 답하지 않은 모달·파일 대화상자·메뉴는 `AssertionError` 이고 앱이 삼켜도 teardown에서 실패한다(쓰지 않은 답도). 이유: `@report` 가 `AssertionError` 까지 알림으로 바꾼다.
 - GUI 테스트 헬퍼는 `tests/gui_support/` 에 두고 `from gui_support.dialogs import ...` 처럼 import한다(`pythonpath = ["tests"]`). conftest나 다른 테스트 모듈은 import하지 않는다. "아무 일도 일어나지 않음"은 고정 대기(`qtbot.wait`) 대신 fake가 기록한 호출이나 컨트롤러 상태를 `qtbot.waitUntil` 로 기다린 뒤 단언한다.
+- GUI 테스트의 DB는 `tests/gui_support/fakes.py` 의 `FakeStore`/`Fake*Repository` 다. 의미는 실제 repo가 기준이고 `tests/gui/test_fake_repo_contract.py` 가 같은 기대값을 가짜와 실제 PostgreSQL(`GENDB_TEST_PG_DSN`)에 돌려 고정한다. `service/repo/` 의 의미를 바꾸는 step은 가짜와 contract test도 같이 고친다.
 - 외부 의존(Virtuoso 소켓, 실제 서버)은 테스트에서 붙지 않는다. 접속 실패 경로는 닫힌 포트(`127.0.0.1:1`)로 만든다.
 
 ## 명령어
