@@ -11,8 +11,9 @@
 
 1. **아키텍처 준수**
    - ARCHITECTURE.md 디렉토리 구조와 레이어 표를 따르는가? 새 모듈을 추가했다면 트리를 갱신했는가?
-   - Qt 금지 구역(`service/`, `scripts/`, `config/`, `utils/logs.py`, `utils/user.py`, `utils/exporter.py`, `cli.py` 의 모듈 수준)에 PySide6 import가 들어오지 않았는가? `cli.py` 는 GUI를 `run_gui` 안에서만 lazy import한다.
-   - `scripts/init_db.py` 에서 닿는 모듈(`service/schema.py`, `config/config.py` 등)이 Python 3.9에서 import되는가? 런타임에 평가되는 `X | Y`, `match`, `zip(strict=)`, `dataclass(slots=/kw_only=)`, `tomllib` 가 들어오지 않았는가?
+   - Qt 금지 구역(`service/`, `scripts/`, `config/`, `utils/logs.py`, `utils/user.py`, `utils/exporter.py`, `cli.py` 의 모듈 수준)에 PySide6 import가 들어오지 않았는가? `cli.py` 는 GUI를 typer 콜백 `root` 안에서만 lazy import한다. `tests/test_boundaries.py` 가 이것을 지킨다. 새 Qt 없는 `utils/` 파일이면 그 테스트의 `QT_FREE_MODULES` 에 더했는가?
+   - `scripts/init_db.py` 에서 닿는 모듈(`service/schema.py`, `config/config.py` 등)이 Python 3.9에서 import되는가? 런타임에 평가되는 `X | Y`, `match`, `zip(strict=)`, `dataclass(slots=/kw_only=)`, `tomllib` 가 들어오지 않았는가? `tests/test_py39_compat.py` 가 정적으로 지킨다(서드파티 API 차이는 못 본다).
+   - 가드 테스트(`tests/test_boundaries.py`, `tests/test_py39_compat.py`, `tests/fixtures/imports.py`)를 고쳐서 통과시키지 않았는가? 금지 목록에서 모듈을 빼거나 예외를 늘렸으면 사용자 승인이 있어야 한다.
    - ARCHITECTURE "현재 어긋난 곳"(view private 멤버 접근, dialog의 서비스 직접 호출)을 새 코드가 따라 하지 않았는가?
    - 문서가 따라왔는가? 사용자에게 보이는 동작은 README에, 결정은 ADR에, 고친 알려진 문제는 `docs/notes/known-issues.md` 에서 지웠는가?
 2. **기술 스택 준수**: ADR에 정의된 기술 선택을 벗어나지 않았는가? 런타임 의존성이나 `uv.lock` 을 바꿨다면 RHEL 8(glibc 2.28)용 `manylinux_2_28` 이하 휠이 있는가(`uv pip compile pyproject.toml --python-version 3.13 --python-platform x86_64-manylinux_2_28`)? PySide6는 6.9.3 고정이다(6.10+ 는 manylinux_2_34).
