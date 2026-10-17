@@ -49,15 +49,24 @@ class ConfigInfo:
     secrets: list[str] = field(default_factory=list)
     log_path: Path = Path()
     has_connection_info: bool = False
+    # 일부러 읽지 않았다 (--dsn·GENDB_PG_DSN). used 가 None 인 "파일이 없다" 와 다르다.
+    file_skipped: bool = False
 
 
-def inspect_config(explicit: str = "") -> ConfigInfo:
+def inspect_config(explicit: str = "", *, read_file: bool = True) -> ConfigInfo:
     """설정 파일을 읽고 무엇이 적용됐는지 모은다.
 
     설정 파일이 깨졌거나 권한이 헐거우면 env_file 이 RuntimeError 를 낸다.
     그대로 올려보낸다 - 부르는 쪽이 그것만 따로 안내해야 한다.
+
+    read_file=False 면 파일을 읽지 않고 지금 환경만 본다. --dsn·GENDB_PG_DSN 이
+    있을 때 status 가 쓴다. 다른 명령(config.resolve_dsn)도 그때는 파일을 읽지
+    않으므로, 읽으면 status 만 파일의 비밀번호로 붙어서 다른 명령과 말이 달라진다.
     """
-    used, searched = env_file.load(explicit or os.environ.get(CONFIG_ENV, "").strip())
+    if read_file:
+        used, searched = env_file.load(explicit or os.environ.get(CONFIG_ENV, "").strip())
+    else:
+        used, searched = None, []
 
     dsn = os.environ.get(DSN_ENV, "").strip()
     values: list[tuple[str, str]] = []
@@ -80,15 +89,19 @@ def inspect_config(explicit: str = "") -> ConfigInfo:
         secrets=[k for k in sorted(env_file.SECRET_KEYS) if os.environ.get(k)],
         log_path=logs.log_path(),
         has_connection_info=bool(dsn) or env_file.libpq_env_present(),
+        file_skipped=not read_file,
     )
 
 
 def config_lines(info: ConfigInfo) -> list[str]:
     """`--check-config` 가 찍는 그대로의 줄들."""
-    out = [f"설정 파일: {info.used if info.used else '(없음)'}", "찾아본 곳:"]
-    for path in info.searched:
-        mark = "<-- 이것" if info.used == path else ""
-        out.append(f"  {path} {mark}".rstrip())
+    if info.file_skipped:
+        out = ["설정 파일: (읽지 않음 - --dsn 또는 GENDB_PG_DSN 이 있다)"]
+    else:
+        out = [f"설정 파일: {info.used if info.used else '(없음)'}", "찾아본 곳:"]
+        for path in info.searched:
+            mark = "<-- 이것" if info.used == path else ""
+            out.append(f"  {path} {mark}".rstrip())
 
     out.append("적용된 값:")
     out += [f"  {key}={value}" for key, value in info.values]

@@ -122,8 +122,7 @@ uv run genviewer --dsn "postgresql://molgen_app@<서버IP>:55433/molgen"
 
 `--dsn` 을 주면 `genviewer.env` 를 읽지 않으므로 거기 적힌 `PGPASSWORD` 도 쓰이지
 않는다. 비밀번호는 `~/.pgpass` 나 그 실행에만 준 `PGPASSWORD` 환경변수로 준다.
-(예외로 `status` 와 `--check-config` 는 진단을 위해 파일을 먼저 읽는다. 그래서 같은
-`--dsn` 이라도 `status` 는 붙고 다른 명령은 비밀번호가 없다고 할 수 있다 —
+(예외로 `--check-config` 는 진단을 위해 파일을 먼저 읽는다 —
 `docs/notes/known-issues.md` K1.)
 
 `127.0.0.1` 은 **그 앱이 도는 장비 자신**이다. 데스크톱에서 서버에 붙으려면 서버

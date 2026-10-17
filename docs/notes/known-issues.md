@@ -30,7 +30,7 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
-| K1 | `--dsn`·`GENDB_PG_DSN` 을 주면 설정 파일을 읽지 않는다. 그런데 `status`·`--check-config` 는 `inspect_config()` 가 먼저 파일을 읽는다. 그래서 같은 `--dsn` 으로 `status` 는 붙고(`PGPASSWORD=(설정됨)`) `processes`·`load`·`export`·`log`·GUI는 비밀번호가 없다 | `service/config.py:59-61`, `cli.py` status | 파일을 항상 읽게 바꾸면 `--dsn` 으로 다른 서버에 붙을 때 팀 비밀번호가 거기로 간다. 설계 판단이 필요하다. README에 현재 동작을 적었다 |
+| K1 | `--check-config` 는 `--dsn`·`GENDB_PG_DSN` 이 있어도 설정 파일을 읽는다(status 는 2026-10-17 phase 7 에서 고침) | `cli.py` `_print_config`, `service/diagnostics.py` `inspect_config` | 승인 범위 밖 |
 | K2 | 풀이 `options`·`connect_timeout`·`application_name` 을 명시하므로 `PGOPTIONS`·`PGCONNECT_TIMEOUT`·`PGAPPNAME` 과 DSN 안의 `options=` 가 먹지 않는다 | `service/pool.py:27-41` | **고치지 않기로 함(2026-10-17).** 의도된 타임아웃(ADR-008)과 얽혀 있다. README에 `GENDB_PG_*` 를 쓰라고 적었다 |
 | K3 | 접속 실패의 실제 원인(비밀번호 틀림 28P01, DB 없음 3D000, 접속 수 초과 53300)이 풀의 `PoolTimeout`("couldn't get a connection after 5.00 sec")에 가려진다. `_BY_SQLSTATE` 의 그 항목들은 풀을 거쳐서는 나오지 않는다. 원인은 풀 로거 경고로만 파일 로그에 남는다 | `service/pool.py`, `service/errors.py:57-64` | phase 0 step 0에서 영어 원문 대신 "접속할 수 없다" 문구가 나오게만 고쳤다. 원인까지 보여주려면 직접 접속을 한 번 더 시도하는 등 새 동작이 필요하다 |
 | K5 | CLI `load` 가 import 트랜잭션 내내 process 행을 잠근다(`ON CONFLICT DO UPDATE`, `statement_timeout` 0). 그동안 GUI에서 그 process를 고르면 `get_or_create_id` 가 5초 기다리다 55P03으로 실패한다 | `repo/io.py:59-63`, `repo/process.py:113-118` | 큰 파일 불러오기는 사람이 적을 때 한다 |

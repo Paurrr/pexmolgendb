@@ -13,6 +13,7 @@
 
 import csv
 import errno
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -134,6 +135,75 @@ def test_no_password_reaches_the_output(isolated, monkeypatch):
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 1, "붙을 리 없는 주소다"
     assert secret not in result.output
+
+
+# 붙을 리 없는 주소. 닫힌 포트라 GENDB_PG_CONNECT_TIMEOUT 만큼만 기다린다.
+_CLOSED_DSN = "host=127.0.0.1 port=1 dbname=x user=x"
+
+
+@pytest.fixture
+def team_file(isolated, monkeypatch, tmp_path):
+    """비밀번호가 든 팀 설정 파일. GENDB_CONFIG 로 그 파일만 보게 한다.
+
+    env_file.load 는 os.environ.setdefault 로 값을 넣는다. 없던 키를 넣으면
+    monkeypatch 는 그것을 몰라서 끝나도 남긴다. 키마다 한 번 setenv 해 두면
+    끝날 때 "없음" 으로 되돌린다.
+    """
+    values = {"PGHOST": "127.0.0.1", "PGPORT": "1", "PGPASSWORD": "from_file_secret"}
+    path = tmp_path / "genviewer.env"
+    path.write_text("".join(f"{k}={v}\n" for k, v in values.items()), encoding="utf-8")
+    # 리눅스에서는 비밀이 든 파일을 other 가 읽을 수 있으면 거부한다.
+    path.chmod(0o600)
+    for key in values:
+        monkeypatch.setenv(key, "x")
+        monkeypatch.delenv(key)
+    monkeypatch.setenv("GENDB_CONFIG", str(path))
+    monkeypatch.setenv("GENDB_PG_CONNECT_TIMEOUT", "1")
+    return path
+
+
+@pytest.mark.parametrize(
+    ("args", "env_dsn"),
+    [
+        (["status", "--dsn", _CLOSED_DSN], ""),
+        (["--dsn", _CLOSED_DSN, "status"], ""),
+        (["status"], _CLOSED_DSN),
+    ],
+    ids=["status-dsn", "root-dsn", "env-dsn"],
+)
+def test_status_with_a_dsn_does_not_read_the_config_file(team_file, monkeypatch, args, env_dsn):
+    """K1. --dsn·GENDB_PG_DSN 이 있으면 다른 명령은 설정 파일을 읽지 않는다.
+
+    status 도 같아야 한다. 예전에는 status 만 파일을 먼저 읽어서 파일의
+    PGPASSWORD 로 붙었고, 같은 인자로 다른 명령은 비밀번호가 없다고 했다.
+    """
+    if env_dsn:
+        monkeypatch.setenv("GENDB_PG_DSN", env_dsn)
+    # 같은 인자와 환경에서 다른 명령이 남기는 환경. status 도 이와 같아야 한다.
+    runner.invoke(app, ["processes" if a == "status" else a for a in args])
+    after_processes = dict(os.environ)
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == 1, result.output
+    assert result.output.splitlines()[0] == (
+        "설정 파일: (읽지 않음 - --dsn 또는 GENDB_PG_DSN 이 있다)"
+    )
+    assert "찾아본 곳:" not in result.output
+    assert "PGPASSWORD=(설정됨)" not in result.output
+    assert "PGPASSWORD" not in os.environ
+    assert dict(os.environ) == after_processes
+
+
+def test_status_without_a_dsn_still_reads_the_config_file(team_file):
+    """override 가 없으면 지금처럼 파일을 읽고 무엇이 적용됐는지 보여준다."""
+    result = runner.invoke(app, ["status"])
+
+    assert result.exit_code == 1, "붙을 리 없는 주소다"
+    assert result.output.splitlines()[0] == f"설정 파일: {team_file}"
+    assert "<-- 이것" in result.output
+    assert "PGPASSWORD=(설정됨)" in result.output
+    assert "from_file_secret" not in result.output
 
 
 def test_an_unexpected_failure_becomes_one_line(capsys):

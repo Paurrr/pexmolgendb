@@ -161,8 +161,12 @@ def _open(ctx: typer.Context, dsn: str, *, statement_timeout_ms: int | None = No
 @app.command()
 def status(ctx: typer.Context, dsn: DsnOpt = "") -> None:
     """설정과 접속 상태를 보여준다."""
+    # 다른 명령과 같은 기준이다(config.resolve_dsn). --dsn 이나 GENDB_PG_DSN 이
+    # 있으면 설정 파일을 읽지 않는다. 읽으면 status 만 파일의 PGPASSWORD 로 붙어서
+    # 같은 인자로 다른 명령이 실패하는 것을 진단하지 못한다.
+    override = (dsn or ctx.obj or os.environ.get(DSN_ENV, "")).strip()
     try:
-        info = diagnostics.inspect_config()
+        info = diagnostics.inspect_config(read_file=not override)
     except RuntimeError as e:
         typer.echo(f"설정 파일 오류: {e}", err=True)
         raise typer.Exit(1) from None
@@ -170,7 +174,6 @@ def status(ctx: typer.Context, dsn: DsnOpt = "") -> None:
     for line in diagnostics.config_lines(info):
         typer.echo(line)
 
-    override = dsn or (ctx.obj or "")
     if not info.has_connection_info and not override:
         typer.echo("접속 정보가 없다. 위 경로 중 한 곳에 설정 파일을 둘 것.", err=True)
         raise typer.Exit(1)
