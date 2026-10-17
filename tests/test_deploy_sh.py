@@ -165,6 +165,12 @@ def pinned_tag(root):
     return out.stdout.strip()
 
 
+def uv_calls(stub):
+    """가짜 uv 가 받은 인자 목록, 호출 하나에 하나."""
+    record = stub["record"].read_text(encoding="utf-8")
+    return [ln.split() for ln in record.splitlines() if ln.startswith("ARGS:")]
+
+
 # --------------------------------------------------------------------------
 # 무엇을 받아오는가
 # --------------------------------------------------------------------------
@@ -203,12 +209,20 @@ def test_upgrading_does_not_need_the_url_again(root, source_repo, stub):
 
 
 def test_uv_is_asked_for_a_locked_non_editable_install(root, source_repo, stub):
-    """--frozen 은 uv.lock 재현, --no-editable 은 src 가 실행에 관여하지 않게."""
+    """--locked 는 lock 이 pyproject 와 맞는지 검사하고 그대로 재현,
+    --no-editable 은 src 가 실행에 관여하지 않게.
+
+    --frozen 은 검사 없이 lock 을 쓴다. pyproject 에만 더한 의존성이 말없이 빠진다.
+    """
     deploy(root, source_repo, stub)
 
     record = stub["record"].read_text(encoding="utf-8")
 
-    assert "--frozen" in record
+    calls = uv_calls(stub)
+    assert calls, record
+    for args in calls:
+        assert "--locked" in args, args
+        assert "--frozen" not in args, args
     assert "--no-editable" in record
     assert "--no-dev" in record
 
@@ -223,6 +237,12 @@ def test_deploy_python_is_passed_through(root, source_repo, stub):
     deploy(root, source_repo, stub, DEPLOY_PYTHON="/usr/bin/python3.13")
 
     assert "--python /usr/bin/python3.13" in stub["record"].read_text(encoding="utf-8")
+    # uv sync 호출이 두 곳이다. 이 분기도 lock 을 검사해야 한다.
+    calls = uv_calls(stub)
+    assert calls
+    for args in calls:
+        assert "--locked" in args, args
+        assert "--frozen" not in args, args
 
 
 # --------------------------------------------------------------------------

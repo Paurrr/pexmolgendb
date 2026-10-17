@@ -70,20 +70,22 @@ echo "pinned $root/src to $tag"
 
 # ---- 가상환경과 설치
 #
-# uv pip install 이 아니라 uv sync --frozen 을 쓴다. 이 프로젝트는 PySide6 6.9.3 ->
+# uv pip install 이 아니라 uv sync --locked 를 쓴다. 이 프로젝트는 PySide6 6.9.3 ->
 # manylinux_2_28 -> Python 3.13 으로 묶여 있어서, 배포할 때마다 의존성을 다시 푸는
-# 것이 아니라 uv.lock 을 그대로 재현해야 한다. pyproject 와 lock 이 어긋나 있으면
-# --frozen 이 여기서 막는다.
+# 것이 아니라 uv.lock 을 그대로 재현해야 한다. --locked 는 lock 이 pyproject 와
+# 맞는지 검사하고, 어긋나 있으면 배포를 여기서 멈춘다. lock 을 고치지는 않는다 -
+# 태그를 달기 전에 uv lock 결과를 커밋해야 한다. (--frozen 은 검사하지 않고 lock
+# 그대로 깔아서, pyproject 에만 더한 의존성이 말없이 빠진다.)
 #
 # --no-editable 인 것이 중요하다. editable 로 깔면 코드가 <ROOT>/src 에서 도는데,
 # 그러면 누가 그 디렉터리를 고치는 순간 버전을 안 올리고도 전원의 앱이 바뀐다.
 # 태그에 고정한 의미가 없어진다.
 
 if [ -n "${DEPLOY_PYTHON:-}" ]; then
-    UV_PROJECT_ENVIRONMENT="$root/venv" uv sync --frozen --no-dev --no-editable \
+    UV_PROJECT_ENVIRONMENT="$root/venv" uv sync --locked --no-dev --no-editable \
         --project "$root/src" --python "$DEPLOY_PYTHON"
 else
-    UV_PROJECT_ENVIRONMENT="$root/venv" uv sync --frozen --no-dev --no-editable \
+    UV_PROJECT_ENVIRONMENT="$root/venv" uv sync --locked --no-dev --no-editable \
         --project "$root/src"
 fi
 

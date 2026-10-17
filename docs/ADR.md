@@ -56,9 +56,9 @@
 **트레이드오프**: 사람별 접근 통제는 없다(필요하면 ldap/gss + 사람별 role). TLS를 켜지 않으면 데이터는 평문이다(`PGSSLMODE`).
 
 ### ADR-011: 배포는 단일 슬롯 deploy.sh (Pexorche 형태)
-**결정**: `tools/deploy.sh <ROOT> <TAG>` 가 `refs/tags/` 로만 detach 체크아웃하고, `uv sync --no-dev --no-editable` 로 `<ROOT>/venv` 를 만들고, venv 인터프리터에 콘솔 스크립트를 넘기는 런처를 `<ROOT>/bin` 에 둔다. `genviewer.env` 는 없을 때만 예시에서 심고(640) 절대 덮지 않으며 `a+rX` 대상에서 뺀다. 마지막에 런처를 실제로 실행해 본다. 롤백은 옛 태그로 다시 돌린다.
+**결정**: `tools/deploy.sh <ROOT> <TAG>` 가 `refs/tags/` 로만 detach 체크아웃하고, `uv sync --locked --no-dev --no-editable` 로 `<ROOT>/venv` 를 만들고, venv 인터프리터에 콘솔 스크립트를 넘기는 런처를 `<ROOT>/bin` 에 둔다. `genviewer.env` 는 없을 때만 예시에서 심고(640) 절대 덮지 않으며 `a+rX` 대상에서 뺀다. 마지막에 런처를 실제로 실행해 본다. 롤백은 옛 태그로 다시 돌린다.
 **이유**: 여러 도구를 한 사람이 관리하므로 Pexorche와 같은 방식이 낫다(버전별 디렉터리 + `current` 링크 방식은 쓰다가 되돌렸다). Pexorche는 `uv pip install` 이지만 여기는 PySide6→glibc→3.13 사슬 때문에 `uv.lock` 을 그대로 재현하는 `uv sync` 를 쓴다. `--no-editable` 이라야 `src` 를 고쳐도 아무의 앱도 바뀌지 않는다.
-**트레이드오프**: 교체가 제자리라 설치 중에 띄우면 반쯤 바뀐 트리를 볼 수 있다. uv 관리 CPython이 배포자 홈에 있으면 남이 실행하지 못한다(`DEPLOY_PYTHON`). 현재 `--frozen` 은 lock과 pyproject의 불일치를 검사하지 않는다(phase `1-deploy-fixes` 에서 `--locked` 로 바꾼다).
+**트레이드오프**: 교체가 제자리라 설치 중에 띄우면 반쯤 바뀐 트리를 볼 수 있다. uv 관리 CPython이 배포자 홈에 있으면 남이 실행하지 못한다(`DEPLOY_PYTHON`).
 
 ### ADR-012: CLI 는 typer, rich 없이, 편집은 창에서만
 **결정**: `genviewer` 하나에 서브커맨드(`status`, `processes`, `load`, `export`, 숨김 `log`). 서브커맨드가 없으면 창을 띄운다. `typer.Typer(rich_markup_mode=None, pretty_exceptions_enable=False)`, 콘솔 스크립트는 `main()` 을 가리키고 `main()` 이 인코딩을 손본 뒤 예외를 한 줄 문장으로 바꾼다. 종료 코드 0/1/2/130. 관리 도구(`init_db`, `import_sqlite`)는 argparse.

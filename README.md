@@ -269,12 +269,10 @@ DEPLOY_LINK_DIR=/usr/local/bin ./tools/deploy.sh /opt/genviewer v0.3.0
 
 - 태그가 아닌 것(브랜치 이름)을 주면 **거부한다** — `refs/tags/` 로만 체크아웃한다.
   브랜치에 고정하면 "v0.3.0 배포본" 이 나중에 다른 커밋을 가리키게 된다.
-- `uv sync --frozen --no-editable` 이라 `uv.lock` 이 그대로 재현되고, **코드는
+- `uv sync --locked --no-editable` 이라 `uv.lock` 이 그대로 재현되고, **코드는
   site-packages 의 복사본에서 돈다.** `src` 를 고쳐도 아무의 앱도 바뀌지 않는다 —
   버전을 안 올리고 내용만 바뀌는 일이 없어야 태그에 고정한 의미가 있다.
-  - 주의: `--frozen` 은 `pyproject.toml` 과 `uv.lock` 이 맞는지 **검사하지 않는다**
-    (스크립트 주석과 달리). 태그를 달기 전에 `uv lock --check` 로 확인한다. 배포가
-    직접 막도록 `--locked` 로 바꾸는 작업이 `phases/1-deploy-fixes` 에 있다.
+  `pyproject.toml` 과 `uv.lock` 이 어긋난 태그는 거기서 멈춘다(태그 전에 `uv lock`).
 - 저장소 URL 에 토큰을 넣지 않는다. 트리를 `a+rX` 로 열기 때문에 `src/.git/config` 를
   모두가 읽는다.
 - `genviewer.env` 가 없으면 예시에서 심고 `640` 으로 둔다. **있으면 절대 덮지
