@@ -192,6 +192,21 @@ def test_a_broken_file_names_itself(site):
     assert path.is_file()
 
 
+def test_a_utf8_bom_file_is_read(site):
+    """PowerShell 5.1 의 -Encoding utf8 과 메모장의 'UTF-8 (BOM)' 이 BOM 을 붙인다.
+
+    BOM 이 첫 키에 붙어 남으면 눈에 안 보이는 문자 때문에 앱이 뜨지 않는다.
+    """
+    path = site["install"] / env_file.SITE_NAME
+    path.write_bytes(b"\xef\xbb\xbfPGHOST=10.1.2.3\nPGPORT=55433\n")
+
+    used, _ = env_file.load()
+
+    assert used == path
+    assert os.environ["PGHOST"] == "10.1.2.3"
+    assert os.environ["PGPORT"] == "55433"
+
+
 def test_a_cp949_file_is_reported_as_encoding(site):
     """한국어 윈도우 메모장이 이렇게 저장한다. UnicodeDecodeError 만 나오면 원인을 모른다."""
     path = site["install"] / env_file.SITE_NAME

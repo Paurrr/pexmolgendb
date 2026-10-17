@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "env-file-bom",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T10:59:39+0900",
+      "summary": "env_file.load 를 utf-8-sig 로 읽어 BOM 파일 허용. RED: test_a_utf8_bom_file_is_read — RuntimeError: …genviewer.env 1행: 키 이름으로 쓸 수 없다: '\\ufeffPGHOST' (Windows). 변이 검사: utf-8 로 되돌리면 새 테스트만 실패, cp949 거부 테스트는 그대로 통과. DB 테스트: GENDB_TEST_PG_DSN(55433)으로 184 passed / 8 skipped(Windows 권한 테스트만)"
     },
     {
       "step": 2,

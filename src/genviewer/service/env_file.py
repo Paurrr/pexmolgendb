@@ -174,7 +174,7 @@ def load(explicit: str = "") -> tuple[Path | None, list[Path]]:
         if not path.is_file():
             continue
         try:
-            text = path.read_text(encoding="utf-8")
+            text = path.read_text(encoding="utf-8-sig")
         except OSError as e:
             raise RuntimeError(f"설정 파일을 읽을 수 없다: {path}\n  {e}") from e
         except UnicodeDecodeError as e:
