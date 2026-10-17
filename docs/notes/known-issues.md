@@ -30,28 +30,32 @@
 |---|---|---|---|
 | K12 | xlsx 내보내기에서 `=` 로 시작하는 값이 수식으로 저장된다(openpyxl) | `utils/exporter.py:35-37` | 고치면 내보내는 값이 바뀐다 |
 | K13 | SKILL 문자열을 이스케이프하지 않는다. process 이름이나 파라미터 값에 `"`·`\` 가 있으면 Virtuoso 명령이 깨지거나, 의도한 것 이상의 SKILL이 실행될 수 있다 | `service/virtuoso_protocol.py:13-14`, `utils/lisp.py:6-9` | 값은 팀 내부 사람이 넣고, Cadence 라이브러리 이름에는 따옴표가 없다. 고치면 보내는 문자열이 바뀐다 |
-| K14 | Virtuoso 수신 쪽이 연결이 끊긴 것("DISCONNECTED"/"ERROR: …")을 접속 상태에 반영하지 않는다. UI는 계속 Connected라고 한다. UTF-8이 아닌 응답이 오면 수신이 멈춘다 | `net/workers.py:76-101` | phase 4 step 6은 크래시만 막는다. 상태 표시는 동작 변경이다 |
+| K14 | Virtuoso 수신 쪽이 연결이 끊긴 것("DISCONNECTED"/"ERROR: …")을 접속 상태에 반영하지 않는다. UI는 계속 Connected라고 한다. UTF-8이 아닌 응답이 오면 수신이 멈춘다 | `net/workers.py:85-110` | phase 4 step 6은 크래시만 막고, 보내기 실패를 받기 오류와 같은 길(Socket 탭 수신 칸)로 보이게 했다. 상태 표시는 동작 변경이다 |
 | K15 | Load Libs 요청이 빈 프레임이다(stub) | `service/virtuoso_protocol.py:17-18` | 기능이 아직 없다 |
-| K16 | Virtuoso 목록 필터가 부분 문자열(`name in r["name"]`)이라 더 많이 걸릴 수 있다. 내보내기 형식은 메뉴가 정하는데 대화상자는 두 확장자를 다 허용해서, `.csv` 이름에 xlsx가 써질 수 있다 | `controllers/device_table.py:301, 478-489` | 의도인지 불확실하다 |
+| K16 | Virtuoso 목록 필터가 부분 문자열(`name in r["name"]`)이라 더 많이 걸릴 수 있다. 내보내기 형식은 메뉴가 정하는데 대화상자는 두 확장자를 다 허용해서, `.csv` 이름에 xlsx가 써질 수 있다 | `controllers/device_table.py:296, 473-484` | 의도인지 불확실하다 |
 
 ## GUI (phase에 넣지 않은 것)
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
-| K17 | 같은 device를 다시 클릭하면(모델 reset 뒤 stale QModelIndex) 탭이 다시 로드되어 저장 안 한 탭 편집이 사라질 수 있다 | `controllers/device_table.py:51-52, 234-253`, `controllers/device_tab.py:480-484` | 선택 추적 구조 문제다(제안 P3·QPersistentModelIndex). phase 3 step 6이 재현 테스트를 strict xfail로 남겼다(`tests/gui/test_tab_version_sync.py::test_clicking_the_same_row_after_a_device_save_keeps_the_tab_edits`). 고치면 XPASS로 실패하니 그때 xfail을 뗀다 |
-| K18 | 필터가 켜진 상태에서 여러 행을 끌어 옮기면 숨은 행까지 옮겨진다 | `views/device_table.py:217-262` | 정렬 수정(phase 4 step 3)과 같은 원인이지만 별도 재현이 필요하다 |
-| K19 | Load Virtuoso 뒤 저장하면 보이는 부분집합에만 `order = 0..k-1` 을 다시 매겨 순서가 겹친다 | `controllers/device_table.py:293-303, 363-364` | 의도한 동작인지 불확실하다. 확인이 필요하다 |
+| K17 | 같은 device를 다시 클릭하면(모델 reset 뒤 stale QModelIndex) 탭이 다시 로드되어 저장 안 한 탭 편집이 사라질 수 있다 | `controllers/device_table.py:51-52, 229-248`, `controllers/device_tab.py:496-500` | 선택 추적 구조 문제다(제안 P3·QPersistentModelIndex). phase 3 step 6이 재현 테스트를 strict xfail로 남겼다(`tests/gui/test_tab_version_sync.py::test_clicking_the_same_row_after_a_device_save_keeps_the_tab_edits`). 고치면 XPASS로 실패하니 그때 xfail을 뗀다 |
+| K18 | 필터가 켜진 상태에서 여러 행을 끌어 옮기면 숨은 행까지 옮겨진다 | `views/device_table.py:217-262` | phase 4 step 3이 정렬은 고쳤다(모델의 모든 행을 정렬). 끌어 옮기기는 같은 원인이지만 별도 재현이 필요하다 |
+| K19 | Load Virtuoso 뒤 저장하면 보이는 부분집합에만 `order = 0..k-1` 을 다시 매겨 순서가 겹친다 | `controllers/device_table.py:288-298, 358-359` | 의도한 동작인지 불확실하다. 확인이 필요하다 |
 | K20 | "deleted" 충돌에서 덮어쓰기를 고르면 탭 저장은 같은 `StaleWriteError` 를 다시 내고, device 저장은 사라진 device의 편집을 조용히 버린다 | `service/repo/parameter.py:79-80`, `controllers/parameter_tab.py:95` | 덮어쓸 대상이 없는 경우다. 문구 정리가 필요하다 |
-| K21 | 저장 안 한 새 행에서 Run Selected를 누르면 `KeyError 'id'` 가 "Send Failed: 'id'" 로 보인다 | `controllers/device_tab.py:291-300` | 무해하다 |
-| K22 | 접속 실패 시 연 풀을 닫지 않는다. 남은 `Task` 객체, 매번 새로 만드는 selection model·delegate, 재접속 때 지워지지 않는 탭 섹션이 쌓인다 | `controllers/device_tab.py:143-149`, `utils/background.py:83`, `controllers/tab_section.py:194-232`, `views/parameter_tab.py:23-25` | 누수 규모가 작다. 접속 실패 풀은 phase 4 step 4에서 같이 볼 수 있다 |
-| K23 | 필터가 바뀌어도 History 다시 읽기가 진행 중이면 그 변경을 버린다. 폴링 결과가 폴링한 process에 묶여 있지 않아, 그 사이에 process를 바꾸면 엉뚱한 배너가 뜰 수 있다 | `controllers/history_tab.py:122`, `controllers/device_tab.py:202-222` | 낮은 확률, 보기 전용 |
-| K24 | 연결을 끊는 동안 상대가 프레임 중간에서 멈추면 GUI가 굳을 수 있다(`recv` 타임아웃 없음, `wait()` 타임아웃 없음) | `net/workers.py:90-92`, `net/controller.py:111-128` | 제안 P6 |
-| K25 | `question()` 은 None을 돌려주지 않으므로 `_switch_device_by_index` 의 `choice is None` 분기는 닿지 않는 코드다 | `controllers/device_tab.py:492`, `utils/dialogs.py:21-25` | 동작에 영향 없음 |
+| K21 | 저장 안 한 새 행에서 Run Selected를 누르면 `KeyError 'id'` 가 "Send Failed: 'id'" 로 보인다 | `controllers/device_tab.py:305-314` | 무해하다 |
+| K22 | 접속 실패 시 연 풀을 닫지 않는다. 남은 `Task` 객체, 매번 새로 만드는 selection model·delegate, 재접속 때 지워지지 않는 탭 섹션이 쌓인다 | `controllers/device_tab.py:147-153`, `utils/background.py:83`, `controllers/tab_section.py:203-241`, `views/parameter_tab.py:23-25` | 누수 규모가 작다. phase 4 step 4는 재접속 순서(새 DB 먼저)만 고치고 실패한 풀은 그대로 뒀다 |
+| K23 | 필터가 바뀌어도 History 다시 읽기가 진행 중이면 그 변경을 버린다. 폴링 결과가 폴링한 process에 묶여 있지 않아, 그 사이에 process를 바꾸면 엉뚱한 배너가 뜰 수 있다 | `controllers/history_tab.py:122`, `controllers/device_tab.py:210-230` | 낮은 확률, 보기 전용 |
+| K24 | 연결을 끊는 동안 상대가 프레임 중간에서 멈추면 GUI가 굳을 수 있다(`recv` 타임아웃 없음, `wait()` 타임아웃 없음) | `net/workers.py:99-101`, `net/controller.py:130-147` | 제안 P6 |
+| K25 | `question()` 은 None을 돌려주지 않으므로 `_switch_device_by_index` 의 `choice is None` 분기는 닿지 않는 코드다 | `controllers/device_tab.py:508`, `utils/dialogs.py:21-25` | 동작에 영향 없음 |
 | K34 | process 조회 실패 알림 본문이 `user_message()` 가 아니라 `str(e)` 다. 55P03·57014 같은 SQLSTATE별 한국어 안내 대신 원문이 보이고, conninfo가 든 예외라면 그대로 나간다(CLAUDE.md 비밀번호 규칙) | `controllers/device_tab_toolbar.py:150-157` (`get_process_id`) | phase 2 step 2가 코드를 읽다 본 것이고 재현하지 않았다. phase 0 뒤로 접속 실패는 `DbUnavailableError`(conninfo 없음)로 온다. 고치면 알림 문구가 바뀐다 |
-| K35 | 변경 감지 폴링이 3회 실패해 멈출 때 로그 패널에 `{exc}` 를 그대로 쓴다(`user_message`·`scrub` 를 거치지 않음) | `controllers/device_tab.py:225-230` (`_on_poll_failed`) | K34와 같다. 로그 패널 문구가 바뀐다 |
-| K36 | 재접속(`apply_db`)과 CSV 불러오기 뒤의 `refresh_devices()` 가 저장하지 않은 device 표 편집을 묻지 않고 버린다. process 선택은 phase 3 step 4부터 유지된다 | `controllers/device_tab.py:266-272` (`apply_db`), `:355-356` (CSV 불러오기) | phase 3 step 4가 코드를 읽다 본 것이고 재현하지 않았다. 고치려면 새 확인 질문이 필요하다(동작 변경) |
-| K37 | 저장하지 않은 탭 편집이 있을 때 device 표에 붙여넣으면 `paste_payload` 의 `set_device_to_section` 이 탭을 다시 읽어 그 편집이 사라진다. device 표 편집은 phase 3 step 7이 막았다(`Unsaved Changes`) | `controllers/parameter_tab.py:177-184` | phase 3 step 7이 코드를 읽다 본 것이고 재현하지 않았다. 승인 범위(G15b)가 device 표 dirty였다 |
-| K38 | 붙여넣기의 탭 쓰기가 version 없이(`expected_version=None`) 나가 버전 확인을 건너뛴다. `on_paste_requested` 가 붙여넣은 device를 모델에서 찾지만 그 행은 `refresh_devices()` 전이라 아직 모델에 없다 | `controllers/device_tab.py:457-463`, `controllers/device_table.py:207-214`, `service/repo/parameter.py:82-84` | phase 3 step 7이 코드를 읽다 본 것이고 재현하지 않았다. 방금 내가 만든 device라 남이 끼어들 틈이 거의 없다 |
+| K35 | 변경 감지 폴링이 3회 실패해 멈출 때 로그 패널에 `{exc}` 를 그대로 쓴다(`user_message`·`scrub` 를 거치지 않음) | `controllers/device_tab.py:233-238` (`_on_poll_failed`) | K34와 같다. 로그 패널 문구가 바뀐다 |
+| K36 | 재접속(`apply_db`)과 CSV 불러오기 뒤의 `refresh_devices()` 가 저장하지 않은 device 표 편집을 묻지 않고 버린다. process 선택은 phase 3 step 4부터 유지된다 | `controllers/device_tab.py:280-286` (`apply_db`), `:369-370` (CSV 불러오기) | phase 3 step 4가 코드를 읽다 본 것이고 재현하지 않았다. 고치려면 새 확인 질문이 필요하다(동작 변경) |
+| K37 | 저장하지 않은 탭 편집이 있을 때 device 표에 붙여넣으면 `paste_payload` 의 `set_device_to_section` 이 탭을 다시 읽어 그 편집이 사라진다. device 표 편집은 phase 3 step 7이 막았다(`Unsaved Changes`) | `controllers/parameter_tab.py:179-186` | phase 3 step 7이 코드를 읽다 본 것이고 재현하지 않았다. 승인 범위(G15b)가 device 표 dirty였다 |
+| K38 | 붙여넣기의 탭 쓰기가 version 없이(`expected_version=None`) 나가 버전 확인을 건너뛴다. `on_paste_requested` 가 붙여넣은 device를 모델에서 찾지만 그 행은 `refresh_devices()` 전이라 아직 모델에 없다 | `controllers/device_tab.py:473-479`, `controllers/device_table.py:202-209`, `service/repo/parameter.py:82-84` | phase 3 step 7이 코드를 읽다 본 것이고 재현하지 않았다. 방금 내가 만든 device라 남이 끼어들 틈이 거의 없다 |
+| K39 | 창을 닫을 때 Virtuoso 접속(`ConnectWorker`)이 진행 중이면 `ConnectionController.shutdown()` 이 기다리지 않는다. `run_gui` 가 돌아온 뒤 실행 중인 QThread가 지워져 종료가 크래시로 끝날 수 있다 | `net/controller.py:67-77` (`shutdown`) | phase 4 step 6이 코드를 읽다 본 것이고 재현하지 않았다. 기다리면 접속 타임아웃만큼 창이 굳는다(K24와 같은 종류, 제안 P6) |
+| K40 | `ConnectWorker` 가 끝났지만 결과가 아직 GUI 큐에 있는 순간의 Connect는 "접속 중" 가드를 지나 새 시도를 시작한다. 두 결과가 다 성공이면 `_start_io_workers` 가 두 번 돌아 앞 IO 워커를 덮어쓸 수 있다 | `net/controller.py:37-52` (`connect`), `:85-99` | phase 4 step 6이 코드를 읽다 본 것이고 재현하지 않았다. Connect를 아주 빠르게 두 번 눌러야 닿는다 |
+| K41 | 재접속할 때 History 화면에서 도는 다시 읽기(`Task`)를 기다리지 않는다. 옛 풀이 닫힌 뒤 그 작업이 실패할 수 있고, 그 작업이 남아 있는 동안 `set_db(새)` 의 다시 읽기가 `_task` 가드로 건너뛰어 다음 자동 갱신(10초)까지 새 DB로 읽지 않는다 | `controllers/history_tab.py:76` (`set_db`), `:121-122` (`reload`), `controllers/device_tab.py:155-` (`connect_db`) | phase 4 step 4가 코드를 읽다 본 것이고 재현하지 않았다. History는 `--history` 로 띄웠을 때만 있고 보기 전용이다(K23과 같은 가드) |
+| K42 | 저장하지 않은 편집이 있는 process를 Remove Process로 지운 뒤 "Save Changes" 에 예로 답하면, 방금 지운 process의 device를 저장하려다 반드시 "deleted" 충돌이 난다 | `controllers/device_tab_toolbar.py:104-` (`remove_process`), `controllers/device_tab.py:434-` (`_save_before_process_change`) | `tests/gui/test_deleted_process_revert.py::test_cancelling_after_removing_the_process_moves_to_the_first_process` 가 이 흐름을 그대로 돈다(충돌 한 번, 취소하면 다음 process로 넘어간다). 충돌 대화상자에서 빠져나올 수 있고, 질문을 건너뛰게 하면 흐름이 바뀐다(동작 변경) |
 
 ## 운영 스크립트
 

@@ -4,7 +4,7 @@
 
 ## 원칙
 1. 업무용 도구다. 정보 밀도가 우선이고 장식은 없다.
-2. 편집 중인 내용을 말없이 버리지 않는다. 버려질 상황(다른 process·device로 이동, 다시 읽기, 덮어쓰기)이면 먼저 묻는다.
+2. 편집 중인 내용을 말없이 버리지 않는다. 버려질 상황(다른 process·device로 이동, 다시 읽기, 창 닫기, 덮어쓰기)이면 먼저 묻는다.
 3. 자동으로 다시 읽지 않는다. 남이 바꾼 것은 배너로 알리고 사용자가 [새로고침]을 누른다.
 4. 실패를 성공처럼 알리지 않는다. 저장이 취소되거나 일부만 됐으면 "Saved" 를 띄우지 않는다.
 5. 오류는 메시지 박스와 파일 로그 양쪽에 남긴다(`utils/reporting.report`/`report_error`). 화면 문구는 `user_message(exc)` 로 만든다. `str(exc)` 금지(비밀번호가 샌다).
@@ -55,6 +55,9 @@
 - 값 후보와 검증은 `delegate_config.json`(`items`, `items_by_celltype`, `strict`, `required`, `pattern`, `syntax`)이 정한다. 화면에서 따로 하드코딩하지 않는다.
 - device 표 붙여넣기는 바로 저장되고 목록을 다시 읽는다. 저장 안 한 device 편집이 있으면 붙여넣지 않고 경고한다(`Unsaved Changes`).
 - CellType이 `delegate_config` 목록에 없는 device는 저장하지 않는다. 그런 행을 편집했으면 저장 뒤 경고(`Save Skipped`)로 이름을 알린다.
+- 창 닫기: 저장 안 한 편집이 있으면 `Save Changes`(Yes/No)를 묻고, Yes면 `save_db()` 가 True일 때만 닫는다. `run_blocking` 중의 닫기는 무시한다.
+- device 표 정렬(머리글 메뉴)은 모델의 모든 행을 정렬하는 undo 가능한 저장 안 한 변경이다. 프록시는 정렬하지 않고 필터는 그대로다.
+- 탭 표 Insert(버튼·Ctrl+I·메뉴)는 device를 고르기 전에는 아무것도 하지 않는다. Ctrl+E는 Edit 버튼과 같은 대화상자(선택한 행 값)를 연다.
 
 ## 하지 않는 것
 | 금지 | 이유 |

@@ -113,7 +113,12 @@ uv run genviewer --dsn "postgresql://molgen_app@<서버IP>:55433/molgen"
 ```
 
 메뉴의 **Database → Connect...** 도 같다. 그 창의 값은 **저장되지 않고 이번
-접속에만 쓰인다** — 계속 쓸 값은 `genviewer.env` 에 적는다.
+접속에만 쓰인다** — 계속 쓸 값은 `genviewer.env` 에 적는다. 그 창으로 다른 데
+붙다가 실패하면 지금 붙어 있는 DB 를 그대로 쓴다.
+
+시작할 때의 접속은 창이 뜬 뒤에 돈다. 접속에 실패하면 아래 로그 패널에
+`Database connect failed: …` 가 남고, 첫 조회가 실패하면 알림이 뜬다. 로그 패널의
+`Database connected: …` 줄에는 비밀번호가 가려져 나온다.
 
 `--dsn` 을 주면 `genviewer.env` 를 읽지 않으므로 거기 적힌 `PGPASSWORD` 도 쓰이지
 않는다. 비밀번호는 `~/.pgpass` 나 그 실행에만 준 `PGPASSWORD` 환경변수로 준다.
@@ -406,6 +411,15 @@ device 는 절대 지워지지 않는다 — 명시적으로 지운 것만 삭�
   `Save Skipped` 경고로 이름을 알린다(그 편집은 다시 읽으면서 사라진다).
 - device 표 붙여넣기는 바로 저장하고 목록을 다시 읽는다. 저장하지 않은 device 편집이
   있으면 붙여넣지 않고 `Unsaved Changes` 경고를 띄운다. 먼저 저장한다.
+- 창을 닫을 때 device 표나 탭에 저장하지 않은 편집이 있으면 `Save Changes` 를 묻는다.
+  예면 저장하고 저장됐을 때만 닫는다(충돌을 취소했거나 저장이 실패하면 창이 남는다).
+  아니오면 버리고 닫는다. 저장·접속이 도는 동안에는 닫히지 않으니 끝난 뒤 다시 닫는다.
+- Load Virtuoso 로 device 목록을 받았을 때 device 표에 저장하지 않은 편집이 있으면
+  다시 읽을지(`Refresh`) 묻는다. 아니오면 Virtuoso 목록만 바뀌고 device 표는 그대로다.
+- 보던 process 를 다른 사람이 지웠으면, 다른 process 로 옮기다 저장을 취소해도 그대로
+  옮긴다. 돌아갈 process 가 없고 그 편집은 버려진다.
+- device 표 머리글 메뉴의 정렬은 검색 필터에 가려진 device 까지 모두 정렬한다. 정렬도
+  저장하지 않은 변경이라 undo 할 수 있고, 다른 process 로 옮길 때 묻는다.
 
 DB 호출은 워커 스레드에서 돈다. 서버가 죽었거나 다른 사용자의 잠금 뒤에서
 기다리는 동안에도 창이 굳지 않는다. 다만 저장·접속이 끝날 때까지 입력은
@@ -503,8 +517,8 @@ uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscr
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 342 passed / 124 skipped / 1 xfailed 다(`sh` 가
-없는 PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 322 / 144 / 1). xfail 하나는
+DB 없이 돌리면 지금 기준 Git Bash 에서 427 passed / 124 skipped / 1 xfailed 다(`sh` 가
+없는 PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 407 / 144 / 1). xfail 하나는
 고치지 않기로 한 문제(known-issues K17)의 재현 테스트다. skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 
