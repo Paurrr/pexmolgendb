@@ -101,6 +101,8 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 ```
 - 탭 저장(`repo/parameter.py: replace_many_for_device`): `FOR UPDATE OF d` → `expected_version` 비교 → 테이블마다 DELETE … RETURNING + INSERT → `device.version+1` → audit.
 - GUI 쪽: 모델이 dirty·baseline을 들고 있다. 컨트롤러가 `run_blocking` 으로 repo를 부르고, `StaleWriteError` 면 `dialogs/conflict.ask_conflict` 로 RELOAD / OVERWRITE(force) / CANCEL을 묻는다.
+- 저장 결과: device·탭 `save_all()` 과 `DeviceTabController.save_db()` 는 bool이다(저장했거나 쓸 것이 없으면 True, 취소·다시 읽기·건너뛴 편집이면 False, 예외는 그대로). 호출부(Database → Save, Ctrl+S, process·device 전환)는 False면 "Saved" 를 띄우지 않고, 편집이 남아 있으면 옮기지 않는다. process 콤보는 `select_process_silently` 로 시그널 없이 되돌린다.
+- version 동기화: 탭 저장이 올린 version은 `deviceVersionChanged` 로 device 표에, device 저장이 올린 version은 `deviceVersionBumped` 로 탭에 간다. 탭은 정확히 +1일 때만 받는다(덮어쓰기로 남의 변경 위에 썼으면 다음 탭 저장이 충돌로 묻는다).
 
 **변경 감지**: `DeviceTabController` 의 10초 `QTimer` → `Task(repo.etag(process_id))` → 기억한 etag와 다르면 배너. 연속 3회 실패하면 멈추고, 다시 접속하면 되살아난다. 자동으로 다시 읽지 않는다. History 화면도 10초마다 `Task` 로 다시 읽고, 줄을 고르면 멈춘다.
 

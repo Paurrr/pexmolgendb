@@ -391,6 +391,22 @@ device 는 절대 지워지지 않는다 — 명시적으로 지운 것만 삭�
 **자동으로 다시 읽지 않는다.** 편집 중인 내용이 말없이 사라지는 것은 이번
 작업에서 없애려던 바로 그 동작이다. 언제 읽을지는 사용자가 정한다.
 
+저장할 때의 동작:
+
+- **Database → Save** 는 device 표와 탭을 둘 다 저장한다. 둘 다 저장됐을 때만
+  "All changes have been saved." 가 뜬다. Ctrl+S 의 상태 표시줄 문구도 저장했을 때만 나온다.
+- 충돌에서 **취소** 하면 편집이 그대로 남는다. 다른 process·device 로 옮기던 중이면
+  옮기지 않고 그 자리에 머문다. **다시 읽기** 를 고르면 편집을 버리고 옮긴다.
+- 다른 process 를 고르면 device 표나 탭에 저장하지 않은 편집이 있는지 한 번 묻는다.
+  목록을 다시 채워도(CSV 불러오기, process 추가, 재접속) 고른 process 는 그대로다.
+- 내가 device 를 저장한 뒤 같은 device 의 탭을 저장해도 나 자신과 충돌하지 않는다.
+  다만 **덮어쓰기** 로 남의 저장 위에 쓴 뒤에는 탭 저장이 한 번 더 충돌을 묻는다(그 사이
+  남의 변경이 끼어 있다).
+- CellType 이 목록에 없는 device 는 저장하지 않는다. 그런 행을 고쳤으면 저장 뒤
+  `Save Skipped` 경고로 이름을 알린다(그 편집은 다시 읽으면서 사라진다).
+- device 표 붙여넣기는 바로 저장하고 목록을 다시 읽는다. 저장하지 않은 device 편집이
+  있으면 붙여넣지 않고 `Unsaved Changes` 경고를 띄운다. 먼저 저장한다.
+
 DB 호출은 워커 스레드에서 돈다. 서버가 죽었거나 다른 사용자의 잠금 뒤에서
 기다리는 동안에도 창이 굳지 않는다. 다만 저장·접속이 끝날 때까지 입력은
 받지 않는다 — 그 사이에 화면을 바꾸면 방금 보낸 것과 다른 내용이 저장된
@@ -487,8 +503,9 @@ uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscr
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 271 passed / 124 skipped 다(`sh` 가 없는
-PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 251 / 144). skip 되는 DB 테스트가
+DB 없이 돌리면 지금 기준 Git Bash 에서 342 passed / 124 skipped / 1 xfailed 다(`sh` 가
+없는 PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 322 / 144 / 1). xfail 하나는
+고치지 않기로 한 문제(known-issues K17)의 재현 테스트다. skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 
 `uv run pytest` 가 `uv trampoline failed to canonicalize script path` 로 죽으면 venv 를
