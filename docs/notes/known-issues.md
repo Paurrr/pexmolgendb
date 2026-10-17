@@ -22,6 +22,7 @@
 | K11 | `import_sqlite` 가 `?`·`#`·`%` 가 든 sqlite 경로를 열지 못한다(read-only URI를 원시 경로로 만든다) | `scripts/import_sqlite.py:34` | 경로를 바꿔서 돌리면 된다 |
 | K31 | `genviewer -v` 가 찍는 트레이스백은 `scrub()` 을 거치지 않는다. 접속 실패 예외의 conninfo(비밀번호 포함)가 그 터미널에 그대로 나올 수 있다 | `cli.py:467-468` (`_fail`) | 사용자가 자기 터미널에서 일부러 켜는 진단 출력이다. 가리면 출력이 바뀐다. 다른 사람에게 붙여 줄 때 주의한다 |
 | K32 | CSV 불러오기가 새로 만든 process에는 `process_add` 이력이 따로 남지 않는다(불러오기 한 줄에 포함된다) | `repo/io.py` import, `repo/audit.py` | 이력 형식 변경이다 |
+| K33 | `upsert_device` 에 `id` 가 있는 dict를 주면 version 검사 없이 덮어쓰고 `process_id` 도 바꾼다 | `repo/device.py:97-` | 지금 호출자(붙여넣기 `paste_rows`)는 `id` 없는 dict만 넘겨 닿지 않는다. phase 2 step 1이 가짜를 만들다 본 것이고 재현하지 않았다. 가짜도 지금 동작을 그대로 흉내 낸다 |
 
 ## 내보내기·연동
 
@@ -46,6 +47,8 @@
 | K23 | 필터가 바뀌어도 History 다시 읽기가 진행 중이면 그 변경을 버린다. 폴링 결과가 폴링한 process에 묶여 있지 않아, 그 사이에 process를 바꾸면 엉뚱한 배너가 뜰 수 있다 | `controllers/history_tab.py:122`, `controllers/device_tab.py:189-209` | 낮은 확률, 보기 전용 |
 | K24 | 연결을 끊는 동안 상대가 프레임 중간에서 멈추면 GUI가 굳을 수 있다(`recv` 타임아웃 없음, `wait()` 타임아웃 없음) | `net/workers.py:90-92`, `net/controller.py:111-128` | 제안 P6 |
 | K25 | `question()` 은 None을 돌려주지 않으므로 `_switch_device_by_index` 의 `choice is None` 분기는 닿지 않는 코드다 | `controllers/device_tab.py:441`, `utils/dialogs.py:21-25` | 동작에 영향 없음 |
+| K34 | process 조회 실패 알림 본문이 `user_message()` 가 아니라 `str(e)` 다. 55P03·57014 같은 SQLSTATE별 한국어 안내 대신 원문이 보이고, conninfo가 든 예외라면 그대로 나간다(CLAUDE.md 비밀번호 규칙) | `controllers/device_tab_toolbar.py:143-150` (`get_process_id`) | phase 2 step 2가 코드를 읽다 본 것이고 재현하지 않았다. phase 0 뒤로 접속 실패는 `DbUnavailableError`(conninfo 없음)로 온다. 고치면 알림 문구가 바뀐다 |
+| K35 | 변경 감지 폴링이 3회 실패해 멈출 때 로그 패널에 `{exc}` 를 그대로 쓴다(`user_message`·`scrub` 를 거치지 않음) | `controllers/device_tab.py:211-216` (`_on_poll_failed`) | K34와 같다. 로그 패널 문구가 바뀐다 |
 
 ## 운영 스크립트
 

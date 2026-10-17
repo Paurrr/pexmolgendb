@@ -78,4 +78,4 @@
 ### ADR-015: 하네스로 유지보수, 버그만 고친다
 **결정**: 2026-10 부터 `pexqa` 와 같은 하네스(`scripts/execute.py`, `phases/`, `.claude/commands/{harness,review}.md`, Stop 훅 = `ruff check src tests && pytest -q -x`)로 유지보수한다. 기능 추가·리팩터는 하지 않고 에러·버그만 고친다. 버그 주장은 실패하는 테스트로 먼저 재현하고, 재현되지 않으면 고치지 않는다. 사용자에게 보이는 동작이 바뀌는 수정은 사용자가 승인한 것만 한다. 구조 개선은 `docs/notes/architecture-proposal.md` 에 제안으로만 둔다.
 **이유**: 이미 여러 명이 쓰는 도구라 동작이 바뀌는 비용이 크다. 분석 에이전트가 낸 버그 후보 중에는 실제로 닿지 않는 경로가 있을 수 있다.
-**트레이드오프**: 근본 원인(저장 흐름이 컨트롤러 셋에 흩어진 것 등)은 증상 단위로만 고쳐진다. GUI 테스트 기반(pytest-qt, fake repo)을 먼저 깔아야 한다(phase `2-gui-test-infra`).
+**트레이드오프**: 근본 원인(저장 흐름이 컨트롤러 셋에 흩어진 것 등)은 증상 단위로만 고쳐진다. GUI 테스트 기반(pytest-qt, fake repo, controller fixture)은 phase `2-gui-test-infra` 에서 깔았다. 가짜의 의미는 contract test가 실제 PostgreSQL과 맞춰 둔다.
