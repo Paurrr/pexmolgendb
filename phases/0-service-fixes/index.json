@@ -7,7 +7,8 @@
       "name": "pool-acquire",
       "status": "completed",
       "started_at": "2026-10-17T10:52:27+0900",
-      "summary": "pool.connection 획득 실패만 DbUnavailableError 로 변환(@contextmanager + ExitStack, enter_context 만 try). RED: test_closed_port_raises_db_unavailable — psycopg_pool.PoolTimeout: couldn't get a connection after 1.00 sec. tests/test_pool.py 추가(닫힌 포트·가짜 풀 6개). 변이 검사: 변환 제거 시 닫힌 포트 테스트, 본문까지 감싸면 본문/commit 예외 테스트 2개가 실패"
+      "summary": "pool.connection 획득 실패만 DbUnavailableError 로 변환(@contextmanager + ExitStack, enter_context 만 try). RED: test_closed_port_raises_db_unavailable — psycopg_pool.PoolTimeout: couldn't get a connection after 1.00 sec. tests/test_pool.py 추가(닫힌 포트·가짜 풀 6개). 변이 검사: 변환 제거 시 닫힌 포트 테스트, 본문까지 감싸면 본문/commit 예외 테스트 2개가 실패",
+      "completed_at": "2026-10-17T10:59:39+0900"
     },
     {
       "step": 1,
