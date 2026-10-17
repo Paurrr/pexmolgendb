@@ -66,7 +66,7 @@
 **트레이드오프**: `typer` 가 rich를 끌어온다(`typer-slim` 은 이제 껍데기). CLI만 써도 pandas가 import된다.
 
 ### ADR-013: 비밀번호는 포매터에서 한 번에 가린다
-**결정**: 파일 로그(`~/.genviewer/genviewer.log`, 1MB × 3)의 포매터가 메시지와 트레이스백을 다 만든 뒤 `password=…`, `PGPASSWORD=…`, URL 안의 비밀번호를 `***` 로 바꾼다(`utils/logs.scrub`). 화면에 보이는 오류는 `user_message()` 를 거친다.
+**결정**: 파일 로그(`~/.genviewer/genviewer.log`, 1MB × 3)의 포매터가 메시지와 트레이스백을 다 만든 뒤 `password=…`, `PGPASSWORD=…`, URL 안의 비밀번호를 `***` 로 바꾼다(`utils/logs.scrub`). 화면에 보이는 오류는 `user_message()` 를 거친다. 리눅스에서 기본 디렉터리(`~/.genviewer`)만 0700으로 좁히고, `GENDB_LOG` 로 고른 곳은 권한을 건드리지 않는다. chmod 실패는 파일 로그를 끄지 않는다.
 **이유**: psycopg 접속 실패 예외에는 conninfo가 통째로 들어 있다. 호출자가 기억해서 가리는 방식은 언젠가 빠뜨린다. 배포본은 런처로 떠서 터미널이 없으므로 에러를 파일로 남겨야 한다.
 **트레이드오프**: 로그 패널로 직접 보내는 문자열은 포매터를 지나지 않으므로 호출자가 `scrub()` 해야 한다.
 

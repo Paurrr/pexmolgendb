@@ -53,6 +53,7 @@ PGPASSWORD=...
 ```
 
 주석은 줄 전체만 쓴다 — 값 뒤의 `#` 는 값의 일부다(비밀번호에 `#` 가 흔하다).
+파일은 UTF-8 로 저장한다. 메모장·PowerShell 이 앞에 붙이는 BOM 은 있어도 된다.
 나머지 규칙과 `PGSERVICE` 같은 대안은 `genviewer.env.example` 에 적어 두었다.
 
 ### 찾는 순서
@@ -407,6 +408,7 @@ DB 에러는 **메시지 박스로 보여주고 같은 내용을 파일에도 �
 | | |
 |---|---|
 | 위치 | `~/.genviewer/genviewer.log` (`GENDB_LOG` 로 바꾼다) |
+| 권한 | 리눅스에서 기본 위치의 `~/.genviewer` 만 0700 으로 좁힌다. `GENDB_LOG` 로 고른 디렉터리는 건드리지 않는다 |
 | 크기 | 1MB 마다 돌려 쓰고 3개까지 보관 |
 | 경로 확인 | `genviewer --check-config` 가 찍어준다 |
 

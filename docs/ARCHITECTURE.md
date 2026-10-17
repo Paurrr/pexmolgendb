@@ -88,7 +88,7 @@ GENDB_PG_DSN ───────┴→ 있으면 그대로 사용 (설정 파�
 ```
 - 배포 런처는 지금 `GENDB_CONFIG=<ROOT>/genviewer.env` 를 항상 넘긴다. 그래서 배포본에서는 개인 파일이 읽히지 않는다(phase `1-deploy-fixes` step 0에서 고친다).
 
-**풀** (`service/pool.py`): `ConnectionPool(min 1, max 4, open=False, check=check_connection)`. 접속 옵션 `-c lock_timeout=5000 -c statement_timeout=15000`(의도된 값, ADR-008), `connect_timeout=5`, `application_name=genviewer:<user>`. `Database.connection()` 하나가 트랜잭션 하나(정상 종료 commit, 예외 rollback).
+**풀** (`service/pool.py`): `ConnectionPool(min 1, max 4, open=False, check=check_connection)`. 접속 옵션 `-c lock_timeout=5000 -c statement_timeout=15000`(의도된 값, ADR-008), `connect_timeout=5`, `application_name=genviewer:<user>`. `Database.connection()` 하나가 트랜잭션 하나(정상 종료 commit, 예외 rollback). 커넥션을 얻지 못한 것(`PoolTimeout`)만 `DbUnavailableError` 가 되고, `with` 본문·commit 에서 난 예외는 타입 그대로 올라간다(`user_message` 의 SQLSTATE별 안내가 살아 있게).
 
 **device 저장** (`repo/device.py: upsert_devices`, 한 트랜잭션)
 ```
