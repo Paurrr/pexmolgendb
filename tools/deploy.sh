@@ -24,7 +24,7 @@
 #
 # 환경변수:
 #   DEPLOY_PYTHON     venv 를 만들 인터프리터. 예: /usr/bin/python3.13 또는
-#                     <ROOT> 아래에 설치해 둔 것
+#                     <ROOT> 아래에 설치해 둔 것(<ROOT>/python 아래면 배포가 열어 준다)
 #   DEPLOY_COMMANDS   프로젝트의 console_scripts 를 자동으로 못 읽을 때 쓸,
 #                     공백으로 구분한 명령 이름들
 #   DEPLOY_LINK_DIR   이미 사용자들 PATH 에 있는 디렉터리. 명령을 거기로 심볼릭
@@ -188,9 +188,17 @@ fi
 # genviewer.env 는 **일부러 제외한다.** 거기엔 PGPASSWORD 가 들어 있어서, 아무나
 # 읽을 수 있게 되면 앱이 스스로 실행을 거부한다(service/env_file.py 의
 # check_permissions). 루트 디렉터리 자체는 지나갈 수 있어야 bin/ 에 닿는다.
+#
+# <ROOT>/python 은 아래 확인 절의 경고가 uv 관리 CPython 을 두라고 시키는 곳이다.
+# 있으면 venv 의 bin/python 이 그 안을 가리키므로 함께 연다. umask 가 027 이면
+# 다른 사용자는 인터프리터에서 Permission denied 를 보는데, 배포한 사람으로 도는
+# 마지막 확인은 그것을 보지 못한다. 없으면(시스템 파이썬) 건너뛴다.
 
 chmod a+rx "$root"
 chmod -R a+rX "$root/src" "$root/venv" "$root/bin"
+if [ -d "$root/python" ]; then
+    chmod -R a+rX "$root/python"
+fi
 
 # ---- 선택: 이미 사용자들 PATH 에 있는 디렉터리에서 명령을 보이게 한다
 #

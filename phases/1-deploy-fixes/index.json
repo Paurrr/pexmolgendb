@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "deploy-python-perms",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T11:40:16+0900",
+      "summary": "deploy.sh 가 <ROOT>/python 이 있으면 chmod -R a+rX (없으면 건너뜀, genviewer.env 는 계속 제외). RED: test_the_bundled_python_is_opened_up (assert opened → assert [], 기록에 755/640 호출만). chmod 기록 stub fixture(chmod_record) 추가, 테스트 3개 + posix_only 실제 권한 1개. 변이 검사: 수정 제거 → opened_up 만 실패, 루트 재귀 chmod → does_not_open_the_config 도 실패, [ -d ] 가드 제거 → nothing_more_is_chmodded·배포 테스트 실패. README 배포·ARCHITECTURE 정리. DB 테스트: 204 passed / 9 skipped (skip 은 posix_only 뿐)"
     },
     {
       "step": 3,

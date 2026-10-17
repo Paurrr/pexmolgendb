@@ -101,6 +101,46 @@ def stub(tmp_path):
     return {"bindir": bindir, "record": tmp_path / "uv_record.txt"}
 
 
+# 가짜 chmod. 호출 하나를 인자를 '|' 로 이은 한 줄로 남기고 진짜 chmod 에 넘긴다.
+# 진짜를 부르므로 배포는 끝까지 돈다.
+CHMOD_STUB = """#!/bin/sh
+(IFS='|'; printf '%s\\n' "$*") >> "$CHMOD_RECORD"
+exec "$REAL_CHMOD" "$@"
+"""
+
+
+@pytest.fixture
+def chmod_record(stub, tmp_path):
+    """stub 옆(PATH 앞)에 chmod 기록기를 놓고, deploy() 에 넘길 환경변수를 준다.
+
+    stub 에 넣지 않는 이유: 그러면 CHMOD_RECORD 를 넘기지 않는 다른 테스트가 모두 깨진다.
+    진짜 chmod 의 경로는 PATH 를 바꾸기 전에 얻는다(Git Bash 는 /usr/bin/chmod).
+    """
+    real = subprocess.run(
+        ["sh", "-c", "command -v chmod"], capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    path = stub["bindir"] / "chmod"
+    path.write_text(CHMOD_STUB, encoding="utf-8", newline="\n")
+    path.chmod(0o755)
+    return {"CHMOD_RECORD": tmp_path / "chmod_record.txt", "REAL_CHMOD": real}
+
+
+def chmod_calls(chmod_record):
+    """가짜 chmod 가 받은 인자 목록, 호출 하나에 하나."""
+    record = chmod_record["CHMOD_RECORD"]
+    if not record.exists():
+        return []
+    return [ln.split("|") for ln in record.read_text(encoding="utf-8").splitlines()]
+
+
+def bundle_python(root):
+    """README 가 시키는 대로 <ROOT>/python 아래에 uv 관리 CPython 이 있는 것처럼 만든다."""
+    interp = root / "python" / "cpython-3.13-test" / "bin" / "python3.13"
+    interp.parent.mkdir(parents=True)
+    interp.write_text("", encoding="utf-8")
+    return interp
+
+
 @pytest.fixture
 def root(tmp_path):
     return tmp_path / "deployed"
@@ -354,6 +394,86 @@ def test_the_tree_is_readable_by_others(root, source_repo, stub):
 
     for path in (root, root / "bin", root / "src", root / "venv"):
         assert path.stat().st_mode & 0o005, f"{path} 에 다른 사용자가 못 들어간다"
+
+
+# --------------------------------------------------------------------------
+# <ROOT>/python - 확인 절 경고가 uv 관리 CPython 을 두라고 시키는 곳
+# --------------------------------------------------------------------------
+
+
+def test_the_bundled_python_is_opened_up(root, source_repo, stub, chmod_record):
+    """venv 의 bin/python 이 <ROOT>/python 안을 가리킨다.
+
+    umask 가 027 이면 uv 가 만든 그 디렉터리에 other 권한이 없어서 다른 사용자는
+    인터프리터에서 Permission denied 를 본다. 배포한 사람으로 도는 마지막 확인은
+    그것을 보지 못하므로 스크립트가 열어야 한다.
+    """
+    bundle_python(root)
+
+    result = deploy(root, source_repo, stub, **chmod_record)
+
+    assert result.returncode == 0, result.stderr
+    calls = chmod_calls(chmod_record)
+    # Git Bash 는 /tmp/... 를, 파이썬은 C:\... 를 보므로 끝부분만 비교한다.
+    opened = [
+        args for args in calls
+        if "-R" in args and "a+rX" in args
+        and any(a.endswith(f"/{root.name}/python") for a in args)
+    ]
+    assert opened, calls
+
+
+def test_opening_the_python_does_not_open_the_config(
+    root, source_repo, stub, chmod_record
+):
+    """루트를 재귀로 열면 genviewer.env(PGPASSWORD) 가 열리고, 앱이 전원 실행을 거부한다."""
+    bundle_python(root)
+
+    result = deploy(root, source_repo, stub, **chmod_record)
+
+    assert result.returncode == 0, result.stderr
+    calls = chmod_calls(chmod_record)
+    on_config = [args for args in calls if any(a.endswith("genviewer.env") for a in args)]
+    assert on_config, calls
+    assert all(args[0] == "640" for args in on_config), on_config
+    recursive = [args for args in calls if "-R" in args]
+    assert recursive, calls
+    for args in recursive:
+        assert not any(a.rstrip("/.").endswith(f"/{root.name}") for a in args), args
+
+
+def test_without_a_bundled_python_nothing_more_is_chmodded(
+    root, source_repo, stub, chmod_record
+):
+    """시스템 파이썬을 쓰는 배포가 정상 경로다. 없는 경로를 chmod 하면 set -e 로 죽는다."""
+    result = deploy(root, source_repo, stub, **chmod_record)
+
+    assert result.returncode == 0, result.stderr
+    calls = chmod_calls(chmod_record)
+    assert calls, "chmod 기록기가 끼어 있지 않다"
+    # 가짜 uv 의 chmod 755 .../venv/bin/python 도 /python 으로 끝나므로 루트 이름까지 본다.
+    touched = [
+        args for args in calls
+        if any(a.endswith(f"/{root.name}/python") for a in args)
+    ]
+    assert not touched, touched
+
+
+@posix_only
+def test_the_bundled_python_is_executable_by_others(root, source_repo, stub):
+    """umask 027 로 깔린 것처럼 0750 / 0700 을 만들어 두고 실제 권한을 본다."""
+    interp = bundle_python(root)
+    dirs = [root / "python", interp.parent.parent, interp.parent]
+    interp.chmod(0o700)
+    for d in dirs:
+        d.chmod(0o750)
+
+    result = deploy(root, source_repo, stub)
+
+    assert result.returncode == 0, result.stderr
+    for path in [*dirs, interp]:
+        assert (path.stat().st_mode & 0o005) == 0o005, f"{path} 를 다른 사용자가 못 쓴다"
+    assert ((root / "genviewer.env").stat().st_mode & 0o004) == 0, "설정 파일이 모두에게 읽힌다"
 
 
 # --------------------------------------------------------------------------

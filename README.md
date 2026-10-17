@@ -287,10 +287,9 @@ DEPLOY_LINK_DIR=/usr/local/bin ./tools/deploy.sh /opt/genviewer v0.3.0
 - venv 인터프리터가 **배포한 사람 홈 안**이면 경고한다. uv 가 관리하는 CPython 을
   쓰면 그렇게 되는데, 그러면 배포한 사람만 실행되고 나머지는 `Permission denied` 를
   본다. `UV_PYTHON_INSTALL_DIR=<루트>/python uv python install 3.13` 으로 파이썬을
-  루트 안에 두고 `DEPLOY_PYTHON` 으로 그것을 가리켜 다시 돌린다. 지금 스크립트는
-  `<루트>/python` 을 `a+rX` 로 열지 않으므로, umask 가 027 같은 곳이면 한 번
-  `chmod -R a+rX <루트>/python` 을 직접 한다(스크립트가 하도록 고치는 작업이
-  `phases/1-deploy-fixes` 에 있다).
+  루트 안에 두고 `DEPLOY_PYTHON` 으로 그것을 가리켜 다시 돌린다. `<루트>/python` 이
+  있으면 배포가 `src`·`venv`·`bin` 과 함께 `a+rX` 로 연다. 그래서 umask 가 027 같은
+  곳이어도 다른 사용자가 실행할 수 있다. 다른 곳에 두었으면 그 권한은 직접 맞춘다.
 
 **설치 중에는 앱을 띄우지 않는 편이 좋다.** 교체가 제자리에서 일어나므로 그 사이에
 실행하면 반쯤 바뀐 트리를 볼 수 있다(파이썬이 모듈을 그때그때 import 한다).
