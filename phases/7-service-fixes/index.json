@@ -53,7 +53,9 @@
     {
       "step": 6,
       "name": "import-process-audit",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T01:17:38+0900",
+      "summary": "import_data: 이번에 새로 만든 process 마다 process_add 이력(불러오기 줄 앞, 같은 트랜잭션·커서·actor, audit.write 한 번에 [process_add…]+[csv_import]). 판단은 find_or_create 의 두 번째 값(io._find_or_create 가 (id, created)|None 을 내고 _process_id 는 그것을 감싸 int|None 계약 유지), 처음 나온 순서·중복 없음, if created: 아래. get_or_create_id·process.py·audit 문구/detail 불변, FakeIORepository 는 이력을 흉내 내지 않아 불변. 기존 테스트 이름을 test_a_csv_import_is_one_line_plus_one_per_new_process 로 바꾸고 단언 갱신(IMPORT 한 줄·processes {sf2p 2, sf4u 1}·PROCESS_ADD [sf2p, sf4u]·process 줄 id < 불러오기 줄 id·전체 3줄·updated_by). 새 테스트: test_a_csv_import_records_only_the_processes_it_created(관리자가 만든 sf2p), test_importing_the_same_file_again_adds_no_process_line, test_a_failed_import_records_nothing(회귀, 수정 전에도 통과). 처음 실패한 단언: assert [] == ['sf2p', 'sf4u'](고친 기존 테스트), [] == ['sf4u'], ['import', 'import'] == ['process_add', 'process_add', 'import', 'import']. 변이: 새로 만든 이름 대신 CSV 의 모든 이름 → 이미 있는 process 테스트 ['sf2p', 'sf4u'] == ['sf4u'] 실패(+두 번 불러오기), process 추가 줄 제거 → 고친 기존 테스트 포함 3개 실패. README 변경 이력 한 문장, known-issues K32 행 삭제. DB 테스트: 663 passed / 9 skipped(Windows posix_only) / 1 xfailed"
     },
     {
       "step": 7,

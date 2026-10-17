@@ -331,7 +331,7 @@ def test_adding_a_process_by_name_is_recorded(db, log):
 # ---------------------------------------------------------------------------
 
 
-def test_a_csv_import_is_one_line_and_fills_updated_by(db, log, tmp_path):
+def _devices_csv(tmp_path) -> str:
     csv_path = tmp_path / "devices.csv"
     csv_path.write_text(
         "CdsLibName,InstCellName,CellType\n"
@@ -340,20 +340,68 @@ def test_a_csv_import_is_one_line_and_fills_updated_by(db, log, tmp_path):
         "sf4u,nfet_x,NFET\n",
         encoding="utf-8",
     )
+    return str(csv_path)
 
-    created = IORepository(db).import_data(str(csv_path), actor="dh991")
+
+def _process_adds(rows):
+    return [r for r in rows if r["action"] == audit.PROCESS_ADD]
+
+
+def test_a_csv_import_is_one_line_plus_one_per_new_process(db, log, tmp_path):
+    created = IORepository(db).import_data(_devices_csv(tmp_path), actor="dh991")
     assert created == 3
 
     rows = _rows(log, actor="dh991")
     # device 3개를 3줄로 남기지 않는다. 임포트는 한 사건이다.
-    assert len(rows) == 1
-    assert rows[0]["action"] == audit.IMPORT
-    assert rows[0]["detail"]["processes"] == {"sf2p": 2, "sf4u": 1}
-    assert "devices.csv" in rows[0]["summary"]
+    (imported,) = [r for r in rows if r["action"] == audit.IMPORT]
+    assert imported["detail"]["processes"] == {"sf2p": 2, "sf4u": 1}
+    assert "devices.csv" in imported["summary"]
+    # 불러오기가 새로 만든 process 는 따로 한 줄씩 남는다. 만든 다음 불러왔다.
+    added = _process_adds(rows)
+    assert [r["process_name"] for r in added] == ["sf2p", "sf4u"]
+    assert all(r["id"] < imported["id"] for r in added)
+    assert len(rows) == 3
 
     with db.connection() as conn:
         who = conn.execute("SELECT DISTINCT updated_by FROM device").fetchall()
     assert [r["updated_by"] for r in who] == ["dh991"]
+
+
+def test_a_csv_import_records_only_the_processes_it_created(db, log, tmp_path):
+    ProcessRepository(db).add("sf2p", actor="관리자")
+    IORepository(db).import_data(_devices_csv(tmp_path), actor="dh991")
+
+    mine = _process_adds(_rows(log, actor="dh991"))
+    assert [r["process_name"] for r in mine] == ["sf4u"]
+    sf2p = _process_adds(_rows(log, process="sf2p"))
+    assert [r["actor"] for r in sf2p] == ["관리자"]
+
+
+def test_importing_the_same_file_again_adds_no_process_line(db, log, tmp_path):
+    path = _devices_csv(tmp_path)
+    io = IORepository(db)
+    io.import_data(path, actor="dh991")
+    io.import_data(path, actor="dh991")
+
+    rows = _rows(log, actor="dh991")
+    assert [r["action"] for r in rows] == [
+        audit.PROCESS_ADD,
+        audit.PROCESS_ADD,
+        audit.IMPORT,
+        audit.IMPORT,
+    ]
+
+
+def test_a_failed_import_records_nothing(db, log, tmp_path):
+    """process 를 만든 뒤 InstCellName 이 없어 실패한다. 이력도 같이 롤백된다."""
+    csv_path = tmp_path / "bad.csv"
+    csv_path.write_text("CellType,CdsLibName\nNFET,sf9z\n", encoding="utf-8")
+
+    with pytest.raises(KeyError):
+        IORepository(db).import_data(str(csv_path), actor="dh991")
+
+    assert ProcessRepository(db).list_all() == []
+    assert _rows(log) == []
 
 
 # ---------------------------------------------------------------------------
