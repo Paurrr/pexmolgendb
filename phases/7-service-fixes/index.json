@@ -2,15 +2,58 @@
   "project": "genviewer",
   "phase": "7-service-fixes",
   "steps": [
-    { "step": 0, "name": "cli-verbose-scrub", "status": "pending" },
-    { "step": 1, "name": "status-dsn-override", "status": "pending" },
-    { "step": 2, "name": "pool-failure-cause", "status": "pending" },
-    { "step": 3, "name": "audit-naive-time", "status": "pending" },
-    { "step": 4, "name": "log-follow", "status": "pending" },
-    { "step": 5, "name": "import-process-lock", "status": "pending" },
-    { "step": 6, "name": "import-process-audit", "status": "pending" },
-    { "step": 7, "name": "bind-param-limit", "status": "pending" },
-    { "step": 8, "name": "xlsx-literal", "status": "pending" },
-    { "step": 9, "name": "skill-escape", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "cli-verbose-scrub",
+      "status": "completed",
+      "started_at": "2026-10-18T00:21:02+0900",
+      "summary": "cli._fail: -v 트레이스백을 format_exception(exc) → scrub() 으로 출력. RED: test_verbose_traceback_hides_the_password[keyword], [url] (assert 'topsecret' not in err 실패, 같은 출력의 '오류:' 줄만 *** 로 가려짐). 변이: print_exc 복원 → 실패, scrub 제거 → 실패. README 명령줄 절에 '(그때도 비밀번호는 가려진다)', known-issues K31 행 삭제. DB 테스트: 635 passed / 9 skipped(Windows posix_only) / 1 xfailed"
+    },
+    {
+      "step": 1,
+      "name": "status-dsn-override",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "pool-failure-cause",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "audit-naive-time",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "log-follow",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "import-process-lock",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "import-process-audit",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "name": "bind-param-limit",
+      "status": "pending"
+    },
+    {
+      "step": 8,
+      "name": "xlsx-literal",
+      "status": "pending"
+    },
+    {
+      "step": 9,
+      "name": "skill-escape",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-10-18T00:21:02+0900"
 }

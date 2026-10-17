@@ -47,6 +47,7 @@ from genviewer.service.repo.device import DeviceRepository
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.exporter import write_csv, write_xlsx
+from genviewer.utils.logs import scrub
 from genviewer.utils.user import current_user
 
 _TIMEOUT_ENV = "GENDB_PG_STATEMENT_TIMEOUT_MS"
@@ -465,7 +466,8 @@ def _purge(repo: AuditRepository, before: datetime, yes: bool) -> None:
 
 def _fail(exc: BaseException) -> None:
     if _verbose:
-        traceback.print_exc()
+        # 트레이스백에도 예외 문자열이 그대로 들어간다. 가린 뒤에 찍는다.
+        typer.echo(scrub("".join(traceback.format_exception(exc))), err=True, nl=False)
     # str(exc) 를 쓰면 안 된다. psycopg 의 접속 실패 문자열에는 conninfo 가
     # 통째로 들어 있어서 비밀번호가 샌다. user_message 가 가려준다.
     typer.echo(f"오류: {user_message(exc)}", err=True)

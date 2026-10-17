@@ -150,6 +150,34 @@ def test_an_unexpected_failure_becomes_one_line(capsys):
     assert "topsecret" not in err
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "connection failed: password=topsecret",
+        "connection failed: postgresql://someone:topsecret@127.0.0.1:1/x",
+    ],
+    ids=["keyword", "url"],
+)
+def test_verbose_traceback_hides_the_password(monkeypatch, capsys, text):
+    """-v 의 트레이스백도 비밀번호를 가린다. 트레이스백 자체는 그대로 나온다.
+
+    main() 처럼 except 블록 안에서 부른다. 밖에서 부르면 print_exc() 가
+    "NoneType: None" 만 찍어서 가리지 않아도 통과해 버린다.
+    """
+    monkeypatch.setattr(cli, "_verbose", True)
+    try:
+        raise RuntimeError(text)
+    except RuntimeError as exc:
+        with pytest.raises(SystemExit) as caught:
+            cli._fail(exc)
+    assert caught.value.code == 1
+
+    err = capsys.readouterr().err
+    assert "topsecret" not in err
+    assert "Traceback" in err
+    assert err.strip().splitlines()[-1].startswith("오류:")
+
+
 def _main_failing_with(monkeypatch, body):
     """app 이 body() 를 부르다 죽는 상태로 cli.main() 을 돌린다.
 
