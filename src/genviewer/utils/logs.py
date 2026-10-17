@@ -13,6 +13,7 @@ print 나 트레이스백은 그대로 사라진다. "에러가 났다" 는 연�
 import logging
 import os
 import re
+from contextlib import suppress
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -98,8 +99,13 @@ def setup(level: int = logging.INFO, path: Path | None = None) -> Path | None:
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
-            # 홈 밑의 디렉터리다. 남이 내 로그를 읽을 이유가 없다.
-            os.chmod(target.parent, 0o700)
+            # 기본 위치(~/.genviewer)일 때만 좁힌다. 남이 내 로그를 읽을 이유가 없다.
+            # GENDB_LOG 로 고른 곳(/tmp, 팀 공유 디렉터리)은 내 것이 아닐 수 있어
+            # 건드리지 않는다. 권한을 못 좁혔다고 파일 로그까지 끄면 에러가 아무 데도
+            # 남지 않으므로 chmod 실패는 넘긴다. 경로를 직접 줬으면 홈을 몰라도 된다.
+            with suppress(OSError, RuntimeError):
+                if target.parent == Path.home() / DEFAULT_DIR:
+                    os.chmod(target.parent, 0o700)
         file_handler = RotatingFileHandler(
             target, maxBytes=MAX_BYTES, backupCount=BACKUP_COUNT, encoding="utf-8"
         )
