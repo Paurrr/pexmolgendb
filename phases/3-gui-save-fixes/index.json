@@ -45,7 +45,9 @@
     {
       "step": 5,
       "name": "process-change-save",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T14:56:14+0900",
+      "summary": "on_process_changed: device·탭 dirty 둘 다 묻고(질문 한 번, 문구 그대로) dirty인 쪽만 저장(device 먼저, 탭 다음, 같은 파일의 private 헬퍼 _save_before_process_change), 저장 뒤에도 dirty(충돌 취소·예외)면 clear/hide/로그 전에 select_process_silently(previous)로 되돌림. 저장 예외는 report_error('Save Devices Failed'/'Save Tabs Failed'). add_process 의 clearTabRequested 제거. RED: test_tab_edits_are_asked_about_and_saved_before_changing_process (SAVE_CHANGES count assert 0 == 1), test_answering_no_discards_tab_edits_and_changes_process (SAVE_CHANGES in []), test_cancelling_a_device_conflict_keeps_the_previous_process_and_its_edits (assert 'sf4u' == 'sf2p'), test_cancelling_a_tab_conflict_keeps_the_previous_process_and_its_tab_edits·test_adding_a_process_after_cancelling_a_tab_conflict_keeps_the_tab_edits (질문 없이 replace_many_for_device waitUntil 타임아웃 + 쓰이지 않은 답 teardown 실패), test_a_device_save_error_keeps_the_previous_process_and_its_edits (['Process Change Failed'] == ['Save Devices Failed']), test_device_and_tab_edits_are_both_saved_before_changing_process (['upsert_devices'] 뒤 replace_many_for_device 없음). test_reloading_on_a_device_conflict_changes_process 는 회귀(수정 전에도 통과). 표에 없던 탭 예외('Save Tabs Failed', 되돌림)·탭 충돌 다시 읽기(넘어감) 테스트를 더해 변이로 확인. 변이 검사 14개 중 13개 잡힘(탭 dirty 안 봄, device/탭 결과 무시, device/탭 예외 뒤 진행, 시그널 나는 select_process 로 되돌림, 콤보 안 되돌림, device 를 dirty 아니어도 저장, device/탭 False 면 항상 되돌림, add_process 탭 비우기 복원, 아니오면 머묾, 탭 먼저 저장). 남은 1개(dirty 없는 탭 쪽 save_all 호출)는 쓸 것이 없으면 바로 True 라 동치. 기존 테스트 단언 변경 없음. 전체 437 passed / 9 skipped(DB 포함). tests/gui/test_process_change_save.py"
     },
     {
       "step": 6,

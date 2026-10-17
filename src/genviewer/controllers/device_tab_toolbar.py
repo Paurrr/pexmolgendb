@@ -93,8 +93,9 @@ class DeviceTabToolBarController(QObject):
             return
 
         self.setProcessesRequested.emit(self.repo.list_all())
+        # 탭은 비우지 않는다. 넘어가면 on_process_changed 가 비우고, 저장이 취소돼 이전
+        # process 에 머물렀으면 남겨 둔 탭 편집을 버리게 된다.
         self.setProcessRequested.emit(name)
-        self.clearTabRequested.emit(True)
         self.notifyRequested.emit("info", "Success", f"Process '{name}' added.")
         self.logRequested.emit(f"Process added: {name}.")
 

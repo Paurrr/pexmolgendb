@@ -388,6 +388,13 @@ class DeviceTabController(QObject):
     @Slot()
     @report("Process Change Failed")
     def on_process_changed(self, process_name: str):
+        if process_name and not self._save_before_process_change():
+            # 저장이 취소되거나 실패해 편집이 남아 있다. 새 process 를 읽으면 그 편집이
+            # 말없이 버려진다. 콤보만 이전 process 로 되돌린다(processChanged 를 내지 않는다).
+            self.device_tab_toolbar.select_process_silently(
+                self.device_table.current_process
+            )
+            return
         self.clear()
         self.ui.hide_views()
         # 배너는 직전 process 이야기다. 같이 넘어가면 안 된다.
@@ -398,19 +405,50 @@ class DeviceTabController(QObject):
             self.parameter_tab._clear_tabs()
             return
         self.logRequested.emit(f"Selected process: {process_name}.")
-        if self.device_table.is_dirty():
-            if question(
-                self.ui,
-                "Save Changes",
-                "You have unsaved changes. Do you want to save them?",
-            ):
-                self.device_table.save_all()
 
         process_id = self.device_tab_toolbar.get_process_id(process_name)
         self.device_table.set_current_process(process_name)
         self.device_table.set_current_process_id(process_id)
         self.device_table.refresh_devices()
         self.parameter_tab._clear_tabs()
+
+    def _save_before_process_change(self) -> bool:
+        """저장하지 않은 device·탭 편집을 한 번 묻고, 예면 dirty 인 쪽만 저장한다.
+
+        넘어가도 되면 True. 예로 답했는데 저장이 취소(충돌 대화상자)되거나 예외로 실패해
+        편집이 남아 있으면 False 다. 다시 읽기는 편집이 이미 서버 내용이 됐으므로 넘어간다.
+        save_db 는 부르지 않는다("All changes have been saved." 가 하나 더 뜬다). 저장 예외는
+        여기서 알린다. @report 까지 올라가면 되돌릴 수 없다.
+        """
+        if not (self.device_table.is_dirty() or self.parameter_tab.is_dirty()):
+            return True
+        if not question(
+            self.ui,
+            "Save Changes",
+            "You have unsaved changes. Do you want to save them?",
+        ):
+            return True
+
+        # dirty 가 아닌 쪽은 부르지 않는다. device 쪽은 쓸 것이 없어도
+        # "No changes to save." 를 띄운다.
+        if self.device_table.is_dirty():
+            try:
+                saved = self.device_table.save_all()
+            except Exception as e:
+                report_error(self, "Save Devices Failed", e, logger=log)
+                return False
+            if not saved and self.device_table.is_dirty():
+                return False
+
+        if self.parameter_tab.is_dirty():
+            try:
+                saved = self.parameter_tab.save_all()
+            except Exception as e:
+                report_error(self, "Save Tabs Failed", e, logger=log)
+                return False
+            if not saved and self.parameter_tab.is_dirty():
+                return False
+        return True
 
     @Slot()
     def on_paste_requested(self, device_id, device_type, payload: dict):
