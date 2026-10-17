@@ -20,7 +20,7 @@
    - 고친 버그마다 수정 전에 실패하던 테스트가 있는가? 수정을 되돌리는 변이로 확인한다. summary의 "RED 확인"도 주장이다.
    - RED가 Windows 개발 PC에서 도는 테스트인가? `posix_only` 테스트만 있으면 개발 PC에서는 skip이라 증명이 안 된다.
    - 테스트가 이름·주석에 적은 성질을 실제로 검사하는가(같은 입력을 두 번 넣고 비교하는 형식적 테스트 금지)?
-   - 저장 경로: 성공, 충돌(`stale`/`deleted`) × Reload/Overwrite/Cancel, 예외마다 dirty·baseline·version·알림이 맞는가? 저장 함수가 실패를 성공처럼 알리지 않는가("Saved" 문구)?
+   - 저장 경로: 성공, 충돌(`stale`/`deleted`) × Reload/Overwrite/Cancel, 예외마다 dirty·baseline·version·알림이 맞는가? 저장 함수가 실패를 성공처럼 알리지 않는가("Saved" 문구)? 취소 뒤 이전 상태로 되돌리는 경로는 되돌릴 대상(이전 process·device)이 지워졌을 때도 콤보·표·탭이 같은 대상을 가리키는가?
    - GUI 비동기: `run_blocking`/`Task` 콜백의 실패 경로, 재접속·창 닫기 중 경로가 테스트되는가? "아무 일도 없음"을 `qtbot.wait` 고정 대기로 단언하지 않는가?
    - 셸 스크립트 변경은 stub으로 실제 실행하는 테스트(`tests/test_deploy_sh.py` 방식)가 지키는가? 텍스트 토큰 검사만 있으면 동작을 바꾸는 변이로 확인한다.
    - `repo/`·schema SQL 변경은 DB 테스트가 `GENDB_TEST_PG_DSN` 으로 실제로 돌았는가(skip 아님)?
