@@ -15,7 +15,8 @@
       "name": "fake-repos",
       "status": "completed",
       "started_at": "2026-10-17T13:01:18+0900",
-      "summary": "tests/gui_support/fakes.py: FakeStore(calls/calls_of/fail_next/open_database, add_process/add_device/set_rows/touch_device/remove_device/find_device/rows), FakeDatabase, Fake{Process,Device,Parameter,IO}Repository(메서드 14개). contract test 37개 × fake/real(real: passed — 개발 클러스터 55433 DSN), 가짜 전용 49개. 변이 검사 2건(IS DISTINCT FROM 가드 → fake 쪽 4개 실패, 삭제의 process_id 조건 → 옮겨진 device 테스트 실패) 모두 DB 없이 잡힘. 기준선: DB 없음 263 passed/124 skipped, DB 378/9. 관찰: service/repo/device.py:97 upsert_device — id 가 있으면 version 검사 없이 덮어쓰고 process_id 도 바꾼다(지금 컨트롤러 paste_rows 는 id 없는 dict 만 넘겨 닿지 않는다. 가짜는 그대로 흉내, 단언하지 않음)"
+      "summary": "tests/gui_support/fakes.py: FakeStore(calls/calls_of/fail_next/open_database, add_process/add_device/set_rows/touch_device/remove_device/find_device/rows), FakeDatabase, Fake{Process,Device,Parameter,IO}Repository(메서드 14개). contract test 37개 × fake/real(real: passed — 개발 클러스터 55433 DSN), 가짜 전용 49개. 변이 검사 2건(IS DISTINCT FROM 가드 → fake 쪽 4개 실패, 삭제의 process_id 조건 → 옮겨진 device 테스트 실패) 모두 DB 없이 잡힘. 기준선: DB 없음 263 passed/124 skipped, DB 378/9. 관찰: service/repo/device.py:97 upsert_device — id 가 있으면 version 검사 없이 덮어쓰고 process_id 도 바꾼다(지금 컨트롤러 paste_rows 는 id 없는 dict 만 넘겨 닿지 않는다. 가짜는 그대로 흉내, 단언하지 않음)",
+      "completed_at": "2026-10-17T13:17:24+0900"
     },
     {
       "step": 2,
