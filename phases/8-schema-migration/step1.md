@@ -15,7 +15,7 @@ step 0 이 init_db 쪽(`schema.postgres_all_ddl()` 의 컬럼 더하기)을 했�
 4. SQL은 PostgreSQL 10~15에서 돌아야 한다(운영은 RHEL 7 + PG 15). 식별자는 `psycopg.sql.Identifier` 와 `schema.child_tables()`/`TABLE_COLUMNS` 로만 만든다. PG 16+ 문법을 쓰지 않는다.
 5. `service/schema.py`, `scripts/init_db.py`, `config/config.py`, `scripts/__init__.py` 는 **Python 3.9 에서 import 되어야 한다**(CLAUDE.md CRITICAL, ADR-014). `service/diagnostics.py` 는 init_db 가 import 하지 않으므로 3.13 문법이어도 된다.
 6. `config/tab_config.json` 의 키 구조를 바꾸지 않는다.
-7. 이 파일의 행 번호는 2026-10-17 기준 대략값이다. phase 7 과 이 phase 의 step 0 이 끝난 뒤의 코드이니 이름으로 찾아라.
+7. 이 파일의 행 번호는 2026-10-18(phase 7 직후) 기준 대략값이다. 이 phase 의 step 0 이 끝난 뒤의 코드이니 이름으로 찾아라.
 8. 사용자에게 보이는 동작이 바뀌면 README·ADR 의 해당 절을 고친다. CLAUDE.md 의 테스트 기준선 숫자는 고치지 않는다(phase 마무리에서 고친다).
 
 DB 테스트는 `tests/conftest.py` 의 `pg_dsn`, `db` fixture 를 쓴다. `db` 는 테스트마다 `postgres_all_ddl()` 을 전부 실행한 뒤 TRUNCATE 한다(step 0 뒤로는 빠진 컬럼도 되살린다).
@@ -31,10 +31,10 @@ DB 테스트는 `tests/conftest.py` 의 `pg_dsn`, `db` fixture 를 쓴다. `db` 
 - `/CLAUDE.md`, `/docs/ADR.md`(ADR-003), `/docs/ARCHITECTURE.md`(스키마 절의 `diagnostics.expected_tables`)
 - `phases/8-schema-migration/index.json` — step 0 summary
 - `src/genviewer/service/diagnostics.py`
-  - `expected_tables` (~123-125)
-  - `ServerInfo` (~128-143): `missing_tables`, `schema_ready`
-  - `probe` (~146-191): `pg_class` 에서 테이블 이름을 다 받아 Python 에서 비교한다(`name` 타입과 `text[]` 비교 주석). 예외를 내지 않는다
-- `src/genviewer/cli.py` — `status` (~160-203): `missing_tables` 가 있으면 두 줄과 `Exit(1)`, 없으면 `스키마: 테이블 N개 모두 있음`
+  - `expected_tables` (~136-138)
+  - `ServerInfo` (~141-156): `missing_tables`, `schema_ready`
+  - `probe` (~159-204): `pg_class` 에서 테이블 이름을 다 받아 Python 에서 비교한다(`name` 타입과 `text[]` 비교 주석). 예외를 내지 않는다
+- `src/genviewer/cli.py` — `status` (~162-207): `missing_tables` 가 있으면 두 줄과 `Exit(1)`, 없으면 `스키마: 테이블 N개 모두 있음`
 - `src/genviewer/service/schema.py` — `child_tables()`, step 0 이 더한 컬럼 더하기 함수
 - `tests/test_cli.py`
   - `test_status_reports_the_schema_and_the_row_counts`

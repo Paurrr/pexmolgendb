@@ -18,7 +18,7 @@
    - `service/schema.py` 에는 `from __future__ import annotations` 가 없다. 그러니 그 파일의 애노테이션도 3.9 문법이어야 한다.
    - phase 6 이 만든 가드 테스트(`tests/test_boundaries.py` 등의 py39 검사)가 이것을 지킨다. 그 테스트가 없으면 `ast.parse(src, feature_version=(3, 9))` 를 직접 돌려 보고 summary에 적는다.
 6. `config/tab_config.json` 의 키 구조를 바꾸지 않는다.
-7. 이 파일의 행 번호는 2026-10-17 기준 대략값이다. phase 7 이 끝난 뒤의 코드이니 이름으로 찾아라.
+7. 이 파일의 행 번호는 2026-10-18(phase 7 직후) 기준 대략값이다. 이름으로 찾아라.
 8. 사용자에게 보이는 동작이 바뀌면 README·ADR 의 해당 절을 고친다. CLAUDE.md 의 테스트 기준선 숫자는 고치지 않는다(phase 마무리에서 고친다).
 
 DB 테스트는 `tests/conftest.py` 의 `pg_dsn`, `db` fixture 를 쓴다. `db` 는 테스트마다 `postgres_all_ddl()` 을 전부 실행한 뒤 TRUNCATE 한다.
@@ -50,7 +50,7 @@ DB 테스트는 `tests/conftest.py` 의 `pg_dsn`, `db` fixture 를 쓴다. `db` 
   - `test_ddl_drops_an_old_unique_constraint_whatever_its_name`: DB 테스트의 본보기
 - `tests/test_init_db.py`: `test_app_role_adds_grants_after_the_ddl` 등. 계획 순서의 불변식
 - `tests/test_cli.py` — `test_status_points_at_init_db_when_a_table_is_missing` 의 docstring(테스트가 스키마를 망가뜨리면 다음 테스트의 fixture 가 되살릴 수 있어야 한다는 주의)
-- `README.md` — `## CSV 컬럼과 탭` 의 "탭을 추가한 뒤에는 …" 문단 (~337-340), 서버 절의 init_db 순서
+- `README.md` — `## CSV 컬럼과 탭` 의 "탭을 추가한 뒤에는 …" 문단 (~343-346), 서버 절의 init_db 순서
 
 ## 작업
 
