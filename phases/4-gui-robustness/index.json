@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "tab-section-view",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T17:31:35+0900",
+      "summary": "TabSection: device_id/device_celltype None 으로 시작, device 없으면 Insert 무시(open_insert_dialog 한 곳, 버튼·Ctrl+I·메뉴 공통), Ctrl+E 는 edit_selected_row. RED: test_insert_right_after_connect_does_nothing[call/ctrl_i/button/menu] (AttributeError: 'TabSection' object has no attribute 'device_celltype', Ctrl+I 는 keyPressEvent override 에서), test_insert_after_the_selection_is_cleared_does_not_open_the_dialog[4경로] (FakeInsertDialog 가 device_celltype=None 으로 만들어짐), test_ctrl_e_opens_the_edit_dialog_with_the_row_values (prefill {} != {reserved_key: DRN, cds_inst_term_name: d}), test_ctrl_e_and_the_edit_button_open_the_same_dialog (prefill {} != GATE/g). device 있는 Insert 4경로·선택 없는 Ctrl+E 는 특성 테스트(수정 전에도 통과). 변이 검사 3개(가드 제거, __init__ 속성 제거, Ctrl+E 원복) 모두 잡힘. tests/gui/test_tab_section_view.py 추가(15개, FakeInsertDialog 는 파일 안). DB 테스트: 479 passed / 9 skipped / 1 xfailed"
     },
     {
       "step": 2,

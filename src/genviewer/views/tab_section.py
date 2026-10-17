@@ -38,6 +38,9 @@ class TabSection(QWidget):
         self.headers = headers
         self.table_name = table_name
         self.title = title or table_name
+        # device 를 고르기 전(접속 직후 섹션을 새로 만든 뒤)에도 있어야 한다.
+        self.device_id: int | None = None
+        self.device_celltype: str | None = None
         self.table_view = ParameterTableView(self)
 
         v_layout = QVBoxLayout()
@@ -98,6 +101,10 @@ class TabSection(QWidget):
         self.device_celltype = device_celltype
 
     def open_insert_dialog(self):
+        # 버튼·Ctrl+I·메뉴가 모두 여기로 온다. device 가 없으면 넣을 모델이 없어서
+        # OK 를 눌러도 입력이 버려진다.
+        if self.device_id is None:
+            return
         dlg = InsertDialog(
             self.device_celltype, self.table_name, self.columns, self.headers, self
         )
@@ -178,9 +185,7 @@ class TabSection(QWidget):
             elif event.key() == Qt.Key_D:
                 self.delete_rows(self.table_view._selected_rows())
             elif event.key() == Qt.Key_E:
-                rows = self.table_view._selected_rows()
-                if rows:
-                    self.open_edit_dialog(rows[0], {})
+                self.edit_selected_row()
         elif event.modifiers() == Qt.NoModifier:
             if event.key() == Qt.Key_Delete:
                 self.delete_rows(self.table_view._selected_rows())
