@@ -14,6 +14,7 @@ from psycopg.rows import dict_row
 from genviewer.service.config import DbConfig
 from genviewer.service.errors import StaleWriteError
 from genviewer.service.pool import Database
+from genviewer.service.repo import audit
 from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.device import DeviceRepository
 from genviewer.service.repo.io import IORepository
@@ -249,6 +250,39 @@ def test_duplicate_device_names_are_allowed(db, process_id):
     assert [r["name"] for r in rows] == ["nfet_b", "nfet_b"]
     assert len({r["id"] for r in rows}) == 2, "같은 행에 덮어썼다"
     assert sorted(r["celltype"] for r in rows) == ["NFET", "PFET"]
+
+
+def test_a_save_larger_than_one_statement_can_bind(db, process_id):
+    """device 가 아주 많은 process 를 정렬하고 저장해도 저장된다 (K9).
+
+    한 문장의 바인드 파라미터는 65,535개까지다. UPDATE 는 행 하나에 6개 +
+    actor 1개라 10,923행이면 65,539개다. 이력도 10,923줄이라 한 줄 9개로 넘는다.
+    """
+    n = 10_923
+    with db.connection() as conn:
+        conn.execute(
+            'INSERT INTO device (process_id, name, celltype, "order") '
+            "SELECT %s, 'd' || g, 'NFET', g FROM generate_series(1, %s) g",
+            (process_id, n),
+        )
+    repo = DeviceRepository(db)
+    before = repo.fetch_devices_by_process(process_id)
+    assert len(before) == n
+
+    # 뒤집는다. order g 인 행은 n - g 가 되어 n 이 홀수여도 그대로인 행이 없다.
+    payload = [{**d, "order": i} for i, d in enumerate(reversed(before))]
+    result = repo.upsert_devices(process_id, payload, actor="A")
+
+    assert result.updated == n
+    old = {d["id"]: d["version"] for d in before}
+    after = repo.fetch_devices_by_process(process_id)
+    assert all(d["version"] == old[d["id"]] + 1 for d in after)
+    assert all(d["version"] == old[d["id"]] + 1 for d in result.devices)
+    with db.connection() as conn:
+        logged = conn.execute(
+            "SELECT count(*) AS n FROM change_log WHERE action = %s", (audit.UPDATE,)
+        ).fetchone()["n"]
+    assert logged == n
 
 
 # ---------------------------------------------------------------------------

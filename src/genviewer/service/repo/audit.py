@@ -68,32 +68,45 @@ class Entry:
     detail: dict = field(default_factory=dict)
 
 
+# 행마다 VALUES 를 늘리는 문장 하나에 담는 행 수. libpq 는 한 문장의 바인드
+# 파라미터를 65,535개까지만 보낸다(넘으면 "number of parameters must be between
+# 0 and 65535" 로 저장 전체가 실패한다). 행 하나에 이력은 9개, device UPDATE 는
+# 6개라 1,000행이면 많아야 9,000개로 넉넉하다. 나눈 문장은 모두 호출자의 커서로
+# 차례로 돈다 - 같은 트랜잭션이라 하나라도 실패하면 전부 롤백된다.
+BATCH_ROWS = 1_000
+
+
 def write(cur, actor: str, entries: list[Entry]) -> None:
-    """호출자의 커서로 쓴다. 반드시 저장과 같은 트랜잭션이어야 한다."""
+    """호출자의 커서로 쓴다. 반드시 저장과 같은 트랜잭션이어야 한다.
+
+    BATCH_ROWS 줄씩 나눠 순서대로 쓴다. 나중 항목의 id 가 크다.
+    """
     if not entries:
         return
     row = sql.SQL("(%s, %s, %s, %s, %s, %s, %s, %s, %s)")
-    stmt = sql.SQL(
-        "INSERT INTO change_log "
-        "  (actor, source, action, process_name, device_name, device_id, "
-        "   table_name, summary, detail) "
-        "VALUES {rows}"
-    ).format(rows=sql.SQL(", ").join([row] * len(entries)))
+    for start in range(0, len(entries), BATCH_ROWS):
+        batch = entries[start : start + BATCH_ROWS]
+        stmt = sql.SQL(
+            "INSERT INTO change_log "
+            "  (actor, source, action, process_name, device_name, device_id, "
+            "   table_name, summary, detail) "
+            "VALUES {rows}"
+        ).format(rows=sql.SQL(", ").join([row] * len(batch)))
 
-    params: list = []
-    for e in entries:
-        params += [
-            actor,
-            _source,
-            e.action,
-            e.process_name,
-            e.device_name,
-            e.device_id,
-            e.table_name,
-            e.summary,
-            Jsonb(e.detail),
-        ]
-    cur.execute(stmt, params)
+        params: list = []
+        for e in batch:
+            params += [
+                actor,
+                _source,
+                e.action,
+                e.process_name,
+                e.device_name,
+                e.device_id,
+                e.table_name,
+                e.summary,
+                Jsonb(e.detail),
+            ]
+        cur.execute(stmt, params)
 
 
 # 사라질 자식 행을 통째로 보관할 때의 상한. process 하나에 device 가 아주 많으면

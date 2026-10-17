@@ -323,32 +323,40 @@ class DeviceRepository:
         # force 일 때는 version 조건을 빼야 한다. 넣어두면 덮어쓰기를 눌러도
         # 오래된 행이 매칭되지 않아 아무것도 쓰이지 않는다.
         version_guard = sql.SQL("") if force else sql.SQL("AND d.version = v.version ")
-        stmt = sql.SQL(
-            "UPDATE device d SET "
-            "  name=v.name, celltype=v.celltype, description=v.description, "
-            '  "order"=v.ord, version=d.version+1, updated_at=now(), updated_by=%s '
-            "FROM (VALUES {values}) AS v(id, version, name, celltype, description, ord) "
-            "WHERE d.id = v.id {version_guard}"
-            '  AND (d.name, d.celltype, d.description, d."order") '
-            "      IS DISTINCT FROM (v.name, v.celltype, v.description, v.ord) "
-            "RETURNING d.id, d.version"
-        ).format(
-            values=sql.SQL(", ").join([row_tmpl] * len(to_update)),
-            version_guard=version_guard,
-        )
 
-        params: list = [actor]
-        for d in to_update:
-            params += [
-                d["id"],
-                d.get("version"),
-                d.get("name"),
-                d.get("celltype"),
-                d.get("description") or "",
-                d.get("order", 0),
-            ]
+        # audit.BATCH_ROWS 행씩 나눠 같은 커서로 차례로 보낸다(바인드 파라미터 상한).
+        # 행은 upsert_devices 가 이미 FOR UPDATE 로 잠갔고, 가드는 문장마다 똑같이
+        # 걸리므로 나눠도 쓰이는 행은 같다. 묶음마다 받은 RETURNING 을 합친다.
+        changed: dict[int, int] = {}
+        for start in range(0, len(to_update), audit.BATCH_ROWS):
+            batch = to_update[start : start + audit.BATCH_ROWS]
+            stmt = sql.SQL(
+                "UPDATE device d SET "
+                "  name=v.name, celltype=v.celltype, description=v.description, "
+                '  "order"=v.ord, version=d.version+1, updated_at=now(), updated_by=%s '
+                "FROM (VALUES {values}) AS v(id, version, name, celltype, description, ord) "
+                "WHERE d.id = v.id {version_guard}"
+                '  AND (d.name, d.celltype, d.description, d."order") '
+                "      IS DISTINCT FROM (v.name, v.celltype, v.description, v.ord) "
+                "RETURNING d.id, d.version"
+            ).format(
+                values=sql.SQL(", ").join([row_tmpl] * len(batch)),
+                version_guard=version_guard,
+            )
 
-        changed = {r["id"]: r["version"] for r in cur.execute(stmt, params).fetchall()}
+            params: list = [actor]
+            for d in batch:
+                params += [
+                    d["id"],
+                    d.get("version"),
+                    d.get("name"),
+                    d.get("celltype"),
+                    d.get("description") or "",
+                    d.get("order", 0),
+                ]
+
+            for r in cur.execute(stmt, params).fetchall():
+                changed[r["id"]] = r["version"]
         # RETURNING 에 없는 행은 값이 같아 건드리지 않은 것이므로 version 유지.
         for d in to_update:
             if d["id"] in changed:

@@ -405,6 +405,40 @@ def test_a_failed_import_records_nothing(db, log, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# 한 번에 많이 (K9)
+# ---------------------------------------------------------------------------
+
+# 한 줄에 바인드 파라미터 9개. 7,282 × 9 = 65,538 로 한 문장의 상한(65,535)을 넘는다.
+_OVER_THE_LIMIT = 7_282
+
+
+def test_more_lines_than_one_statement_can_bind_are_all_kept(db):
+    entries = [audit.process_add(f"p{i}") for i in range(_OVER_THE_LIMIT)]
+    with db.connection() as conn:
+        audit.write(conn.cursor(), "bulk", entries)
+
+    with db.connection() as conn:
+        rows = conn.execute(
+            "SELECT actor, process_name FROM change_log ORDER BY id"
+        ).fetchall()
+    # 순서도 지킨다. 나중에 쓴 줄의 id 가 크다.
+    assert [r["process_name"] for r in rows] == [e.process_name for e in entries]
+    assert {r["actor"] for r in rows} == {"bulk"}
+
+
+def test_a_large_write_is_rolled_back_with_the_save(db):
+    """나눠 쓰더라도 저장 하나는 트랜잭션 하나다. 실패하면 한 줄도 남지 않는다."""
+    entries = [audit.process_add(f"p{i}") for i in range(_OVER_THE_LIMIT)]
+    with pytest.raises(RuntimeError), db.connection() as conn:
+        audit.write(conn.cursor(), "bulk", entries)
+        raise RuntimeError("저장의 다음 단계가 실패했다")
+
+    with db.connection() as conn:
+        n = conn.execute("SELECT count(*) AS n FROM change_log").fetchone()["n"]
+    assert n == 0
+
+
+# ---------------------------------------------------------------------------
 # 읽기와 정리
 # ---------------------------------------------------------------------------
 
