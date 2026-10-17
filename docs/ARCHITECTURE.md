@@ -39,7 +39,7 @@ src/genviewer/
       process.py            #     process 목록·추가·삭제·get_or_create
       io.py                 #     CSV import(pandas), export 데이터
       audit.py              #     change_log 쓰기(호출자의 cursor)·읽기·포맷·purge
-  scripts/                  # 관리 도구 (argparse). init_db(스키마·role·권한), import_sqlite(.sqlite 이관)
+  scripts/                  # 관리 도구 (argparse). init_db(스키마·role·권한)
   models/                   # QAbstractTableModel: device_table(dirty·undo), generic_table(탭), device_state, parameter_summary, sorting_proxy
   views/                    # QWidget. 위젯을 만들고 의도 시그널을 낸다. main_window, device_tab, device_table, parameter_tab, tab_section, history_tab, socket_tab …
   controllers/              # QObject. view 시그널 ↔ repo 호출. main_window, device_tab(접속·폴링), device_table(저장·충돌), parameter_tab, tab_section(device별 모델 캐시), device_tab_toolbar, history_tab, socket_tab

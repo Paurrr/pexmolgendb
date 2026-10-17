@@ -14,7 +14,7 @@ molgen용 device 데이터를 만들고 고치는 사내 엔지니어 몇 명. R
 5. **변경 이력**: 누가 언제 무엇을 더하고 지우고 고쳤는지 `change_log` 에 쌓고, `genviewer log`(숨김 명령)와 `--history` 화면으로 본다. 값이 실제로 바뀐 것만 남는다.
 6. **Virtuoso 연동**: TCP 소켓으로 Virtuoso SKILL 세션에 붙어 device 목록(`filterCellHasSymbolLayout`)을 받아 비교하고, 선택 device를 `pydata = list(...)` SKILL 리스트로 보낸다.
 7. **CLI**: `status`, `processes`, `load`, `export`, `log`(숨김), `--check-config`. device 편집은 창에서만 한다.
-8. **운영 도구**: `genviewer-init-db`(스키마·권한, 멱등), `genviewer-import-sqlite`(옛 `.sqlite` 이관), `tools/initdb.sh`(클러스터), `tools/deploy.sh`(태그 고정 공유 설치).
+8. **운영 도구**: `genviewer-init-db`(스키마·권한, 멱등), `tools/initdb.sh`(클러스터), `tools/deploy.sh`(태그 고정 공유 설치).
 
 ## 제외 사항
 - 서버 프로그램(FastAPI 등). 동시성은 서버 프로세스가 아니라 낙관적 잠금이 처리한다.

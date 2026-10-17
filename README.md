@@ -257,8 +257,7 @@ $ genviewer log
 
 **uv 는 배포할 때만 필요하고 쓸 때는 필요 없다.** `bin/` 의 런처가 venv 의
 인터프리터를 직접 부르므로 앱을 쓰는 사람은 uv 도 자기 파이썬도 없어도 된다.
-`[project.scripts]` 에 있는 명령이 전부 나온다(`genviewer`, `genviewer-init-db`,
-`genviewer-import-sqlite`).
+`[project.scripts]` 에 있는 명령이 전부 나온다(`genviewer`, `genviewer-init-db`).
 
 사용자가 셸 프로파일에 한 줄을 넣거나,
 
@@ -357,31 +356,6 @@ uv pip compile pyproject.toml --python-version 3.13 --python-platform x86_64-man
 DDL 이 제약 이름을 카탈로그에서 찾아 떼어내므로 손으로 만든 이름이어도 걸린다.
 데이터는 건드리지 않는다.
 
-## 기존 .sqlite 파일 옮기기
-
-```sh
-# 무엇이 들어갈지 먼저 본다
-uv run genviewer-import-sqlite --sqlite mine.sqlite --dsn "$GENDB_PG_DSN" --dry-run
-
-# 여러 사람 파일을 각자 이름으로 구분해서 넣는다 (초기 대량 이관에 권장)
-uv run genviewer-import-sqlite --sqlite mine.sqlite --dsn "$GENDB_PG_DSN" --on-conflict rename
-```
-
-이 도구는 `genviewer.env` 를 읽지 않는다. `--dsn` 이나 `GENDB_PG_DSN` 이 **반드시**
-있어야 하고(`--dry-run` 도 마찬가지), 없으면 사용법 오류로 끝난다. `genviewer-init-db`
-도 `genviewer.env` 를 읽지 않는다(그쪽은 `--dry-run` 만 DSN 없이 된다).
-
-**아무도 편집하지 않을 때 돌린다.** `--on-conflict merge` 는 device 의 `version` 을
-올리지 않고 `change_log` 도 쓰지 않아서, 그 사이 열려 있던 창은 바뀐 것을 모른 채
-나중에 저장하며 덮어쓸 수 있다(`docs/notes/known-issues.md` K4).
-
-`--on-conflict` 는 같은 이름의 **process** 가 이미 있을 때의 정책이다.
-`fail`(기본) / `rename` / `merge` / `skip`.
-
-device 이름 중복은 막지 않는다. 원본에 같은 이름이 여럿 있으면 그대로 옮겨진다.
-`merge` 로 같은 파일을 다시 돌려도 늘어나지 않는다 — 같은 이름끼리 순서대로
-짝지어 갱신한다.
-
 ## 동시 편집
 
 여러 명이 같은 DB 를 동시에 편집한다. 저장할 때 다른 사람이 먼저 바꾼 것이
@@ -468,7 +442,7 @@ src/genviewer/
   models/ views/ controllers/ delegates/ dialogs/   Qt MVC
   net/           Virtuoso 소켓
   utils/
-  scripts/       관리 도구 (init_db, import_sqlite)
+  scripts/       관리 도구 (init_db)
 tools/           initdb.sh(서버 클러스터), deploy.sh(배포)
 tests/
 docs/            PRD / ARCHITECTURE / ADR / UI_GUIDE, notes/(제안·알려진 문제)
@@ -503,6 +477,9 @@ SKIP_START=1 PGBIN="/c/Program Files/PostgreSQL/18/bin" ./tools/initdb.sh
 uv run genviewer-init-db --dry-run        # 접속하지 않고 실행될 SQL 만 본다
 uv run genviewer-init-db --dsn "postgresql://<내계정>@127.0.0.1:55433/molgen"
 ```
+
+`genviewer-init-db` 는 `genviewer.env` 를 읽지 않는다. `--dsn` 이나 `GENDB_PG_DSN` 이
+있어야 하고, `--dry-run` 만 DSN 없이 된다.
 
 ### 검사
 

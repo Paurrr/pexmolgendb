@@ -30,7 +30,7 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 - 커밋 메시지는 conventional commits 형식을 따를 것 (feat:, fix:, docs:, refactor:, test:, chore:). 설명은 한국어로 써도 된다.
 - 파일 삭제는 `git rm` 또는 Python 코드로 한다 (`rm -rf` 는 훅이 차단한다).
 - 셸 스크립트(`tools/*.sh`)는 LF(`.gitattributes`)와 실행 비트(`git update-index --chmod=+x <file>`)로 커밋한다. 이유: Windows는 실행 비트를 잃고 CRLF면 서버에서 `bad interpreter` 가 난다.
-- 루트 `scripts/` 는 하네스(execute.py)이고 `src/genviewer/scripts/` 는 관리 도구(init_db, import_sqlite)다. 헷갈리지 않는다.
+- 루트 `scripts/` 는 하네스(execute.py)이고 `src/genviewer/scripts/` 는 관리 도구(init_db)다. 헷갈리지 않는다.
 
 ## 테스트 관례
 - DB가 필요한 테스트는 `tests/conftest.py` 의 `pg_dsn`/`db` fixture를 쓴다. `GENDB_TEST_PG_DSN` 은 **관리자 DSN**이어야 한다(fixture가 `gendb_test_<pid>` 데이터베이스를 만들고 지운다. 권한 테스트는 CREATE ROLE까지 한다). 없으면 skip된다. 개발 PC 기준선(DB 없음, phase 4 완료 후 2026-10-17)은 Git Bash에서 427 passed / 124 skipped / 1 xfailed다. `sh` 가 PATH에 없는 셸(PowerShell)에서는 셸 스크립트 테스트 20개(`test_deploy_sh.py`, `test_initdb_sh.py`)가 더 skip되어 407 / 144 / 1이 된다. DB를 붙이면 542 passed / 9 skipped / 1 xfailed(Windows 권한 테스트만 skip)다.

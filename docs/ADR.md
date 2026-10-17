@@ -30,7 +30,7 @@
 ### ADR-005: change_log 는 앱이 같은 트랜잭션에서 쓴다
 **결정**: 누가 언제 무엇을 바꿨는지 `change_log` 테이블에 앱이 저장과 같은 트랜잭션으로 쓴다(`repo/audit.write(cur, …)`). 값이 실제로 바뀐 행만 남긴다. 외래키를 걸지 않고, 지워진 것은 자식 행까지 `detail`(JSONB)에 통째로 남긴다. 트리거를 쓰지 않는다. 자동 삭제 없음(`--purge-before`). `genviewer log` 는 `--help` 에 숨긴다(접근 통제가 아니라 요청에 따른 숨김).
 **이유**: 전원이 같은 role이라 트리거의 `current_user` 로는 사람을 구분할 수 없다. 탭 저장은 통째 교체라 행 트리거면 셀 하나 고친 저장이 로그 십수 줄이 된다. FK를 걸면 cascade가 이력까지 지운다. 저장이 실패하면 이력도 없어야 한다.
-**트레이드오프**: `psql` 로 직접 고친 것과 `import_sqlite` 가 쓴 것은 남지 않는다.
+**트레이드오프**: `psql` 로 직접 고친 것은 남지 않는다.
 
 ### ADR-006: device 이름 중복 허용, CSV 는 누적
 **결정**: `UNIQUE (process_id, name)` 을 없앴다. 식별은 `id` 로만 한다. CSV 한 행이 device 하나이고, 불러올 때마다 새로 쌓인다(만든 개수를 항상 보여준다). `init_db` 가 옛 제약을 카탈로그에서 찾아 뗀다.
@@ -64,7 +64,7 @@
 **트레이드오프**: 교체가 제자리라 설치 중에 띄우면 반쯤 바뀐 트리를 볼 수 있다. uv 관리 CPython이 배포자 홈에 있으면 남이 실행하지 못한다(`DEPLOY_PYTHON`).
 
 ### ADR-012: CLI 는 typer, rich 없이, 편집은 창에서만
-**결정**: `genviewer` 하나에 서브커맨드(`status`, `processes`, `load`, `export`, 숨김 `log`). 서브커맨드가 없으면 창을 띄운다. `typer.Typer(rich_markup_mode=None, pretty_exceptions_enable=False)`, 콘솔 스크립트는 `main()` 을 가리키고 `main()` 이 인코딩을 손본 뒤 예외를 한 줄 문장으로 바꾼다. 종료 코드 0/1/2/130. 관리 도구(`init_db`, `import_sqlite`)는 argparse.
+**결정**: `genviewer` 하나에 서브커맨드(`status`, `processes`, `load`, `export`, 숨김 `log`). 서브커맨드가 없으면 창을 띄운다. `typer.Typer(rich_markup_mode=None, pretty_exceptions_enable=False)`, 콘솔 스크립트는 `main()` 을 가리키고 `main()` 이 인코딩을 손본 뒤 예외를 한 줄 문장으로 바꾼다. 종료 코드 0/1/2/130. 관리 도구(`init_db`)는 argparse.
 **이유**: Pexorche의 CLI 형태다. 한국어 Windows 콘솔(cp949)은 rich가 그리는 상자 문자를 못 찍는다. device 편집은 낙관적 잠금·충돌 해결이 창에 얽혀 있어 명령줄로 흉내 내면 거짓말이 된다.
 **트레이드오프**: `typer` 가 rich를 끌어온다(`typer-slim` 은 이제 껍데기). CLI만 써도 pandas가 import된다.
 
