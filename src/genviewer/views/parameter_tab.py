@@ -25,27 +25,44 @@ class ParameterTab(QTabWidget):
         self.addTab(self.summary_view, "Summary")
 
         for name, cfg in available_tabs.items():
-            section = TabSection(
-                columns=cfg["columns"],
-                headers=cfg["headers"],
-                table_name=cfg["table"],
-                title=name,
-                parent=self,
-            )
-            section.setObjectName(name)
-            self.addTab(section, name)
-
-            if callable(on_created):
-                on_created(name, section)
-
-            if hasattr(section, "dirtyChanged"):
-                section.dirtyChanged.connect(
-                    lambda on, w=section: self._set_dirty_marker(w, on)
-                )
+            self._insert_section(self.count(), name, cfg, on_created)
 
         self.addTab(QWidget(), "+")
         if self.count() > 2:
             self.setCurrentIndex(1)
+
+    def add_tab(self, name: str, cfg: dict, on_created=None) -> TabSection:
+        """"+" 에서 고른 탭을 "+" 바로 앞에 붙이고 현재 탭으로 만든다.
+
+        이미 있는 이름이면 새로 만들지 않고 그 섹션을 돌려준다.
+        """
+        idx = self.find_tab(name)
+        if idx != -1:
+            return self.widget(idx)
+        section = self._insert_section(self.count() - 1, name, cfg, on_created)
+        self.setCurrentWidget(section)
+        return section
+
+    def _insert_section(self, index: int, name: str, cfg: dict, on_created) -> TabSection:
+        # rebuild_tabs 와 add_tab 이 함께 쓴다. 둘이 어긋나면 같은 탭이 경로에 따라 다르게 동작한다.
+        section = TabSection(
+            columns=cfg["columns"],
+            headers=cfg["headers"],
+            table_name=cfg["table"],
+            title=name,
+            parent=self,
+        )
+        section.setObjectName(name)
+        self.insertTab(index, section, name)
+
+        if callable(on_created):
+            on_created(name, section)
+
+        if hasattr(section, "dirtyChanged"):
+            section.dirtyChanged.connect(
+                lambda on, w=section: self._set_dirty_marker(w, on)
+            )
+        return section
 
     def set_summary_rows(self, rows: list[dict]):
         self.summary_view.set_rows(rows)

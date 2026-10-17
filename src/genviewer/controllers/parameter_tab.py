@@ -172,7 +172,9 @@ class ParameterTabController(QObject):
         if dialog.exec_():
             selected = dialog.get_selected_tab()
             if selected:
-                self.ui.add_tab(selected)
+                self.ui.add_tab(
+                    selected, tab_config[selected], on_created=self._attach_section
+                )
 
     def paste_payload(
         self,
