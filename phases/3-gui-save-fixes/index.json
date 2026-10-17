@@ -29,7 +29,9 @@
     {
       "step": 3,
       "name": "device-switch-save",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T14:41:43+0900",
+      "summary": "_switch_device_by_index: 예 + 탭 저장 False + 아직 dirty면 set_device_to_section 전에 멈춤(다시 읽기는 진행). 표 선택은 새 행에 두고 코드로 되돌리지 않는다. RED: test_cancelling_a_tab_conflict_keeps_the_previous_device_and_its_edits (current_device_id assert 2 == 1, nfet_b 로 넘어감), test_after_cancelling_the_next_switch_asks_again_and_saves_the_tabs_device (다음 전환이 다시 묻지 않아 replace_many_for_device 3회 waitUntil 타임아웃 + 쓰이지 않은 답 teardown 실패). 다시 읽기·덮어쓰기·충돌 없음·아니오·탭 저장 예외('Load Failed', 편집 유지)는 회귀/특성 테스트(수정 전에도 통과). 변이 검사 3개(dirty 검사 제거 → 다시 읽기 실패, 결과와 무관하게 항상 멈춤 → 다시 읽기·덮어쓰기·충돌 없음 실패, dirty 검사 반전 → 취소·다음 전환·다시 읽기 실패) 모두 잡힘. 전체 418 passed / 9 skipped(DB 포함). tests/gui/test_device_switch_save.py"
     },
     {
       "step": 4,

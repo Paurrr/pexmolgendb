@@ -451,7 +451,10 @@ class DeviceTabController(QObject):
             if choice is None:
                 return
             if choice:
-                self.parameter_tab.save_all()
+                # 충돌 대화상자에서 취소했으면 편집이 그대로 남아 있다. 새 device 를 읽으면
+                # 그 편집이 말없이 버려진다. 다시 읽기는 이미 서버 내용이 됐으므로 넘어간다.
+                if not self.parameter_tab.save_all() and self.parameter_tab.is_dirty():
+                    return
             else:
                 self.parameter_tab.discard_all()
 
