@@ -7,7 +7,8 @@
       "name": "launcher-config",
       "status": "completed",
       "started_at": "2026-10-17T11:23:58+0900",
-      "summary": "deploy.sh 런처가 GENDB_CONFIG 를 정하지 않음(사용자 값은 통과), 배포본도 ~/.genviewer.env → <ROOT>/genviewer.env. RED: test_a_launcher_does_not_choose_the_config_file (assert 'GENDB_CONFIG=/tmp/.../deployed/bin/../genviewer.env' == 'GENDB_CONFIG=unset'). README 찾는 순서·배포, ARCHITECTURE, env_file docstring, logs.py 주석 정리"
+      "summary": "deploy.sh 런처가 GENDB_CONFIG 를 정하지 않음(사용자 값은 통과), 배포본도 ~/.genviewer.env → <ROOT>/genviewer.env. RED: test_a_launcher_does_not_choose_the_config_file (assert 'GENDB_CONFIG=/tmp/.../deployed/bin/../genviewer.env' == 'GENDB_CONFIG=unset'). README 찾는 순서·배포, ARCHITECTURE, env_file docstring, logs.py 주석 정리",
+      "completed_at": "2026-10-17T11:31:24+0900"
     },
     {
       "step": 1,
