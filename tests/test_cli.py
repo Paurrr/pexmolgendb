@@ -18,11 +18,14 @@ import subprocess
 import sys
 from datetime import datetime, timedelta
 
+import psycopg
 import pytest
 from typer.testing import CliRunner
 
 from genviewer import cli
 from genviewer.cli import app
+from genviewer.service.repo import audit
+from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.exporter import write_csv
 
@@ -549,3 +552,110 @@ def test_a_bad_since_is_a_usage_error(db, pg_dsn):
     result = runner.invoke(app, ["log", "--since", "어제쯤", "--dsn", pg_dsn])
     assert result.exit_code == 2
     assert "시각을 못 읽겠다" in result.output
+
+
+# --------------------------------------------------------------------------
+# DB 필요 - log --follow. time.sleep 을 바꿔 끼워 실제로 기다리지 않는다.
+# --------------------------------------------------------------------------
+
+
+class _StopFollow(Exception):
+    """_follow 의 무한 루프를 끝내는 테스트 전용 예외."""
+
+
+def _run_follow(monkeypatch, db, steps, seen=(), who=""):
+    """_follow 를 돌린다. sleep 을 n 번째 부를 때 steps[n] 을 하고, 다 쓰면 멈춘다."""
+    pending = list(steps)
+
+    def fake_sleep(seconds):
+        if not pending:
+            raise _StopFollow
+        pending.pop(0)()
+
+    monkeypatch.setattr(cli.time, "sleep", fake_sleep)
+    with pytest.raises(_StopFollow):
+        cli._follow(AuditRepository(db), list(seen), False, who, "", "", "")
+
+
+def _commit(pg_dsn, actor, *names):
+    """다른 사람이 process 추가 이력을 쓰고 바로 커밋한 것처럼."""
+    with psycopg.connect(pg_dsn) as conn, conn.cursor() as cur:
+        audit.write(cur, actor, [audit.process_add(name) for name in names])
+
+
+def _printed(out, name):
+    """name 이 든 줄 수. 한 줄에 process 칸과 요약에 두 번 나온다."""
+    return sum(name in line for line in out.splitlines())
+
+
+def _nothing():
+    pass
+
+
+def test_follow_prints_a_line_that_committed_late(db, pg_dsn, monkeypatch, capsys):
+    """id 는 커밋이 아니라 INSERT 할 때 정해진다. 먼저 id 를 받아 두고 남보다
+    늦게 커밋한 줄도 한 번은 찍혀야 한다 (K10)."""
+    late = psycopg.connect(pg_dsn)
+    try:
+        with late.cursor() as cur:
+            audit.write(cur, "a", [audit.process_add("late_one")])  # 커밋하지 않는다
+        _run_follow(
+            monkeypatch,
+            db,
+            [
+                lambda: _commit(pg_dsn, "b", "early_one"),  # 뒤 id 가 먼저 커밋된다
+                late.commit,
+                _nothing,  # 다시 찍지 않는지 본다
+                _nothing,
+            ],
+        )
+    finally:
+        late.close()
+
+    # 시나리오가 의도대로 섰는지: 늦게 커밋한 줄의 id 가 더 작다.
+    names = [r["process_name"] for r in AuditRepository(db).recent()]
+    assert names == ["late_one", "early_one"]
+
+    out = capsys.readouterr().out
+    assert _printed(out, "early_one") == 1
+    assert _printed(out, "late_one") == 1
+
+
+def test_follow_does_not_repeat_what_log_already_printed(
+    db, pg_dsn, monkeypatch, capsys
+):
+    # log -n 2 가 마지막 두 줄을 찍었다. 그 두 줄도, -n 으로 뺀 앞 줄도 다시 안 나온다.
+    _commit(pg_dsn, "b", "one", "two", "three", "four")
+    seen = AuditRepository(db).recent(limit=2)
+
+    _run_follow(monkeypatch, db, [_nothing, _nothing], seen=seen)
+
+    assert capsys.readouterr().out == ""
+
+
+def test_follow_prints_nothing_when_nothing_new_arrives(
+    db, pg_dsn, monkeypatch, capsys
+):
+    # log --since 에 하나도 안 걸려 seen 이 비어도, 이미 있던 줄을 쏟아내지 않는다.
+    _commit(pg_dsn, "b", "old_one")
+
+    _run_follow(monkeypatch, db, [_nothing, _nothing])
+
+    assert capsys.readouterr().out == ""
+
+
+def test_follow_keeps_the_filters(db, pg_dsn, monkeypatch, capsys):
+    _run_follow(
+        monkeypatch,
+        db,
+        [
+            lambda: _commit(pg_dsn, "a", "theirs"),
+            lambda: _commit(pg_dsn, "b", "mine"),
+            _nothing,
+        ],
+        who="b",
+    )
+
+    out = capsys.readouterr().out
+    assert _printed(out, "mine") == 1
+    assert _printed(out, "theirs") == 0

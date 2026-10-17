@@ -303,6 +303,13 @@ _FOLLOW_SECONDS = 3.0
 # 최근 것부터 보여준다.
 _FOLLOW_CATCHUP = 1000
 
+# --follow 가 마지막으로 본 id 에서 몇 개 앞까지 다시 읽는가. id 는 커밋이 아니라
+# INSERT 할 때 정해져서, 남의 트랜잭션이 먼저 받아 둔 작은 id 가 이미 찍은 큰 id
+# 보다 늦게 커밋될 수 있다. 이력은 저장 트랜잭션의 맨 끝에 쓰여 그 틈은 짧지만,
+# 저장 한 번이 device 수백 개의 줄을 한꺼번에 받을 수 있어 그만큼은 덮는다.
+# 이 구간보다 더 뒤로 밀려 커밋된 줄은 여전히 못 보고 지나간다.
+_FOLLOW_WINDOW = 500
+
 _WHEN_FORMATS = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d")
 
 
@@ -404,20 +411,26 @@ def _follow(
     device: str,
     find: str,
 ) -> None:
+    filters = {"actor": who, "process": process, "device": device, "contains": find}
+    # 시작할 때 이미 커밋돼 있던 줄은 찍은 것으로 친다. log 가 -n·--since 로 일부러
+    # 뺀 줄을 구간을 다시 읽다가 뒤늦게 쏟아내면 안 된다. 이것을 latest_id 보다 먼저
+    # 읽어야 그 사이에 커밋된 줄이 여기에 묻히지 않는다. log 가 처음 목록을 읽은 뒤
+    # 여기까지의 짧은 틈에 커밋된, last 보다 작은 id 는 묻힐 수 있다.
+    before = repo.recent(limit=_FOLLOW_CATCHUP, **filters)
     last = seen[-1]["id"] if seen else repo.latest_id()
+    printed = {row["id"] for row in [*seen, *before] if row["id"] <= last}
     while True:
         time.sleep(_FOLLOW_SECONDS)
-        rows = repo.recent(
-            limit=_FOLLOW_CATCHUP,
-            after_id=last,
-            actor=who,
-            process=process,
-            device=device,
-            contains=find,
-        )
+        floor = max(last - _FOLLOW_WINDOW, 0)
+        # 구간 아래로 내려간 id 는 다시 읽지 않으니 기억하지 않는다.
+        printed = {i for i in printed if i > floor}
+        rows = repo.recent(limit=_FOLLOW_CATCHUP, after_id=floor, **filters)
+        fresh = [row for row in rows if row["id"] not in printed]
+        if fresh:
+            _emit(fresh, detail)
+            printed.update(row["id"] for row in fresh)
         if rows:
-            _emit(rows, detail)
-            last = rows[-1]["id"]
+            last = max(last, rows[-1]["id"])
 
 
 def _write_log_csv(out: str, rows: list[dict]) -> None:

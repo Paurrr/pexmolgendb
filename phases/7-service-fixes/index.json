@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "log-follow",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T00:55:53+0900",
+      "summary": "cli._follow: after_id 를 last-_FOLLOW_WINDOW(500, 0 아래로 안 감)로, 찍은 id 집합(구간 밖은 버림)으로 중복 방지, seen id 포함. 시작 때 이미 커밋된 줄(recent(limit=_FOLLOW_CATCHUP) 를 latest_id 보다 먼저 읽고 id<=last 만)도 찍은 것으로 쳐서 -n·--since 로 뺀 옛 줄을 쏟아내지 않음(log 가 읽은 뒤 그 틈에 커밋된 작은 id 는 묻힐 수 있다고 주석). recent 계약·SQL 불변, _FOLLOW_CATCHUP 뜻 유지. 처음 실패한 테스트: test_follow_prints_a_line_that_committed_late ('assert _printed(out, \"late_one\") == 1' → 0 == 1, early_one 만 찍힘). 회귀 test_follow_does_not_repeat_what_log_already_printed(-n 2 seen)·test_follow_prints_nothing_when_nothing_new_arrives(seen 비고 옛 줄 있음)·test_follow_keeps_the_filters(--who) 는 수정 전에도 통과. time.sleep 을 바꿔 끼워 실제로 기다리지 않음, 늦은 커넥션은 finally 에서 닫음. 변이: after_id=last → 늦은 커밋 테스트 0 == 1 실패, 찍은 id 검사 제거 → 4개 모두 실패(early_one 4 == 1), 시작 기준 제거 → 회귀 2개 실패. README 변경 이력 한 문장, known-issues K10 행 삭제. DB 테스트: 650 passed / 9 skipped(Windows posix_only) / 1 xfailed"
     },
     {
       "step": 5,
