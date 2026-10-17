@@ -1,6 +1,6 @@
 import logging
 
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, Signal, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
 
@@ -9,6 +9,8 @@ from genviewer.controllers.socket_tab import SocketTabController
 from genviewer.net.controller import ConnectionController
 from genviewer.service import virtuoso_protocol
 from genviewer.service.errors import user_message
+from genviewer.utils.background import is_busy
+from genviewer.utils.dialogs import question
 from genviewer.utils.palette import THEMES, apply_theme
 from genviewer.views.main_window import MainWindow
 
@@ -60,9 +62,42 @@ class MainWindowController(QObject):
             self.history_tab.set_db(self.device_tab.db)
 
         self._setup_actions()
+        # 창 닫기를 여기서 판단한다. dirty 와 저장은 컨트롤러만 안다(뷰는 컨트롤러를 모른다).
+        self.ui.installEventFilter(self)
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        if obj is self.ui and event.type() == QEvent.Type.Close:
+            if self._may_close():
+                return False
+            event.ignore()
+            return True
+        return False
+
+    def _may_close(self) -> bool:
+        """창을 닫아도 되는가. 저장 안 한 편집이 있으면 묻고, 예면 저장에 성공했을 때만 닫는다."""
+        # run_blocking 은 사용자 입력만 막는다. 닫기 요청은 그 안에서도 온다. 여기서 묻거나
+        # 저장하면 진행 중인 저장 안에서 저장이 또 돈다. 끝난 뒤 다시 닫으면 된다.
+        if is_busy():
+            return False
+        if not (
+            self.device_tab.device_table.is_dirty()
+            or self.device_tab.parameter_tab.is_dirty()
+        ):
+            return True
+        if not question(
+            self.ui,
+            "Save Changes",
+            "You have unsaved changes. Do you want to save them?",
+        ):
+            return True
+        # 충돌에서 취소·다시 읽기, Save Skipped, 예외면 False 다. 편집이 남았을 수 있으니
+        # 닫지 않는다.
+        return self.device_tab.save_db()
 
     def shutdown(self) -> None:
         """앱 종료 시 커넥션 풀을 닫는다. main() 이 app.exec() 후에 부른다."""
+        # 정리 뒤에는 저장할 수 없다. 닫기 확인을 먼저 뗀다.
+        self.ui.removeEventFilter(self)
         # 이력 쪽 작업이 먼저 끝나야 한다. 풀을 닫은 뒤에 남아 있으면 터진다.
         if self.history_tab is not None:
             self.history_tab.shutdown()
@@ -131,7 +166,15 @@ class MainWindowController(QObject):
             self.device_tab.ui.virtuoso_device_table.update_devices(device_state_data)
             self.device_tab.ui.filtered_device_table.update_devices(device_state_data)
             self.device_tab.device_table.device_state_data = device_state_data
-            self.device_tab.device_table.refresh_devices()
+            # 다시 읽으면 device 표의 저장 안 한 편집이 사라진다. 탭 편집은 남으므로 device 표만
+            # 본다. 아니오면 표는 그대로 두고, 새 목록은 다음 다시 읽기(저장 뒤 등)에 반영된다.
+            if not self.device_tab.device_table.is_dirty() or question(
+                self.ui,
+                "Refresh",
+                "저장하지 않은 편집이 있습니다.\n"
+                "서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?",
+            ):
+                self.device_tab.device_table.refresh_devices()
             self.ui.append_log(f"Received Virtuoso device list: {len(device_state_data)} item(s).")
         elif msg_type == "LibraryList":
             libraries = virtuoso_protocol.to_library_list(msg)

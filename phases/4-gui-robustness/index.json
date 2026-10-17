@@ -45,7 +45,9 @@
     {
       "step": 5,
       "name": "window-guards",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T18:06:55+0900",
+      "summary": "MainWindowController: 창 Close 이벤트 필터(installEventFilter, 뷰는 그대로. is_busy 면 묻지 않고 무시, device 표·탭 dirty 면 기존 'Save Changes' 질문, Yes=save_db() 가 True 일 때만 닫음, No=닫음, dirty 없으면 그냥 닫음), shutdown 이 먼저 removeEventFilter. DeviceList 는 device 표 dirty 면 기존 'Refresh' 질문, No 면 Virtuoso 두 표·device_state_data·로그만 갱신하고 refresh_devices 를 부르지 않음(탭 dirty 는 보지 않음). QUESTION_MODULES 에 controllers.main_window 추가. RED: test_closing_with_a_device_edit_asks_and_no_closes_without_saving·..._and_yes_saves_then_closes·test_closing_with_only_a_tab_edit_saves_the_tab (questions [] != [Save Changes]), test_a_failed_save_keeps_the_window_open·test_cancelling_the_conflict_keeps_the_window_open·test_a_skipped_save_keeps_the_window_open_once (close() True is False), test_closing_while_busy_is_ignored (실제 run_blocking 안에서 close: [True] != [False]), test_a_device_list_keeps_device_edits_when_the_user_says_no ('' == 'edited by tester': 편집이 사라짐), test_a_device_list_keeps_a_deleted_device_when_the_user_says_no (deleted_devices {} == {2: 1}), test_a_device_list_drops_device_edits_when_the_user_says_yes (Refresh 질문 없음). 편집 없는 닫기·shutdown 뒤 닫기·편집 없는 DeviceList·탭만 고친 DeviceList 는 특성 테스트(수정 전에도 통과). 변이 검사 10개(필터 설치 제거, is_busy 가드 제거, save_db 결과 무시, No 에 닫기 거부, event.ignore 제거, 닫기에서 탭 dirty 무시, shutdown 이 필터를 남김, DeviceList 항상 다시 읽기, DeviceList 가 탭 dirty 도 물음, DeviceList 가 device_state_data 갱신 건너뜀) 모두 잡힘. tests/gui/test_window_guards.py 추가(14개). 구조 변경 대응: pytest-qt 는 fixture 정리보다 먼저(pytest_runtest_teardown 의 _close_widgets) 등록 창을 닫으므로 conftest main_window 가 addWidget(before_close_func=shutdown) 으로 그 닫기 전에 필터를 뗀다(fixture 의 shutdown → close 순서는 그대로). DB 테스트: 526 passed / 9 skipped / 1 xfailed (+14 새 테스트, +1 QUESTION_MODULES 파라미터)"
     },
     {
       "step": 6,

@@ -29,6 +29,7 @@ QUESTION_MODULES: tuple[str, ...] = (
     "genviewer.utils.dialogs",
     "genviewer.controllers.device_tab",
     "genviewer.controllers.device_tab_toolbar",
+    "genviewer.controllers.main_window",
     "genviewer.views.device_table",
     "genviewer.views.device_tab_toolbar",
     "genviewer.views.tab_section",

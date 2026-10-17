@@ -101,8 +101,12 @@ def main_window(qtbot, monkeypatch, store, dialogs) -> Iterator[MainWindowContro
     """
     install_fake_db(monkeypatch, store)
     ui = MainWindow("localhost")
-    qtbot.addWidget(ui)
+    made: list[MainWindowController] = []
+    # pytest-qt 는 이 fixture 의 정리보다 먼저 등록한 창을 닫는다. 그 전에 shutdown 으로 닫기
+    # 확인을 떼야 편집을 남긴 테스트가 정리 때 "Save Changes" 를 묻지 않는다.
+    qtbot.addWidget(ui, before_close_func=lambda _ui: [c.shutdown() for c in made])
     controller = MainWindowController(ui, "")
+    made.append(controller)
     qtbot.waitUntil(lambda: controller.device_tab.connected is not None)
     yield controller
     controller.shutdown()  # 테스트가 먼저 불렀어도 안전하다
