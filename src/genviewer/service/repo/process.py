@@ -7,6 +7,29 @@ from genviewer.service.repo import audit
 _DEVICE_COLUMNS = 'id, name, celltype, description, "order"'
 
 
+def find_or_create(cur, name: str) -> tuple[int, bool]:
+    """process id 와, 이번에 새로 만들었는지. 호출자의 트랜잭션 안에서 돈다.
+
+    이미 있는 process 는 SELECT 로만 찾고 행을 잠그지 않는다. 예전의
+    ON CONFLICT DO UPDATE 는 이미 있을 때도 그 행을 FOR UPDATE 로 잠가서,
+    CSV 불러오기가 커밋할 때까지 GUI 가 같은 process 를 고르거나 저장하지
+    못했다(lock_timeout 뒤 55P03). device INSERT 의 외래키 검사가 잡는
+    FOR KEY SHARE 와도 부딪혀서 어느 한쪽만 바꿔서는 풀리지 않는다.
+    """
+    while True:
+        row = cur.execute("SELECT id FROM process WHERE name = %s", (name,)).fetchone()
+        if row:
+            return row["id"], False
+        row = cur.execute(
+            "INSERT INTO process (name) VALUES (%s) "
+            "ON CONFLICT (name) DO NOTHING RETURNING id",
+            (name,),
+        ).fetchone()
+        if row:
+            return row["id"], True
+        # 그 사이 다른 트랜잭션이 같은 이름을 만들었다. 다시 읽는다.
+
+
 class ProcessRepository:
     def __init__(self, db: Database):
         self.db = db
@@ -107,15 +130,9 @@ class ProcessRepository:
             return None
         with self.db.connection() as conn:
             cur = conn.cursor()
-            # xmax = 0 이면 이번에 INSERT 된 행이다. ON CONFLICT DO UPDATE 는
-            # 이미 있던 경우에도 행을 돌려주므로 이것 없이는 둘을 구분할 수
-            # 없고, process 를 고를 때마다 "process 추가" 가 쌓인다.
-            row = cur.execute(
-                "INSERT INTO process (name) VALUES (%s) "
-                "ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name "
-                "RETURNING id, (xmax = 0) AS created",
-                (name,),
-            ).fetchone()
-            if row and row["created"]:
+            process_id, created = find_or_create(cur, name)
+            # 새로 만든 경우에만 남긴다. 아니면 process 를 고를 때마다
+            # "process 추가" 가 쌓인다.
+            if created:
                 audit.write(cur, actor, [audit.process_add(name)])
-        return row["id"] if row else None
+        return process_id

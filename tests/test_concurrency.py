@@ -3,10 +3,20 @@
 이 마이그레이션 전체가 존재하는 이유가 test_other_users_new_device_survives 다.
 """
 
-import pytest
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 
+import psycopg
+import pytest
+from psycopg.rows import dict_row
+
+from genviewer.service.config import DbConfig
 from genviewer.service.errors import StaleWriteError
+from genviewer.service.pool import Database
+from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.device import DeviceRepository
+from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.service.repo.process import ProcessRepository
 
@@ -239,3 +249,118 @@ def test_duplicate_device_names_are_allowed(db, process_id):
     assert [r["name"] for r in rows] == ["nfet_b", "nfet_b"]
     assert len({r["id"] for r in rows}) == 2, "같은 행에 덮어썼다"
     assert sorted(r["celltype"] for r in rows) == ["NFET", "PFET"]
+
+
+# ---------------------------------------------------------------------------
+# CSV 불러오기와 GUI 가 같은 process 를 만질 때 (K5)
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _import_in_progress(pg_dsn, process_name):
+    """CLI load 가 process 를 찾고 device 를 넣은 뒤 커밋하기 전 상태로 멈춘다.
+
+    큰 파일이면 load 의 트랜잭션은 이 상태로 오래 있다(statement_timeout 0).
+    """
+    conn = psycopg.connect(pg_dsn, row_factory=dict_row)
+    try:
+        cur = conn.cursor()
+        process_id = IORepository._process_id(cur, process_name)
+        cur.execute(
+            "INSERT INTO device (process_id, name, celltype, updated_by) "
+            "VALUES (%s, %s, %s, %s)",
+            (process_id, "from_csv", "NFET", "cli"),
+        )
+        yield process_id
+    finally:
+        conn.rollback()
+        conn.close()
+
+
+@pytest.fixture
+def gui_db(pg_dsn):
+    """다른 사용자(GUI)의 Database. 잠금을 300ms 만 기다린다."""
+    other = Database(DbConfig(dsn=pg_dsn, lock_timeout_ms=300))
+    other.open()
+    try:
+        # 접속 시간을 아래에서 재는 시간에 넣지 않는다.
+        with other.connection() as conn:
+            conn.execute("SELECT 1")
+        yield other
+    finally:
+        other.close()
+
+
+def test_choosing_a_process_does_not_wait_for_an_import(db, process_id, pg_dsn, gui_db):
+    """CSV 를 불러오는 동안 GUI 에서 같은 process 를 골라도 기다리지 않는다 (K5).
+
+    예전에는 불러오기가 ON CONFLICT DO UPDATE 로 process 행을 잠근 채 커밋까지
+    쥐고 있었고, GUI 의 get_or_create_id 도 같은 DO UPDATE 로 그 행을 잠그려다
+    lock_timeout 뒤 55P03 으로 실패했다. 불러오기의 device INSERT 가 외래키
+    검사로 잡는 FOR KEY SHARE 도 DO UPDATE(FOR UPDATE)와 부딪히므로 고르는
+    쪽도 잠그지 않아야 한다.
+    """
+    with _import_in_progress(pg_dsn, "sf2p"):
+        start = time.monotonic()
+        got = ProcessRepository(gui_db).get_or_create_id("sf2p", actor="gui")
+        elapsed = time.monotonic() - start
+
+    assert got == process_id
+    assert elapsed < 0.3, f"{elapsed:.3f}초 기다렸다"
+
+
+def test_saving_in_a_process_does_not_wait_for_an_import(db, process_id, pg_dsn, gui_db):
+    """CSV 를 불러오는 동안 같은 process 에 device 를 저장해도 기다리지 않는다.
+
+    저장의 device INSERT 도 외래키 검사로 process 행에 FOR KEY SHARE 를 잡는다.
+    불러오기가 process 행을 찾으면서 잠가 두면 여기서 막힌다.
+    """
+    with _import_in_progress(pg_dsn, "sf2p"):
+        start = time.monotonic()
+        saved = DeviceRepository(gui_db).upsert_devices(
+            process_id, [_device("nfet_b")], actor="gui"
+        )
+        elapsed = time.monotonic() - start
+
+    assert saved.inserted == 1
+    assert elapsed < 0.3, f"{elapsed:.3f}초 기다렸다"
+
+
+def _wait_for_a_lock_waiter(db, timeout=5.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with db.connection() as conn:
+            row = conn.execute(
+                "SELECT count(*) AS n FROM pg_stat_activity "
+                "WHERE datname = current_database() AND wait_event_type = 'Lock'"
+            ).fetchone()
+        if row["n"]:
+            return
+        time.sleep(0.01)
+    raise AssertionError("GUI 쪽이 불러오기의 INSERT 를 기다리지 않았다")
+
+
+def test_two_creators_of_a_new_process_share_one_row(db, pg_dsn):
+    """같은 새 이름을 동시에 만들면 process 는 하나이고 둘 다 같은 id 를 얻는다.
+
+    불러오기가 새 process 를 만들고 커밋하기 전에 GUI 가 같은 이름을 고르면
+    GUI 는 불러오기가 끝나기를 기다렸다가 그 행을 받는다. GUI 는 만들지
+    않았으므로 process 추가 이력을 남기지 않는다.
+    """
+    importer = psycopg.connect(pg_dsn, row_factory=dict_row)
+    try:
+        created = IORepository._process_id(importer.cursor(), "sf9z")
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            chosen = pool.submit(
+                ProcessRepository(db).get_or_create_id, "sf9z", actor="gui"
+            )
+            _wait_for_a_lock_waiter(db)
+            importer.commit()
+            got = chosen.result(timeout=10)
+    finally:
+        importer.rollback()
+        importer.close()
+
+    assert got == created
+    assert ProcessRepository(db).list_all() == ["sf9z"]
+    assert AuditRepository(db).recent(limit=10, actor="gui") == []

@@ -8,6 +8,7 @@ from psycopg import sql
 from genviewer.config.config import delegate_config, tab_config
 from genviewer.service.pool import Database
 from genviewer.service.repo import audit
+from genviewer.service.repo.process import find_or_create
 
 
 def split_cell(
@@ -56,12 +57,10 @@ class IORepository:
     def _process_id(cur, process_name) -> int | None:
         if process_name is None or pd.isna(process_name) or not str(process_name).strip():
             return None
-        row = cur.execute(
-            "INSERT INTO process (name) VALUES (%s) "
-            "ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
-            (str(process_name).strip(),),
-        ).fetchone()
-        return row["id"] if row else None
+        # 이미 있는 process 행을 잠그지 않는다. 불러오기는 커밋까지 오래 걸릴 수
+        # 있고, 그동안 GUI 가 같은 process 를 고르고 저장할 수 있어야 한다.
+        process_id, _created = find_or_create(cur, str(process_name).strip())
+        return process_id
 
     def import_data(self, input_path: str, *, actor: str = "") -> int:
         """CSV 를 읽어 device 와 탭 테이블에 넣는다. 새로 만든 device 수를 낸다.

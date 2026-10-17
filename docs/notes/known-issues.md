@@ -33,7 +33,6 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | K1 | `--check-config` 는 `--dsn`·`GENDB_PG_DSN` 이 있어도 설정 파일을 읽는다(status 는 2026-10-17 phase 7 에서 고침) | `cli.py` `_print_config`, `service/diagnostics.py` `inspect_config` | 승인 범위 밖 |
 | K2 | 풀이 `options`·`connect_timeout`·`application_name` 을 명시하므로 `PGOPTIONS`·`PGCONNECT_TIMEOUT`·`PGAPPNAME` 과 DSN 안의 `options=` 가 먹지 않는다 | `service/pool.py:27-41` | **고치지 않기로 함(2026-10-17).** 의도된 타임아웃(ADR-008)과 얽혀 있다. README에 `GENDB_PG_*` 를 쓰라고 적었다 |
 | K3 | 창의 시작·재접속 알림은 접속 실패의 실제 원인(비밀번호 틀림, DB 없음, 접속 수 초과)을 보여주지 않는다. `_open_database` 가 `ping()` 의 bool 만 보고 고정 문구("서버가 응답하지 않는다")를 낸다. CLI·status 는 2026-10-18 phase 7 에서 고침(풀이 커넥션을 못 주면 한 번 직접 접속해 그 오류의 첫 줄을 싣는다) | `controllers/device_tab.py` `_open_database` | GUI 시작·재접속 문구는 phase 11 step 1 |
-| K5 | CLI `load` 가 import 트랜잭션 내내 process 행을 잠근다(`ON CONFLICT DO UPDATE`, `statement_timeout` 0). 그동안 GUI에서 그 process를 고르면 `get_or_create_id` 가 5초 기다리다 55P03으로 실패한다 | `repo/io.py:59-63`, `repo/process.py:113-118` | 큰 파일 불러오기는 사람이 적을 때 한다 |
 | K7 | 기존 탭에 컬럼을 추가해도 마이그레이션이 없다. 저장·import가 42703으로 실패하고 친절한 문구도 없다. `status` 는 테이블 존재만 본다 | `service/schema.py:212-222`, `diagnostics.py:161-169` | 기능 추가다(제안 P7) |
 | K8 | `init_db --owner` 를 `--owner` 없이 처음 만든 옛 DB에 다시 돌리면 "must be owner of table" 로 DDL 트랜잭션 전체가 롤백된다 | `scripts/init_db.py:90-100` | **고치지 않기로 함(2026-10-17).** 2026-09-15 이전 DB에만 해당한다. 그런 DB는 `ALTER TABLE … OWNER TO` 로 한 번 정리한다 |
 | K9 | 한 문장의 파라미터가 65,535개를 넘으면 실패한다(audit 약 7,281건, device 약 10,922개 재정렬) | `repo/audit.py:75-96`, `repo/device.py:320-349` | 지금 규모(process당 수백)에서는 닿지 않는다 |

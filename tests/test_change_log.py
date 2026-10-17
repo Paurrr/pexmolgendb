@@ -283,8 +283,8 @@ def test_only_the_changed_tab_is_recorded(db, log, process_id):
 def test_creating_a_process_is_recorded_once(db, log):
     repo = ProcessRepository(db)
     repo.get_or_create_id("sf4u", actor="dh991")
-    # 이미 있는 것을 다시 고르는 것은 사건이 아니다. xmax=0 가드가 없으면
-    # process 를 고를 때마다 "process 추가" 가 쌓인다.
+    # 이미 있는 것을 다시 고르는 것은 사건이 아니다. 새로 만들었을 때만
+    # 남기지 않으면 process 를 고를 때마다 "process 추가" 가 쌓인다.
     repo.get_or_create_id("sf4u", actor="dh991")
     repo.get_or_create_id("sf4u", actor="jyk")
 

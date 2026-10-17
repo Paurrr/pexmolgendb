@@ -300,3 +300,40 @@ def test_a_csv_without_the_required_columns_raises(db, tmp_path):
     path = _write_csv(tmp_path / "bad.csv", ["CellType", "CdsLibName"], [["NFET", "sf2p"]])
     with pytest.raises(KeyError):
         IORepository(db).import_data(path)
+
+
+def test_a_failed_import_leaves_no_process_behind(db, tmp_path):
+    """불러오기는 트랜잭션 하나다. 실패하면 그 안에서 만든 process 도 남지 않는다."""
+    path = _write_csv(tmp_path / "bad.csv", ["CellType", "CdsLibName"], [["NFET", "sf9z"]])
+    with pytest.raises(KeyError):
+        IORepository(db).import_data(path)
+    assert ProcessRepository(db).list_all() == []
+
+
+# --------------------------------------------------------------------------
+# CdsLibName → process id
+# --------------------------------------------------------------------------
+
+
+def _process_id_of(db, name):
+    with db.connection() as conn:
+        return IORepository._process_id(conn.cursor(), name)
+
+
+def test_process_id_creates_a_new_process_once(db):
+    created = _process_id_of(db, " sf9z ")
+    assert created is not None
+    assert _process_id_of(db, "sf9z") == created
+    assert ProcessRepository(db).list_all() == ["sf9z"]
+
+
+def test_process_id_finds_an_existing_process(db):
+    existing = ProcessRepository(db).get_or_create_id("sf2p")
+    assert _process_id_of(db, "sf2p") == existing
+    assert ProcessRepository(db).list_all() == ["sf2p"]
+
+
+@pytest.mark.parametrize("blank", ["", "   ", float("nan"), None])
+def test_process_id_is_none_for_a_blank_name(db, blank):
+    assert _process_id_of(db, blank) is None
+    assert ProcessRepository(db).list_all() == []
