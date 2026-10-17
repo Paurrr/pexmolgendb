@@ -32,7 +32,12 @@ def write_xlsx(path: str, headers: list[str], rows: list[list[str]]) -> None:
 
     wb = Workbook()
     ws = wb.active
-    ws.append(headers)
-    for row in rows:
-        ws.append(row)
+    for row_idx, values in enumerate([headers, *rows], start=1):
+        ws.append(values)
+        # openpyxl 은 '=' 로 시작하는 문자열을 수식으로 저장해서, 엑셀이 DB 의 값 대신
+        # 계산 결과를 보여 준다. 그런 셀은 문자열 셀로 둔다(값은 글자 그대로). CSV 는
+        # molgen 이 원문을 읽으므로 손대지 않는다.
+        for col_idx, value in enumerate(values, start=1):
+            if isinstance(value, str) and value.startswith("="):
+                ws.cell(row=row_idx, column=col_idx).data_type = "s"
     wb.save(path)

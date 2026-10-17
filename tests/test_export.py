@@ -4,7 +4,62 @@ molgen/CSV_COLUMNS.md §0: "로더가 비어 있지 않은 동명 컬럼을 순�
 하나의 리스트로 만든다" — 즉 자식 행의 순서는 의미를 갖는다.
 """
 
+import csv
+
+from openpyxl import load_workbook
+
 from genviewer.service.repo.io import IORepository
+from genviewer.utils.exporter import write_csv, write_xlsx
+
+HEADERS = ["CellType", "Param"]
+ROWS = [["=1+1", "x"], ["a=b", "=SUM(A1:A2)"], ["plain", ""]]
+
+
+def _xlsx_cells(path):
+    """다시 연 xlsx 의 셀을 행마다 (값, data_type) 로 돌려준다."""
+    ws = load_workbook(path).active
+    return [[(cell.value, cell.data_type) for cell in row] for row in ws.iter_rows()]
+
+
+def test_xlsx_writes_values_starting_with_equals_as_text(tmp_path):
+    """'=' 로 시작하는 값은 수식이 아니라 글자 그대로의 문자열 셀이다(K12, 2026-10-17 승인).
+
+    openpyxl 은 '=' 로 시작하는 문자열을 수식(data_type "f")으로 저장해서, 엑셀이
+    DB 의 값 대신 계산 결과를 보여 줬다. 값 앞에 ' 를 붙이는 것도 아니다.
+    """
+    path = tmp_path / "out.xlsx"
+    write_xlsx(str(path), HEADERS, ROWS)
+
+    cells = _xlsx_cells(path)
+    assert cells[1][0] == ("=1+1", "s")
+    assert cells[2][1] == ("=SUM(A1:A2)", "s")
+
+
+def test_xlsx_writes_other_values_as_before(tmp_path):
+    """헤더와 '=' 로 시작하지 않는 값은 그대로다. 빈 문자열은 글자 없는 셀이다."""
+    path = tmp_path / "out.xlsx"
+    write_xlsx(str(path), HEADERS, ROWS)
+
+    cells = _xlsx_cells(path)
+    assert len(cells) == 4
+    assert cells[0] == [("CellType", "s"), ("Param", "s")]
+    assert cells[1][1] == ("x", "s")
+    assert cells[2][0] == ("a=b", "s")
+    assert cells[3] == [("plain", "s"), (None, "inlineStr")]
+
+
+def test_csv_keeps_values_starting_with_equals_as_written(tmp_path):
+    """CSV 는 원문 그대로다. molgen 이 이 글자를 읽는다."""
+    path = tmp_path / "out.csv"
+    write_csv(str(path), HEADERS, ROWS)
+
+    with open(path, newline="", encoding="utf-8") as f:
+        assert list(csv.reader(f)) == [
+            ["CellType", "Param"],
+            ["=1+1", "x"],
+            ["a=b", "=SUM(A1:A2)"],
+            ["plain", ""],
+        ]
 
 
 def test_each_row_carries_its_own_process_name(db, two_processes):
