@@ -1,0 +1,16 @@
+{
+  "project": "genviewer",
+  "phase": "7-service-fixes",
+  "steps": [
+    { "step": 0, "name": "cli-verbose-scrub", "status": "pending" },
+    { "step": 1, "name": "status-dsn-override", "status": "pending" },
+    { "step": 2, "name": "pool-failure-cause", "status": "pending" },
+    { "step": 3, "name": "audit-naive-time", "status": "pending" },
+    { "step": 4, "name": "log-follow", "status": "pending" },
+    { "step": 5, "name": "import-process-lock", "status": "pending" },
+    { "step": 6, "name": "import-process-audit", "status": "pending" },
+    { "step": 7, "name": "bind-param-limit", "status": "pending" },
+    { "step": 8, "name": "xlsx-literal", "status": "pending" },
+    { "step": 9, "name": "skill-escape", "status": "pending" }
+  ]
+}

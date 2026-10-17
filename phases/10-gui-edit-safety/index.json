@@ -1,0 +1,13 @@
+{
+  "project": "genviewer",
+  "phase": "10-gui-edit-safety",
+  "steps": [
+    { "step": 0, "name": "conflict-deleted-only", "status": "pending" },
+    { "step": 1, "name": "same-row-reclick", "status": "pending" },
+    { "step": 2, "name": "paste-tab-version", "status": "pending" },
+    { "step": 3, "name": "paste-tab-dirty", "status": "pending" },
+    { "step": 4, "name": "reload-guard", "status": "pending" },
+    { "step": 5, "name": "remove-process-edits", "status": "pending" },
+    { "step": 6, "name": "filtered-save-order", "status": "pending" }
+  ]
+}

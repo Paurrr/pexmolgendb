@@ -1,0 +1,10 @@
+{
+  "project": "genviewer",
+  "phase": "9-ops-script-fixes",
+  "steps": [
+    { "step": 0, "name": "hba-line-match", "status": "pending" },
+    { "step": 1, "name": "hba-trust-refuse", "status": "pending" },
+    { "step": 2, "name": "deploy-git-perms", "status": "pending" },
+    { "step": 3, "name": "deploy-missing-command", "status": "pending" }
+  ]
+}

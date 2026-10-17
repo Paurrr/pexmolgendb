@@ -1,0 +1,8 @@
+{
+  "project": "genviewer",
+  "phase": "8-schema-migration",
+  "steps": [
+    { "step": 0, "name": "schema-add-column", "status": "pending" },
+    { "step": 1, "name": "status-columns", "status": "pending" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "project": "genviewer",
+  "phase": "12-gui-async-cleanup",
+  "steps": [
+    { "step": 0, "name": "history-test-fixture", "status": "pending" },
+    { "step": 1, "name": "history-error-text", "status": "pending" },
+    { "step": 2, "name": "history-reload-races", "status": "pending" },
+    { "step": 3, "name": "poll-process-binding", "status": "pending" },
+    { "step": 4, "name": "task-cleanup", "status": "pending" },
+    { "step": 5, "name": "tab-section-model-leaks", "status": "pending" },
+    { "step": 6, "name": "parameter-tab-page-leaks", "status": "pending" }
+  ]
+}

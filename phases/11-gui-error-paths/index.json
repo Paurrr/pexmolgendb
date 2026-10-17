@@ -1,0 +1,12 @@
+{
+  "project": "genviewer",
+  "phase": "11-gui-error-paths",
+  "steps": [
+    { "step": 0, "name": "user-message-sites", "status": "pending" },
+    { "step": 1, "name": "connect-failure-cause", "status": "pending" },
+    { "step": 2, "name": "connect-failure-pool", "status": "pending" },
+    { "step": 3, "name": "send-unsaved-rows", "status": "pending" },
+    { "step": 4, "name": "export-format-by-suffix", "status": "pending" },
+    { "step": 5, "name": "drag-under-filter", "status": "pending" }
+  ]
+}

@@ -29,6 +29,38 @@
       "dir": "5-sqlite-removal",
       "status": "completed",
       "completed_at": "2026-10-17T22:00:50+0900"
+    },
+    {
+      "dir": "6-boundary-guards",
+      "status": "pending"
+    },
+    {
+      "dir": "7-service-fixes",
+      "status": "pending"
+    },
+    {
+      "dir": "8-schema-migration",
+      "status": "pending"
+    },
+    {
+      "dir": "9-ops-script-fixes",
+      "status": "pending"
+    },
+    {
+      "dir": "10-gui-edit-safety",
+      "status": "pending"
+    },
+    {
+      "dir": "11-gui-error-paths",
+      "status": "pending"
+    },
+    {
+      "dir": "12-gui-async-cleanup",
+      "status": "pending"
+    },
+    {
+      "dir": "13-virtuoso-socket",
+      "status": "pending"
     }
   ]
 }

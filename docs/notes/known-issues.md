@@ -5,22 +5,42 @@
 - 아래 항목은 ① 위험이 낮거나, ② 고치면 사용자가 보는 동작이나 내보내는 값이 바뀌거나, ③ 기능 추가에 가까워서 기록만 한다. 고치려면 사용자 승인을 받고 phase를 만든다. 그때도 실패하는 테스트로 먼저 재현한다.
 - 행 번호는 2026-10-17 기준이다.
 
+## 2026-10-17 분류 (phase 6~13 에서 해소 예정)
+
+phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다. 사용자가 동작 변경을 항목별로 승인했다(2026-10-17). 고친 항목은 각 phase 마무리 때 이 문서에서 지운다.
+
+| phase | 항목 | 구분 |
+|---|---|---|
+| 7-service-fixes | K31, K6, K5, K9, K13 | 버그 |
+| 7-service-fixes | K1, K3(CLI·풀), K10, K32, K12 | 승인된 동작 변경 |
+| 8-schema-migration | K7 (제안 P7) | 승인된 기능 |
+| 9-ops-script-fixes | K27(주석 줄 오탐만), K28, K29 | 버그 |
+| 9-ops-script-fixes | K26 | 승인된 동작 변경 |
+| 10-gui-edit-safety | K17, K38 | 버그 |
+| 10-gui-edit-safety | K20, K37, K36, K42, K19 | 승인된 동작 변경 |
+| 11-gui-error-paths | K34, K35, K22(접속 실패 풀) | 버그 |
+| 11-gui-error-paths | K3(GUI), K21, K16(내보내기 형식), K18 | 승인된 동작 변경 |
+| 12-gui-async-cleanup | K23, K41, K22(Task·섹션·탭 페이지), history_tab 의 `{exc}` | 버그 |
+| 13-virtuoso-socket | K14, K24, K39, K40 (제안 P6 로 해소) | 버그 + 승인된 구조 변경 |
+
+- 고치지 않기로 함(2026-10-17): K2, K8, K15, K27 의 나머지(다시 돌릴 때 값 반영), K30, K33, K16 의 Virtuoso 목록 필터(부분 문자열 일치가 의도). K25 는 제안 P3(phase 16) 에서 지운다.
+
 ## 데이터·DB
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
 | K1 | `--dsn`·`GENDB_PG_DSN` 을 주면 설정 파일을 읽지 않는다. 그런데 `status`·`--check-config` 는 `inspect_config()` 가 먼저 파일을 읽는다. 그래서 같은 `--dsn` 으로 `status` 는 붙고(`PGPASSWORD=(설정됨)`) `processes`·`load`·`export`·`log`·GUI는 비밀번호가 없다 | `service/config.py:59-61`, `cli.py` status | 파일을 항상 읽게 바꾸면 `--dsn` 으로 다른 서버에 붙을 때 팀 비밀번호가 거기로 간다. 설계 판단이 필요하다. README에 현재 동작을 적었다 |
-| K2 | 풀이 `options`·`connect_timeout`·`application_name` 을 명시하므로 `PGOPTIONS`·`PGCONNECT_TIMEOUT`·`PGAPPNAME` 과 DSN 안의 `options=` 가 먹지 않는다 | `service/pool.py:27-41` | 의도된 타임아웃(ADR-008)과 얽혀 있다. README에 `GENDB_PG_*` 를 쓰라고 적었다 |
+| K2 | 풀이 `options`·`connect_timeout`·`application_name` 을 명시하므로 `PGOPTIONS`·`PGCONNECT_TIMEOUT`·`PGAPPNAME` 과 DSN 안의 `options=` 가 먹지 않는다 | `service/pool.py:27-41` | **고치지 않기로 함(2026-10-17).** 의도된 타임아웃(ADR-008)과 얽혀 있다. README에 `GENDB_PG_*` 를 쓰라고 적었다 |
 | K3 | 접속 실패의 실제 원인(비밀번호 틀림 28P01, DB 없음 3D000, 접속 수 초과 53300)이 풀의 `PoolTimeout`("couldn't get a connection after 5.00 sec")에 가려진다. `_BY_SQLSTATE` 의 그 항목들은 풀을 거쳐서는 나오지 않는다. 원인은 풀 로거 경고로만 파일 로그에 남는다 | `service/pool.py`, `service/errors.py:57-64` | phase 0 step 0에서 영어 원문 대신 "접속할 수 없다" 문구가 나오게만 고쳤다. 원인까지 보여주려면 직접 접속을 한 번 더 시도하는 등 새 동작이 필요하다 |
 | K5 | CLI `load` 가 import 트랜잭션 내내 process 행을 잠근다(`ON CONFLICT DO UPDATE`, `statement_timeout` 0). 그동안 GUI에서 그 process를 고르면 `get_or_create_id` 가 5초 기다리다 55P03으로 실패한다 | `repo/io.py:59-63`, `repo/process.py:113-118` | 큰 파일 불러오기는 사람이 적을 때 한다 |
 | K6 | `log --since`·`--purge-before`·History 시간 필터가 naive 로컬 시각을 timestamptz와 비교한다. 서버 세션 TimeZone이 클라이언트와 다르면 어긋난다(UTC 서버 대 KST면 9시간) | `cli.py:305-322`, `repo/audit.py:357-362`, `controllers/history_tab.py:212-216` | 서버 TimeZone이 KST면 문제가 없다. 서버 설정부터 확인한다(`SHOW timezone`) |
 | K7 | 기존 탭에 컬럼을 추가해도 마이그레이션이 없다. 저장·import가 42703으로 실패하고 친절한 문구도 없다. `status` 는 테이블 존재만 본다 | `service/schema.py:212-222`, `diagnostics.py:161-169` | 기능 추가다(제안 P7) |
-| K8 | `init_db --owner` 를 `--owner` 없이 처음 만든 옛 DB에 다시 돌리면 "must be owner of table" 로 DDL 트랜잭션 전체가 롤백된다 | `scripts/init_db.py:90-100` | 2026-09-15 이전 DB에만 해당한다. 그런 DB는 `ALTER TABLE … OWNER TO` 로 한 번 정리한다 |
+| K8 | `init_db --owner` 를 `--owner` 없이 처음 만든 옛 DB에 다시 돌리면 "must be owner of table" 로 DDL 트랜잭션 전체가 롤백된다 | `scripts/init_db.py:90-100` | **고치지 않기로 함(2026-10-17).** 2026-09-15 이전 DB에만 해당한다. 그런 DB는 `ALTER TABLE … OWNER TO` 로 한 번 정리한다 |
 | K9 | 한 문장의 파라미터가 65,535개를 넘으면 실패한다(audit 약 7,281건, device 약 10,922개 재정렬) | `repo/audit.py:75-96`, `repo/device.py:320-349` | 지금 규모(process당 수백)에서는 닿지 않는다 |
 | K10 | `log --follow` 가 행을 건너뛸 수 있다. IDENTITY id는 커밋이 아니라 삽입 때 정해진다 | `cli.py` log --follow | 보기 전용이다 |
 | K31 | `genviewer -v` 가 찍는 트레이스백은 `scrub()` 을 거치지 않는다. 접속 실패 예외의 conninfo(비밀번호 포함)가 그 터미널에 그대로 나올 수 있다 | `cli.py:467-468` (`_fail`) | 사용자가 자기 터미널에서 일부러 켜는 진단 출력이다. 가리면 출력이 바뀐다. 다른 사람에게 붙여 줄 때 주의한다 |
 | K32 | CSV 불러오기가 새로 만든 process에는 `process_add` 이력이 따로 남지 않는다(불러오기 한 줄에 포함된다) | `repo/io.py` import, `repo/audit.py` | 이력 형식 변경이다 |
-| K33 | `upsert_device` 에 `id` 가 있는 dict를 주면 version 검사 없이 덮어쓰고 `process_id` 도 바꾼다 | `repo/device.py:97-` | 지금 호출자(붙여넣기 `paste_rows`)는 `id` 없는 dict만 넘겨 닿지 않는다. phase 2 step 1이 가짜를 만들다 본 것이고 재현하지 않았다. 가짜도 지금 동작을 그대로 흉내 낸다 |
+| K33 | `upsert_device` 에 `id` 가 있는 dict를 주면 version 검사 없이 덮어쓰고 `process_id` 도 바꾼다 | `repo/device.py:97-` | **고치지 않기로 함(2026-10-17).** 지금 호출자(붙여넣기 `paste_rows`)는 `id` 없는 dict만 넘겨 닿지 않는다. phase 2 step 1이 가짜를 만들다 본 것이고 재현하지 않았다. 가짜도 지금 동작을 그대로 흉내 낸다 |
 
 ## 내보내기·연동
 
@@ -29,8 +49,8 @@
 | K12 | xlsx 내보내기에서 `=` 로 시작하는 값이 수식으로 저장된다(openpyxl) | `utils/exporter.py:35-37` | 고치면 내보내는 값이 바뀐다 |
 | K13 | SKILL 문자열을 이스케이프하지 않는다. process 이름이나 파라미터 값에 `"`·`\` 가 있으면 Virtuoso 명령이 깨지거나, 의도한 것 이상의 SKILL이 실행될 수 있다 | `service/virtuoso_protocol.py:13-14`, `utils/lisp.py:6-9` | 값은 팀 내부 사람이 넣고, Cadence 라이브러리 이름에는 따옴표가 없다. 고치면 보내는 문자열이 바뀐다 |
 | K14 | Virtuoso 수신 쪽이 연결이 끊긴 것("DISCONNECTED"/"ERROR: …")을 접속 상태에 반영하지 않는다. UI는 계속 Connected라고 한다. UTF-8이 아닌 응답이 오면 수신이 멈춘다 | `net/workers.py:85-110` | phase 4 step 6은 크래시만 막고, 보내기 실패를 받기 오류와 같은 길(Socket 탭 수신 칸)로 보이게 했다. 상태 표시는 동작 변경이다 |
-| K15 | Load Libs 요청이 빈 프레임이다(stub) | `service/virtuoso_protocol.py:17-18` | 기능이 아직 없다 |
-| K16 | Virtuoso 목록 필터가 부분 문자열(`name in r["name"]`)이라 더 많이 걸릴 수 있다. 내보내기 형식은 메뉴가 정하는데 대화상자는 두 확장자를 다 허용해서, `.csv` 이름에 xlsx가 써질 수 있다 | `controllers/device_table.py:296, 473-484` | 의도인지 불확실하다 |
+| K15 | Load Libs 요청이 빈 프레임이다(stub) | `service/virtuoso_protocol.py:17-18` | **고치지 않기로 함(2026-10-17).** 기능이 아직 없다(Virtuoso 쪽 함수가 정해지지 않았다) |
+| K16 | Virtuoso 목록 필터가 부분 문자열(`name in r["name"]`)이라 더 많이 걸릴 수 있다. 내보내기 형식은 메뉴가 정하는데 대화상자는 두 확장자를 다 허용해서, `.csv` 이름에 xlsx가 써질 수 있다 | `controllers/device_table.py:296, 473-484` | 필터: **고치지 않기로 함(2026-10-17).** 접미사가 붙은 이름까지 잡는 것이 의도다. 내보내기 형식: phase 11 에서 확장자로 고른다 |
 
 ## GUI (phase에 넣지 않은 것)
 
@@ -60,7 +80,7 @@
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
 | K26 | `PGHBA_CIDR` 만 주고 `PGAUTH_HOST` 를 안 주면 기본값 `trust` 로 그 대역 전체가 무인증이 된다 | `tools/initdb.sh:24, 68` | README 서버 절이 `PGAUTH_HOST=scram-sha-256` 을 함께 쓴다. 거부하게 바꾸면 기본값이 바뀐다 |
-| K27 | 다시 돌릴 때 `listen_addresses`·`port`·pg_hba 줄은 "없을 때만 추가" 라 값을 바꿔도 반영되지 않는다. 주석 처리된 같은 줄도 "있음" 으로 본다(`grep -qF`) | `tools/initdb.sh:50, 57, 69` | 처음 한 번 쓰는 도구다 |
+| K27 | 다시 돌릴 때 `listen_addresses`·`port`·pg_hba 줄은 "없을 때만 추가" 라 값을 바꿔도 반영되지 않는다. 주석 처리된 같은 줄도 "있음" 으로 본다(`grep -qF`) | `tools/initdb.sh:50, 57, 69` | 주석 줄 오탐은 phase 9 에서 고친다. 값 반영: **고치지 않기로 함(2026-10-17).** 처음 한 번 쓰는 도구다 |
 | K28 | `chmod -R a+rX "$root/src"` 가 `.git/config` 도 연다. clone URL에 토큰을 넣었다면 모두가 읽는다 | `tools/deploy.sh:192` | URL에 토큰을 넣지 않는다(README) |
 | K29 | `DEPLOY_COMMANDS` 로 없는 명령을 주면 python이 exit 2를 내고, 마지막 확인(126/127만 봄)을 통과한다 | `tools/deploy.sh:250-252` | 자동으로 읽은 명령은 항상 있다 |
-| K30 | 윈도우 `SKIP_START=1` 은 첫 실행에서 createdb가 실패한다(서버가 아직 안 떴다) | `tools/initdb.sh:75-102` | README에 "서버를 띄운 뒤 다시 돌린다" 로 적었다 |
+| K30 | 윈도우 `SKIP_START=1` 은 첫 실행에서 createdb가 실패한다(서버가 아직 안 떴다) | `tools/initdb.sh:75-102` | **고치지 않기로 함(2026-10-17).** README에 "서버를 띄운 뒤 다시 돌린다" 로 적었다 |

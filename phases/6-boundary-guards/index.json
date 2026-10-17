@@ -1,0 +1,8 @@
+{
+  "project": "genviewer",
+  "phase": "6-boundary-guards",
+  "steps": [
+    { "step": 0, "name": "qt-free-boundaries", "status": "pending" },
+    { "step": 1, "name": "py39-compat", "status": "pending" }
+  ]
+}

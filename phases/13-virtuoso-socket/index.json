@@ -1,0 +1,9 @@
+{
+  "project": "genviewer",
+  "phase": "13-virtuoso-socket",
+  "steps": [
+    { "step": 0, "name": "socket-behavior-tests", "status": "pending" },
+    { "step": 1, "name": "socket-consumers", "status": "pending" },
+    { "step": 2, "name": "qtcpsocket-controller", "status": "pending" }
+  ]
+}
