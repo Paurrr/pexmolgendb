@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "tab-save-result",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T14:27:53+0900",
+      "summary": "ParameterTabController.save_all -> bool (True=dirty 없음·저장·덮어쓰기, False=취소·다시 읽기·repo 없음, 예외는 그대로). 호출부 불변. RED: test_saving_without_dirty_tabs_returns_true_without_writing·test_a_successful_save_returns_true·test_overwriting_a_stale_save_returns_true (assert None is True), test_cancelling_a_stale_save_returns_false·test_reloading_on_a_stale_save_returns_false·test_saving_before_connecting_returns_false (assert None is False). test_an_unexpected_error_propagates 는 특성 테스트(수정 전에도 통과). 변이 검사 4개(dirty 없음 return None, _write 실패 return None/True, 끝의 return True 제거) 모두 잡힘. phase 2 테스트 중 반환값을 고정한 것은 없었다. tests/gui/test_tab_save_result.py",
+      "completed_at": "2026-10-17T14:31:30+0900"
     },
     {
       "step": 2,

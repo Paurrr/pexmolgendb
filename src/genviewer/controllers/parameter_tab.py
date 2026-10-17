@@ -52,12 +52,19 @@ class ParameterTabController(QObject):
             if sec.device_id == device_id:
                 yield sec
 
-    def save_all(self):
+    def save_all(self) -> bool:
+        """dirty 탭을 한 번에 저장한다.
+
+        True: 저장했다(덮어쓰기 포함), 또는 dirty 탭이 없었다.
+        False: 충돌 대화상자에서 취소(창 닫기 포함)나 다시 읽기를 골랐다, 또는 접속 전이거나
+        고른 device 가 없다.
+        예외는 잡지 않는다(접속 끊김 등). 호출부가 이 값을 보고 넘어갈지 정한다.
+        """
         dirty = [sec for sec in self._sections.values() if sec.is_dirty()]
         if not dirty:
-            return
+            return True
         if not self._write(dict(sec.payload_fragment() for sec in dirty)):
-            return
+            return False
 
         # mark_saved 가 기준점을 옮기므로 요약을 먼저 만든다.
         summary = "\n".join(
@@ -68,6 +75,7 @@ class ParameterTabController(QObject):
         names = [sec.table_name for sec in dirty]
         self.notifyRequested.emit("info", "Saved", summary)
         self.logRequested.emit(f"Saved tab data: {', '.join(names)}.")
+        return True
 
     def _write(self, payload: dict) -> bool:
         """탭들을 한 트랜잭션으로 쓴다. 충돌하면 사용자에게 물어본다."""
