@@ -32,7 +32,8 @@
     },
     {
       "dir": "6-boundary-guards",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-10-18T00:16:24+0900"
     },
     {
       "dir": "7-service-fixes",
