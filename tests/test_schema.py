@@ -4,6 +4,7 @@
 (b)는 손으로 쓰던 DDL 을 생성으로 바꾸면서 스키마가 바뀌지 않았음을 보장한다.
 """
 
+import re
 import sqlite3
 from pathlib import Path
 
@@ -48,15 +49,42 @@ def generated():
     c.close()
 
 
-def test_child_tables_match_tab_config(generated):
+_CREATE_TABLE = re.compile(r'CREATE TABLE IF NOT EXISTS\s+"?(\w+)"?\s*\(')
+_COLUMN = re.compile(r'\s*"?(\w+)"?\s')
+
+
+def _pg_tables() -> dict[str, list[str]]:
+    """PostgreSQL DDL 이 만드는 테이블명 -> [컬럼명, ...] (DDL 에 적힌 순서)
+
+    접속 없이 렌더링한 문자열에서 뽑는다. 자식 테이블은 이름이 따옴표로
+    감싸여 나오고(sql.Identifier), process/device/change_log 는 손으로 쓴
+    DDL 이라 따옴표가 없다. 둘 다 읽는다.
+    """
+    tables = {}
+    for stmt in _pg_statements():
+        m = _CREATE_TABLE.search(stmt)
+        if m is None:
+            continue
+        body = stmt[m.end() : stmt.rindex(")")]
+        tables[m.group(1)] = [
+            _COLUMN.match(line).group(1) for line in body.splitlines() if line.strip()
+        ]
+    return tables
+
+
+def test_child_tables_match_tab_config():
     """자식 테이블 집합과 각 테이블의 payload 컬럼이 tab_config.json 과 같아야 한다."""
-    got = _schema_of(generated)
+    got = _pg_tables()
     expected = {info["table"]: list(info["columns"]) for info in tab_config.values()}
 
-    assert set(got) == set(expected) | {schema.PROCESS_TABLE, schema.DEVICE_TABLE}
+    assert set(got) == set(expected) | {
+        schema.PROCESS_TABLE,
+        schema.DEVICE_TABLE,
+        schema.CHANGE_LOG_TABLE,
+    }
 
     for table, columns in expected.items():
-        payload = [c[0] for c in got[table] if c[0] not in ("id", "device_id")]
+        payload = [c for c in got[table] if c not in ("id", "device_id")]
         assert payload == columns, f"{table} 의 컬럼이 tab_config 와 다르다"
 
 
