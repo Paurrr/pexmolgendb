@@ -30,7 +30,7 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
-| K1 | `--check-config` 는 `--dsn`·`GENDB_PG_DSN` 이 있어도 설정 파일을 읽는다(status 는 2026-10-17 phase 7 에서 고침) | `cli.py` `_print_config`, `service/diagnostics.py` `inspect_config` | 승인 범위 밖 |
+| K1 | `--check-config` 는 `--dsn`·`GENDB_PG_DSN` 이 있어도 설정 파일을 읽는다(status 는 2026-10-18 phase 7 에서 고침) | `cli.py` `_print_config`, `service/diagnostics.py` `inspect_config` | 승인 범위 밖 |
 | K2 | 풀이 `options`·`connect_timeout`·`application_name` 을 명시하므로 `PGOPTIONS`·`PGCONNECT_TIMEOUT`·`PGAPPNAME` 과 DSN 안의 `options=` 가 먹지 않는다 | `service/pool.py:27-41` | **고치지 않기로 함(2026-10-17).** 의도된 타임아웃(ADR-008)과 얽혀 있다. README에 `GENDB_PG_*` 를 쓰라고 적었다 |
 | K3 | 창의 시작·재접속 알림은 접속 실패의 실제 원인(비밀번호 틀림, DB 없음, 접속 수 초과)을 보여주지 않는다. `_open_database` 가 `ping()` 의 bool 만 보고 고정 문구("서버가 응답하지 않는다")를 낸다. CLI·status 는 2026-10-18 phase 7 에서 고침(풀이 커넥션을 못 주면 한 번 직접 접속해 그 오류의 첫 줄을 싣는다) | `controllers/device_tab.py` `_open_database` | GUI 시작·재접속 문구는 phase 11 step 1 |
 | K7 | 기존 탭에 컬럼을 추가해도 마이그레이션이 없다. 저장·import가 42703으로 실패하고 친절한 문구도 없다. `status` 는 테이블 존재만 본다 | `service/schema.py:212-222`, `diagnostics.py:161-169` | 기능 추가다(제안 P7) |

@@ -32,6 +32,7 @@
 **결정**: 누가 언제 무엇을 바꿨는지 `change_log` 테이블에 앱이 저장과 같은 트랜잭션으로 쓴다(`repo/audit.write(cur, …)`). 값이 실제로 바뀐 행만 남긴다. 외래키를 걸지 않고, 지워진 것은 자식 행까지 `detail`(JSONB)에 통째로 남긴다. 트리거를 쓰지 않는다. 자동 삭제 없음(`--purge-before`). `genviewer log` 는 `--help` 에 숨긴다(접근 통제가 아니라 요청에 따른 숨김).
 **이유**: 전원이 같은 role이라 트리거의 `current_user` 로는 사람을 구분할 수 없다. 탭 저장은 통째 교체라 행 트리거면 셀 하나 고친 저장이 로그 십수 줄이 된다. FK를 걸면 cascade가 이력까지 지운다. 저장이 실패하면 이력도 없어야 한다.
 **트레이드오프**: `psql` 로 직접 고친 것은 남지 않는다.
+**phase 7 보강**: CSV 불러오기가 새로 만든 process는 GUI의 process 추가와 같은 줄을 불러오기 줄 앞에 남긴다(2026-10-17 승인, K32). 행마다 VALUES를 늘리는 문장(이력, device UPDATE)은 libpq 바인드 파라미터 상한(65,535) 때문에 `audit.BATCH_ROWS`(1,000행)씩 나눠 같은 커서·트랜잭션에서 보낸다. 시간 필터에 넘기는 naive 시각은 클라이언트 로컬 시각으로 보고 tz를 붙인다(서버 세션 TimeZone과 무관하게 맞게). 표시 시각은 아직 세션 TimeZone 기준이다(K46).
 
 ### ADR-006: device 이름 중복 허용, CSV 는 누적
 **결정**: `UNIQUE (process_id, name)` 을 없앴다. 식별은 `id` 로만 한다. CSV 한 행이 device 하나이고, 불러올 때마다 새로 쌓인다(만든 개수를 항상 보여준다). `init_db` 가 옛 제약을 카탈로그에서 찾아 뗀다.
@@ -47,6 +48,7 @@
 **결정**: 커넥션마다 `lock_timeout=5000ms`, `statement_timeout=15000ms`, `connect_timeout=5s`. `GENDB_PG_*` 로 바꿀 수 있다. CLI `load` 는 `statement_timeout` 을 푼다(직접 정했으면 그 값).
 **이유**: 다른 사용자의 `FOR UPDATE` 뒤에서 창이 끝없이 굳으면 안 된다. 사람이 몰리면 "다른 사용자가 저장하는 중이다"(55P03), "처리가 너무 오래 걸려 서버가 취소했다"(57014)가 정상적으로 나오고, 다시 시도하면 된다.
 **트레이드오프**: 큰 작업은 타임아웃에 걸릴 수 있다. 앱이 `options`/`connect_timeout` 을 명시하므로 `PGOPTIONS`·`PGCONNECT_TIMEOUT` 은 먹지 않는다.
+**phase 7 보강**: 이미 있는 process는 SELECT로만 찾고 행을 잠그지 않는다(`process.find_or_create`, 없을 때만 `INSERT … ON CONFLICT DO NOTHING`). 예전의 `ON CONFLICT DO UPDATE` 는 CSV 불러오기가 커밋할 때까지 그 행을 잡아 GUI가 같은 process를 고르거나 저장하면 55P03으로 실패했다(K5). 풀이 커넥션을 못 주면 한 번 직접 붙어 실제 원인(원문 첫 줄, 비밀번호 가림)을 `DbUnavailableError` 에 싣는다. 그래서 그 실패는 최대 `connect_timeout` 만큼 늦게 뜬다(2026-10-17 승인, K3).
 
 ### ADR-009: DB 호출은 워커 스레드, 그동안 입력을 막는다
 **결정**: 접속·저장·CSV 불러오기는 `run_blocking`(QThread + 이벤트 루프 + `ExcludeUserInputEvents` + 대기 커서), 폴링·History는 `Task`(비동기)로 돈다.
