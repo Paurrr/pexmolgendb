@@ -408,10 +408,12 @@ class DeviceTabController(QObject):
         if process_name and not self._save_before_process_change():
             # 저장이 취소되거나 실패해 편집이 남아 있다. 새 process 를 읽으면 그 편집이
             # 말없이 버려진다. 콤보만 이전 process 로 되돌린다(processChanged 를 내지 않는다).
-            self.device_tab_toolbar.select_process_silently(
+            # 목록에 없으면(지워짐) 넘어간다. 지워진 process 에는 되돌릴 곳도, 편집을 저장할
+            # 곳도 없다.
+            if self.device_tab_toolbar.select_process_silently(
                 self.device_table.current_process
-            )
-            return
+            ):
+                return
         self.clear()
         self.ui.hide_views()
         # 배너는 직전 process 이야기다. 같이 넘어가면 안 된다.

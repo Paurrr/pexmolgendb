@@ -137,9 +137,9 @@ class DeviceTabToolBarController(QObject):
         self.setProcessesRequested.emit(self.repo.list_all())
         self.logRequested.emit("Process list refreshed.")
 
-    def select_process_silently(self, name: str) -> None:
-        """processChanged 없이 콤보만 name 으로 바꾼다. 목록에 없으면 그대로 둔다."""
-        self.ui.select_process_silently(name)
+    def select_process_silently(self, name: str) -> bool:
+        """processChanged 없이 콤보만 name 으로 바꾼다. 목록에 없으면 그대로 두고 False."""
+        return self.ui.select_process_silently(name)
 
     def get_current_process(self) -> str:
         return self.ui.process_selector.currentText()

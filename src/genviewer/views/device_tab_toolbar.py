@@ -174,13 +174,14 @@ class DeviceTabToolBar(QWidget):
     def select_process(self, name: str):
         self.process_selector.setCurrentText(name)
 
-    def select_process_silently(self, name: str) -> None:
+    def select_process_silently(self, name: str) -> bool:
         index = self.process_selector.findText(name)
         if index == -1:
-            return
+            return False
         self.process_selector.blockSignals(True)
         self.process_selector.setCurrentIndex(index)
         self.process_selector.blockSignals(False)
+        return True
 
     @Slot()
     def set_libraries(self, items: list[str]):
