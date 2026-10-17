@@ -31,7 +31,8 @@
       "name": "audit-naive-time",
       "status": "completed",
       "started_at": "2026-10-18T00:44:39+0900",
-      "summary": "audit.py: recent(since/until)·count_before·purge 가 naive 시각을 _aware()(astimezone(), aware 는 그대로)로 바꿔 바인드(CLI·History 공통, SQL 문자열 불변, cli/history_tab 미수정). RED: test_time_filters_use_the_client_clock_not_the_server_session[naive] (세션 TZ UTC = PGTZ+새 Database, 로컬 KST, 'assert [] == [\"sf9z\"]' at recent(since=-1분)). 수정 전 일회성 확인: recent(since=-1분) 0줄, recent(until=-1분) 1줄, count_before(-1분) 1, purge(-1분) 1(방금 쓴 줄 삭제). [aware]·test_purge_removes_only_what_is_older·test_filters_narrow_the_result 는 수정 전에도 통과. 변이: _aware 가 그대로 돌려주면 [naive] 실패, until 만 빼면 recent(until=-1분)==[] 실패, count_before 만 빼면 1==0 실패, purge 만 빼면 1==0 실패. PGTZ 는 monkeypatch 로 되돌리고 DB 수준 설정 없음(pg_db_role_setting 비어 있음 확인). 표시 시각(format_line·History·log --out 의 at 이 세션 TZ 기준)은 known-issues K46 으로 남김, K6 행 삭제. README 불변(시간대 서술 없음). DB 테스트: 646 passed / 9 skipped(Windows posix_only) / 1 xfailed"
+      "summary": "audit.py: recent(since/until)·count_before·purge 가 naive 시각을 _aware()(astimezone(), aware 는 그대로)로 바꿔 바인드(CLI·History 공통, SQL 문자열 불변, cli/history_tab 미수정). RED: test_time_filters_use_the_client_clock_not_the_server_session[naive] (세션 TZ UTC = PGTZ+새 Database, 로컬 KST, 'assert [] == [\"sf9z\"]' at recent(since=-1분)). 수정 전 일회성 확인: recent(since=-1분) 0줄, recent(until=-1분) 1줄, count_before(-1분) 1, purge(-1분) 1(방금 쓴 줄 삭제). [aware]·test_purge_removes_only_what_is_older·test_filters_narrow_the_result 는 수정 전에도 통과. 변이: _aware 가 그대로 돌려주면 [naive] 실패, until 만 빼면 recent(until=-1분)==[] 실패, count_before 만 빼면 1==0 실패, purge 만 빼면 1==0 실패. PGTZ 는 monkeypatch 로 되돌리고 DB 수준 설정 없음(pg_db_role_setting 비어 있음 확인). 표시 시각(format_line·History·log --out 의 at 이 세션 TZ 기준)은 known-issues K46 으로 남김, K6 행 삭제. README 불변(시간대 서술 없음). DB 테스트: 646 passed / 9 skipped(Windows posix_only) / 1 xfailed",
+      "completed_at": "2026-10-18T00:55:53+0900"
     },
     {
       "step": 4,
