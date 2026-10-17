@@ -178,6 +178,50 @@ def pg_child_index_ddl(table: str) -> sql.Composed:
     )
 
 
+def pg_child_add_columns_ddl(table: str, columns: list[str]) -> sql.Composed:
+    """이미 있는 탭 테이블에 tab_config 에서 늘어난 컬럼을 더한다.
+
+    CREATE TABLE IF NOT EXISTS 는 있는 테이블을 손대지 않으므로, 기존 탭에 컬럼을
+    더하면 운영 DB 에는 그 컬럼이 없어 저장·불러오기가 42703 으로 죽는다.
+
+    ADD COLUMN IF NOT EXISTS 를 그냥 실행하지 않는다. 컬럼이 이미 있어도 ACCESS
+    EXCLUSIVE 를 먼저 잡아서, 쓰는 중에 init_db 를 다시 돌리면 읽는 트랜잭션 뒤에서
+    기다리는 동안 그 탭을 읽는 모든 사람이 줄을 선다. 카탈로그를 보고 빠진
+    컬럼만 ALTER 한다.
+
+    regclass 로 찾는 이유: ALTER TABLE 과 같은 search_path 규칙으로 같은 테이블을
+    가리킨다. quote_ident 는 이름의 대소문자를 그대로 둔다. % 를 쓰지 않는 이유는
+    _PG_DEVICE_DROP_NAME_UNIQUE 와 같다. attname(name) 은 따옴표 리터럴과 비교하므로
+    name 으로 맞춰진다.
+
+    PostgreSQL 10 에서는 DEFAULT 가 있는 ADD COLUMN 이 테이블을 다시 쓴다(11+ 는
+    즉시). 운영은 15 다.
+    """
+    checks = sql.SQL("\n").join(
+        sql.SQL(
+            "        IF NOT EXISTS (SELECT 1 FROM pg_attribute\n"
+            "                       WHERE attrelid = quote_ident({tbl_name})::regclass\n"
+            "                         AND attname = {col_name} AND NOT attisdropped) THEN\n"
+            "            ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {col}"
+            " TEXT NOT NULL DEFAULT '';\n"
+            "        END IF;"
+        ).format(
+            tbl_name=sql.Literal(table),
+            col_name=sql.Literal(c),
+            tbl=sql.Identifier(table),
+            col=sql.Identifier(c),
+        )
+        for c in columns
+    )
+    return sql.SQL(
+        "-- {tbl} 에 빠진 컬럼을 더한다\n"
+        "    DO $$\n"
+        "    BEGIN\n"
+        "{checks}\n"
+        "    END $$"
+    ).format(tbl=sql.Identifier(table), checks=checks)
+
+
 def postgres_all_ddl() -> list:
     out = [
         _PG_PROCESS_DDL,
@@ -190,4 +234,5 @@ def postgres_all_ddl() -> list:
     for table, columns in child_tables().items():
         out.append(pg_child_ddl(table, columns))
         out.append(pg_child_index_ddl(table))
+        out.append(pg_child_add_columns_ddl(table, columns))
     return out

@@ -2,7 +2,18 @@
   "project": "genviewer",
   "phase": "8-schema-migration",
   "steps": [
-    { "step": 0, "name": "schema-add-column", "status": "pending" },
-    { "step": 1, "name": "status-columns", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "schema-add-column",
+      "status": "completed",
+      "started_at": "2026-10-18T08:40:04+0900",
+      "summary": "schema.postgres_all_ddl: 탭마다 CREATE TABLE·인덱스 뒤에 빠진 payload 컬럼만 ADD COLUMN IF NOT EXISTS ... TEXT NOT NULL DEFAULT '' 하는 DO 블록(pg_child_add_columns_ddl, pg_attribute + quote_ident(...)::regclass + NOT attisdropped), 다 있으면 ALTER 안 함(ACCESS EXCLUSIVE 없음). init_db.py 는 그대로(순서·라벨 OK). 처음 실패한 테스트: test_schema::test_ddl_adds_every_payload_column_after_its_create_table(assert len(adds) == 1 → 'suffix_cell_name 의 컬럼 더하기 문장이 0개다'), test_ddl_restores_a_missing_column_on_an_existing_table(UndefinedColumn cds_inst_term_name), test_init_db::test_add_column_steps_sit_between_their_create_table_and_the_grants(단계 0개). 불변식 test_ddl_twice_leaves_the_same_columns·test_ddl_takes_no_table_lock_when_no_column_is_missing 은 구현 전 DDL로 통과 확인. 변이: ① add 문장 제거 → 되살린다·DB불필요·plan 3개 실패 ② 카탈로그 조건 제거(언제나 ALTER) → 잠그지 않는다 테스트 55P03 LockNotAvailable ③ columns[:-1] → DB불필요(suffix_cell_name 0개)·되살린다 실패, 모두 손으로 되돌림. --dry-run 라벨: '-- \"inst_terms\" 에 빠진 컬럼을 더한다'(54 steps, --app-role). 임시 DB에 genviewer-init-db 실행 → add_fgrs 컬럼 2개 지운 뒤 재실행으로 tab_config 순서대로 복구 확인. py39 ast.parse OK, test_py39_compat 통과. ADR-003·README(CSV 컬럼과 탭)·ARCHITECTURE(스키마) 고침. DB 테스트: 681 passed / 9 skipped(posix_only) / 1 xfailed (PG 18.3, Git Bash)"
+    },
+    {
+      "step": 1,
+      "name": "status-columns",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-10-18T08:40:04+0900"
 }

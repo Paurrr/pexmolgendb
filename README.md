@@ -340,10 +340,15 @@ uv pip compile pyproject.toml --python-version 3.13 --python-platform x86_64-man
 값 후보와 입력 검증은 `config/delegate_config.json` 이다 (`items`,
 `items_by_celltype`, `strict`, `required`, `syntax`, `pattern`).
 
-**탭을 추가한 뒤에는 기존 데이터베이스에도 `genviewer-init-db` 를 다시 돌려야
-한다.** 전부 `CREATE TABLE IF NOT EXISTS` 라서 여러 번 돌려도 안전하고 기존
-데이터는 건드리지 않는다. 공유 서버라면 `--owner` 를 같이 준다 — 새 테이블이
-소유자 명의로 만들어져 앱 role 권한이 자동으로 따라간다(아래 '서버' 절).
+**탭을 추가하거나 기존 탭에 컬럼을 더한 뒤에는 기존 데이터베이스에도
+`genviewer-init-db` 를 다시 돌려야 한다.** 안 돌리면 그 탭의 저장·불러오기가
+없는 컬럼 오류(42703)로 실패한다. 테이블은 `CREATE TABLE IF NOT EXISTS` 이고,
+기존 탭 테이블에는 빠진 컬럼만 더한다(기존 행의 값은 빈 문자열). 이름을 바꾸거나
+지운 컬럼은 손대지 않는다. 그래서 여러 번 돌려도 안전하고 기존 데이터는 건드리지
+않는다. 빠진 컬럼이 없으면 `ALTER TABLE` 을 실행하지 않으므로 다시 돌려도 그 탭을
+읽는 사람이 기다리지 않는다. PostgreSQL 10 에서는 컬럼을 더할 때 그 테이블을 다시 쓴다(11 부터는 즉시 끝난다).
+공유 서버라면 `--owner` 를 같이 준다 — 새 테이블이 소유자 명의로 만들어져 앱 role
+권한이 자동으로 따라간다(아래 '서버' 절).
 
 ### 이름이 같은 행은 각각 device 가 된다
 

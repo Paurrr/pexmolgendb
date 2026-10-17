@@ -112,7 +112,7 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 
 **변경 감지**: `DeviceTabController` 의 10초 `QTimer` → `Task(repo.etag(process_id))` → 기억한 etag와 다르면 배너. 연속 3회 실패하면 멈추고, 다시 접속하면 되살아난다. 자동으로 다시 읽지 않는다. History 화면도 10초마다 `Task` 로 다시 읽고, 줄을 고르면 멈춘다.
 
-**스키마**: `tab_config.json` 의 탭마다 자식 테이블 하나(`id IDENTITY`, `device_id … ON DELETE CASCADE`, payload `TEXT NOT NULL DEFAULT ''`, `(device_id, id)` 인덱스). 고정 테이블 `process`, `device`(version, updated_at, updated_by), `change_log`(FK 없음, JSONB detail). 전부 `CREATE … IF NOT EXISTS` 라 `init_db` 는 여러 번 돌려도 된다. 같은 원본이 `TABLE_COLUMNS`, 화면 탭(`views/parameter_tab.py`), CSV import(`parse`, `row_per_token`), export, `diagnostics.expected_tables`(17개)를 만든다. DDL과 tab_config의 어긋남(테이블 집합, 컬럼 이름·순서)은 `tests/test_schema.py` 가 접속 없이 렌더링한 PostgreSQL DDL로 잡는다.
+**스키마**: `tab_config.json` 의 탭마다 자식 테이블 하나(`id IDENTITY`, `device_id … ON DELETE CASCADE`, payload `TEXT NOT NULL DEFAULT ''`, `(device_id, id)` 인덱스). 고정 테이블 `process`, `device`(version, updated_at, updated_by), `change_log`(FK 없음, JSONB detail). 전부 `CREATE … IF NOT EXISTS` + 탭 테이블의 빠진 컬럼은 카탈로그를 보고 `ADD COLUMN`(다 있으면 `ALTER` 를 실행하지 않아 ACCESS EXCLUSIVE 를 잡지 않는다)이라 `init_db` 는 여러 번 돌려도 된다. 같은 원본이 `TABLE_COLUMNS`, 화면 탭(`views/parameter_tab.py`), CSV import(`parse`, `row_per_token`), export, `diagnostics.expected_tables`(17개)를 만든다. DDL과 tab_config의 어긋남(테이블 집합, 컬럼 이름·순서)은 `tests/test_schema.py` 가 접속 없이 렌더링한 PostgreSQL DDL로 잡는다.
 
 **권한** (`scripts/init_db.py`): `SET ROLE <owner>` 후 DDL → `GRANT USAGE ON SCHEMA public`, `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES` → `ALTER DEFAULT PRIVILEGES`(새 탭 테이블도 자동). 시퀀스 권한은 IDENTITY라 필요 없다.
 

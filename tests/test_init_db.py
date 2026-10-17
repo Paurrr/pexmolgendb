@@ -13,6 +13,7 @@ import os
 
 import pytest
 
+from genviewer.config.config import tab_config
 from genviewer.scripts.init_db import build_plan, main
 from genviewer.service import schema
 
@@ -49,6 +50,32 @@ def test_app_role_adds_grants_after_the_ddl():
     last_ddl = max(i for i, s in enumerate(steps) if "CREATE TABLE" in s.label)
     assert _first(steps, "GRANT USAGE") > last_ddl
     assert _first(steps, "ALTER DEFAULT PRIVILEGES") > last_ddl
+
+
+def test_add_column_steps_sit_between_their_create_table_and_the_grants():
+    """빠진 컬럼 더하기는 그 테이블이 생긴 뒤, 권한 주기 전에 돈다.
+
+    --dry-run 라벨만 보고 어느 테이블의 단계인지 알 수 있어야 한다. DO 블록의
+    첫 줄(DO $$)이 라벨이 되면 14개가 다 똑같이 찍힌다.
+    """
+    steps = build_plan("", "", "", APP)
+    grant = _first(steps, "GRANT")
+    labels = []
+    for info in tab_config.values():
+        table = info["table"]
+        create = _first(steps, f'CREATE TABLE IF NOT EXISTS "{table}"')
+        adds = [
+            i
+            for i, s in enumerate(steps)
+            if not isinstance(s.sql, str)
+            and f'ALTER TABLE "{table}" ADD COLUMN' in s.sql.as_string()
+        ]
+        assert len(adds) == 1, f"{table} 의 컬럼 더하기 단계가 {len(adds)}개다"
+        (add,) = adds
+        assert create < add < grant, f"{table}: {_labels(steps)}"
+        assert table in steps[add].label
+        labels.append(steps[add].label)
+    assert len(set(labels)) == len(labels), labels
 
 
 def test_default_privileges_are_granted():
