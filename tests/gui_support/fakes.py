@@ -335,6 +335,7 @@ class FakeDatabase:
         self.store = store
         self.cfg = DbConfig(dsn=dsn or "fake", app_user=current_user())
         self.closed = True
+        self.close_count = 0  # close() 가 불린 횟수. calls 의 "db.close" 는 어느 DB 인지 모른다
 
     @property
     def user(self) -> str:
@@ -347,6 +348,7 @@ class FakeDatabase:
     @_recorded("db.close", store_of=lambda self: self.store, failable=False)
     def close(self) -> None:
         self.closed = True
+        self.close_count += 1
 
     @_recorded("db.ping", store_of=lambda self: self.store, failable=False)
     def ping(self) -> bool:

@@ -17,6 +17,7 @@ from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.background import Task, is_busy, run_blocking
 from genviewer.utils.dialogs import question
 from genviewer.utils.lisp import to_lisp_list_string
+from genviewer.utils.logs import scrub
 from genviewer.utils.reporting import report, report_error
 from genviewer.utils.user import current_user
 from genviewer.views.device_tab import DeviceTab
@@ -89,7 +90,10 @@ class DeviceTabController(QObject):
         self._poll_timer.setInterval(POLL_INTERVAL_MS)
         self._poll_timer.timeout.connect(self._poll_remote_changes)
 
-        self.connect_db(dsn)
+        # 첫 접속은 예약만 한다. 지금 부르면 MainWindowController 가 notifyRequested·
+        # logRequested 를 창에 잇기 전이라 접속 실패도 첫 조회 실패도 화면에 나오지 않는다.
+        # context(self)를 넘겨 컨트롤러가 먼저 사라지면 불리지 않게 한다.
+        QTimer.singleShot(0, self, lambda: self.connect_db(dsn))
 
     def set_repo(self, db: Database):
         self.io_repo = IORepository(db)
@@ -149,24 +153,27 @@ class DeviceTabController(QObject):
         return db
 
     def connect_db(self, dsn: str) -> bool:
-        """DSN 으로 접속한다. dsn 이 비면 GENDB_PG_DSN 환경변수를 쓴다."""
-        if self.db is not None:
-            self.db.close()
-            self.db = None
+        """DSN 으로 접속한다. dsn 이 비면 GENDB_PG_DSN 환경변수를 쓴다.
 
+        새 DB 를 먼저 연다. 실패하면 지금 DB·repo·폴링을 그대로 둔다. 옛 DB 를 먼저
+        닫으면 실패했을 때 화면의 repo 가 전부 닫힌 풀을 쥐어 다시 붙기 전까지 아무것도
+        못 한다. 성공하면 도는 폴링이 끝난 뒤에 옛 DB 를 닫는다.
+        """
         try:
             db = run_blocking(lambda: self._open_database(dsn), self)
         except Exception as e:
             # 좁은 예외 목록이면 안 된다. OperationalError 만 DbUnavailableError 로
             # 바뀌므로 인증 실패나 권한 오류는 그대로 여기까지 올라오는데, 이 함수는
-            # __init__ 에서도 불리기 때문에 새면 창도 못 띄우고 죽는다.
-            self.connected = False
+            # 시작할 때 예약된 첫 접속에서도 불리기 때문에 새면 아무 말 없이 빈 창이 된다.
+            if self.db is None:
+                self.connected = False
             log.warning("데이터베이스 접속 실패", exc_info=e)
             # 로그 패널에 e 를 그대로 쓰면 안 된다. psycopg 의 접속 실패 문자열에는
             # conninfo 가 통째로 들어 있어 비밀번호가 화면에 찍힌다.
             self.logRequested.emit(f"Database connect failed: {user_message(e)}")
             return False
 
+        self._release_db()
         self.db = db
         self.connected = True
         self.set_repo(db)
@@ -178,7 +185,8 @@ class DeviceTabController(QObject):
             report_error(self, "Load Failed", e, logger=log)
         self._poll_failures = 0
         self._poll_timer.start()
-        self.logRequested.emit(f"Database connected: {db.cfg.dsn}.")
+        # 로그 패널은 파일 로그의 ScrubbingFormatter 를 지나지 않는다(ADR-013).
+        self.logRequested.emit(f"Database connected: {scrub(db.cfg.dsn)}.")
         return True
 
     # ------------------------------------------------------------------
@@ -251,6 +259,14 @@ class DeviceTabController(QObject):
         join 하려다 PythonFinalizationError 로 멈춘다 — 창을 닫아도 프로세스가
         살아 있는 것처럼 보인다.
         """
+        had_db = self.db is not None
+        self._release_db()
+        if had_db:
+            self.dbChanged.emit(None)
+        self.connected = False
+
+    def _release_db(self) -> None:
+        """폴링을 멈추고 도는 폴링 작업을 기다린 뒤 지금 DB 를 닫는다. dbChanged 는 내지 않는다."""
         self._poll_timer.stop()
         # 폴링이 아직 커넥션을 들고 있을 수 있다. 그대로 풀을 닫으면 그쪽에서
         # 예외가 난다.
@@ -260,8 +276,6 @@ class DeviceTabController(QObject):
         if self.db is not None:
             self.db.close()
             self.db = None
-            self.dbChanged.emit(None)
-        self.connected = False
 
     def apply_db(self):
         self.device_table.device_state_data = (

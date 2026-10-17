@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "connect-db",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-17T17:54:04+0900",
+      "summary": "connect_db: 새 DB 먼저 열기(실패 시 옛 DB·repo·폴링 유지, 지금 DB 가 없을 때만 connected=False), 성공 시 _release_db(폴링 타이머 정지 → 도는 폴링 Task wait → 옛 DB close, dbChanged 없음) 후 dbChanged(새) 1회, 접속 로그 scrub(db.cfg.dsn). close_db 는 _release_db + dbChanged(None). 첫 접속은 QTimer.singleShot(0, self, ...)(_on_connect 아님, 새 대화상자 없음). 테스트는 connected is not None 대기 필요(conftest 두 fixture 가 이미 기다림, 주석만 고침). RED: test_the_connected_log_line_hides_the_password[key_value·url] ('s3cret' 이 'password=s3cret.'·'app:s3cret@' 로 로그 패널에 보임), test_a_failed_reconnect_keeps_the_current_database (tab.db 가 None, db1 이 아님), test_a_reconnect_waits_for_the_running_poll_before_closing ([False] != [True]: 폴링 Task 가 끝나기 전에 db1.close), test_a_failed_start_connect_shows_in_the_log_panel ('Database connect failed:' in '': 로그 패널 비어 있음), test_a_failed_first_query_at_start_is_shown ('Process List Failed' in []), test_a_successful_start_connect_is_logged_once (dbChanged [] != [db]). 재접속 성공(dbChanged == [db2], db1.close_count == 1)과 시작 실패 뒤 재접속은 특성 테스트(수정 전에도 통과). 변이 검사 6개(scrub 제거, 옛 DB 먼저 닫기, 폴링 대기 제거, 실패 시 connected 항상 False, 재접속에 close_db, 첫 접속 바로 부르기) 모두 잡힘. tests/gui/test_connect_db.py 추가(9개, start_window fixture 는 파일 안), FakeDatabase.close_count 추가. test_smoke 의 dialogs.shown == [] 는 그대로 통과(성공한 시작 접속은 알림을 내지 않는다). 발견(코드를 읽어 본 것, 재현·수정하지 않음): 재접속 때 이력 화면의 진행 중 Task 는 기다리지 않아 옛 풀이 닫힌 뒤 실패할 수 있고, 그 Task 가 남아 있는 동안 set_db(새)의 reload 가 _task 가드로 건너뛰어 다음 자동 갱신까지 새 DB 로 다시 읽지 않는다. DB 테스트: 511 passed / 9 skipped / 1 xfailed"
     },
     {
       "step": 5,

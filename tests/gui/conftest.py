@@ -79,14 +79,14 @@ def device_tab_ctrl(qtbot, monkeypatch, store, dialogs) -> Iterator[DeviceTabCon
 
     접속 직후에는 첫 process(sf2p)가 골라져 있다(콤보의 addItems 가 currentTextChanged 를 낸다).
     알림은 MainWindow 대신 `dialogs.shown` 에 남는다. 생성 **뒤에** 잇는 것은
-    MainWindowController 와 같은 순서다(생성 중의 알림은 실제 앱에서도 어디에도 가지 않는다).
+    MainWindowController 와 같은 순서다. 첫 접속은 생성자가 예약만 하므로 그 알림도 여기 닿는다.
     """
     install_fake_db(monkeypatch, store)
     view = DeviceTab()
     qtbot.addWidget(view)
     ctrl = DeviceTabController(view, "")
     ctrl.notifyRequested.connect(dialogs.record_notify)
-    # 지금은 생성자 안에서 접속이 끝나 바로 참이다. 첫 접속이 비동기가 되어도 그대로 돈다.
+    # 첫 접속은 QTimer.singleShot(0, …) 으로 예약된다. 기다려야 다음 테스트로 새지 않는다.
     qtbot.waitUntil(lambda: ctrl.connected is not None)
     yield ctrl
     ctrl.close_db()  # 이미 닫혔으면 아무것도 하지 않는다
