@@ -11,6 +11,8 @@ class DeviceTabToolBarController(QObject):
     loadVirtuosoProcessRequested = Signal(str)
     loadLibrariesRequested = Signal()
     processChanged = Signal(str)
+    # 사용자가 확인한 Remove Process 의 삭제가 성공했다. 목록을 다시 채우기 전에 낸다.
+    processRemoved = Signal(str)
     libraryChanged = Signal(str)
     showViewRequested = Signal(bool)
     setProcessesRequested = Signal(list)
@@ -123,6 +125,9 @@ class DeviceTabToolBarController(QObject):
                 self.notifyRequested.emit(
                     "info", "Removed", f"Process '{name}' removed."
                 )
+                # 목록을 다시 채우면 콤보가 바뀌며 지운 process 의 편집을 저장할지 묻는다. 그
+                # 전에 버리게 알린다(K42).
+                self.processRemoved.emit(name)
                 # 비편집 콤보의 setCurrentText("") 는 아무것도 하지 않아 지운 이름이 목록에
                 # 남았다. 다시 고르면 get_or_create_id 가 빈 process 를 새로 만든다.
                 self.refresh_processes()

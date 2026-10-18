@@ -69,6 +69,7 @@ class DeviceTabController(QObject):
         self.ui.loadCsvRequested.connect(self.on_load_csv_requested)
 
         self.device_tab_toolbar.processChanged.connect(self.on_process_changed)
+        self.device_tab_toolbar.processRemoved.connect(self._on_process_removed)
         self.device_tab_toolbar.runModeRequested.connect(self.send_device_data)
         self.device_tab_toolbar.showViewRequested.connect(lambda _on: self.show_views())
         self.device_tab_toolbar.clearTabRequested.connect(
@@ -444,6 +445,15 @@ class DeviceTabController(QObject):
         self.device_table.set_current_process(process_name)
         self.device_table.set_current_process_id(process_id)
         self.device_table.refresh_devices()
+        self.parameter_tab._clear_tabs()
+
+    @Slot(str)
+    def _on_process_removed(self, process_name: str) -> None:
+        # 사용자가 process 삭제를 확인했다. 그 편집은 저장할 곳이 없어 물으면 반드시 deleted
+        # 충돌이 난다(K42). 탭은 다시 읽지 않고 비운다(지워진 device 라 읽을 행이 없다).
+        if process_name != self.device_table.current_process:
+            return
+        self.device_table.set_dirty(False)
         self.parameter_tab._clear_tabs()
 
     def _save_before_process_change(self) -> bool:
