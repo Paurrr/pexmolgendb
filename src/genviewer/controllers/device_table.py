@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, QObject, QPoint, Qt, Signal, Slot
@@ -54,6 +55,8 @@ class DeviceTableController(QObject):
         self.dirty_by_process_id: dict[int, bool] = {}
         self._copied_rows: list[dict] = []
         self._etag: dict | None = None
+        # 탭에 저장 안 한 편집이 있는가. DeviceTabController 가 넘겨 준다(기본: 없음).
+        self._has_unsaved_tabs: Callable[[], bool] = lambda: False
 
         self.ui.headerMenuRequested.connect(self._on_header_menu)
         self.ui.contextMenuRequested.connect(self._on_context_menu)
@@ -77,6 +80,9 @@ class DeviceTableController(QObject):
         self.repo = repo
         self.parameter_repo = parameter_repo
         self.io_repo = io_repo
+
+    def set_unsaved_tabs_check(self, check: Callable[[], bool]):
+        self._has_unsaved_tabs = check
 
     def _on_context_menu(self, selected_rows: list[int], global_pos: QPoint):
         menu, acts = build_device_table_menu(self.ui, selected_rows)
@@ -187,6 +193,15 @@ class DeviceTableController(QObject):
                 "Unsaved Changes",
                 "저장하지 않은 device 편집이 있어 붙여넣지 않았다.\n"
                 "붙여넣기는 바로 저장하고 목록을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+            )
+            return
+        if self._has_unsaved_tabs():
+            # 붙여넣기는 탭을 붙여넣은 device 로 바꿔 저장하지 않은 탭 편집이 사라진다(K37).
+            self.notifyRequested.emit(
+                "warn",
+                "Unsaved Changes",
+                "저장하지 않은 탭 편집이 있어 붙여넣지 않았다.\n"
+                "붙여넣기는 바로 저장하고 탭을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
             )
             return
 

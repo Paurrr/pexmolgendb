@@ -7,6 +7,9 @@ G15a: save_all 은 CellType 이 delegate_config 목록에 없는 행을 저장�
 G15b: 붙여넣기는 바로 저장하고 목록을 다시 읽는다. device 표에 저장 안 한 편집이 있으면
 붙여넣지 않고 "Unsaved Changes" 경고를 낸다.
 
+K37 (phase 10 step 3, 승인): 붙여넣기는 탭을 붙여넣은 device 로 바꾼다. 탭에 저장 안 한 편집이
+있으면 붙여넣지 않고 "Unsaved Changes"(탭 편집 본문) 경고를 낸다. device 편집 검사가 먼저다.
+
 K38 (phase 10 step 2): 붙여넣은 device 의 탭 쓰기는 그 행의 device 저장이 돌려준 version 에
 대고 쓴다(expected_version). 그 사이 남이 그 device 를 저장했으면 충돌로 묻는다.
 """
@@ -219,6 +222,70 @@ def test_pasting_without_unsaved_edits_saves_the_pasted_row(device_tab_ctrl, sto
     assert model_of(ctrl).rowCount() == 3
     assert [d["name"] for d in model_of(ctrl).get_devices()].count("nfet_b") == 2
     assert titled(notes, "Unsaved Changes") == []
+
+
+def edit_nfet_a_tab(ctrl, store, qtbot) -> int:
+    """nfet_a(0행)를 골라 탭이 그것을 읽은 뒤 InstTerm 0행을 "dd" 로 고친다. nfet_a 의 id."""
+    select_device_row(ctrl, 0)
+    nfet_a = store.find_device("nfet_a")["id"]
+    qtbot.waitUntil(lambda: ctrl.parameter_tab.section(TAB).device_id == nfet_a)
+    qtbot.waitUntil(lambda: len(ctrl.parameter_tab.section(TAB).model.get_data()) == 4)
+    edit_tab_cell(ctrl, TAB, 0, COLUMN, "dd")
+    assert ctrl.parameter_tab.is_dirty()
+    return nfet_a
+
+
+def test_pasting_with_unsaved_tab_edits_is_refused_with_a_warning(
+    device_tab_ctrl, store, qtbot
+):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    nfet_a = edit_nfet_a_tab(ctrl, store, qtbot)
+    notes = record_notifications(ctrl)
+    ctrl.device_table.copy_rows([1])
+
+    ctrl.device_table.paste_rows([1])
+
+    assert store.calls_of("upsert_device") == []
+    assert store.calls_of("replace_many_for_device") == []
+    assert titled(notes, "Unsaved Changes") == [
+        (
+            "warn",
+            "Unsaved Changes",
+            "저장하지 않은 탭 편집이 있어 붙여넣지 않았다.\n"
+            "붙여넣기는 바로 저장하고 탭을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+        )
+    ]
+    assert model_of(ctrl).rowCount() == 2
+    assert ctrl.parameter_tab.current_device_id == nfet_a
+    assert ctrl.parameter_tab.section(TAB).device_id == nfet_a
+    assert ctrl.parameter_tab.is_dirty()
+    assert ctrl.parameter_tab.section(TAB).model.get_data()[0][COLUMN] == "dd"
+
+
+def test_pasting_with_unsaved_device_and_tab_edits_warns_only_about_device_edits(
+    device_tab_ctrl, store, qtbot
+):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    edit_nfet_a_tab(ctrl, store, qtbot)
+    edit_device_cell(ctrl, 0, "description", EDITED)
+    notes = record_notifications(ctrl)
+    ctrl.device_table.copy_rows([1])
+
+    ctrl.device_table.paste_rows([1])
+
+    assert titled(notes, "Unsaved Changes") == [
+        (
+            "warn",
+            "Unsaved Changes",
+            "저장하지 않은 device 편집이 있어 붙여넣지 않았다.\n"
+            "붙여넣기는 바로 저장하고 목록을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+        )
+    ]
+    assert store.calls_of("upsert_device") == []
+    assert ctrl.device_table.is_dirty()
+    assert ctrl.parameter_tab.is_dirty()
 
 
 # -- K38: 붙여넣은 device 의 탭 쓰기는 저장된 version 에 대고 쓴다 ----------------------

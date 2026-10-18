@@ -57,6 +57,7 @@ class DeviceTabController(QObject):
         )
         self.device_table = DeviceTableController(self.ui.device_table_view)
         self.parameter_tab = ParameterTabController(self.ui.parameter_tab_view)
+        self.device_table.set_unsaved_tabs_check(self.parameter_tab.is_dirty)
 
         self.ui.dbConnectRequested.connect(self._on_connect)
         self.ui.loadCsvRequested.connect(self.on_load_csv_requested)
