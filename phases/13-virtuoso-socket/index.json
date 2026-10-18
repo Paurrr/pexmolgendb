@@ -2,8 +2,23 @@
   "project": "genviewer",
   "phase": "13-virtuoso-socket",
   "steps": [
-    { "step": 0, "name": "socket-behavior-tests", "status": "pending" },
-    { "step": 1, "name": "socket-consumers", "status": "pending" },
-    { "step": 2, "name": "qtcpsocket-controller", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "socket-behavior-tests",
+      "status": "completed",
+      "started_at": "2026-10-18T21:03:09+0900",
+      "summary": "tests/gui_support/virtuoso_server.py(LocalVirtuoso) + tests/gui/test_virtuoso_connection.py: 지금 동작 고정 11개(공개 API만), strict xfail 6개(K14 상대 닫음·비 UTF-8·0바이트, K24, K39·K40 서브프로세스 = tests/gui_support/virtuoso_child.py). --runxfail 실패 단언: K14 상대 닫음 — received 는 ['ERROR: recv failed - Server connection closed'] 인데 waitUntil(statuses[-1] == (False, 'Disconnected'), 2s) 시간 초과(statuses == [(True, 'Connected')]); K14 비 UTF-8 — \"ERROR: recv failed - 'utf-8' codec can't decode byte 0xff …\" 하나가 오고 서버도 peer_closed 이지만 같은 상태 waitUntil 시간 초과; K14 0바이트 — waitUntil(received == ['hello'], 2s) 시간 초과(received == ['DISCONNECTED']); K24 — assert elapsed < 1.0 실패(2.85초, _stop_io_workers 의 wait 가 close_peer_after(3.0) 까지 막힘); K39 — rc == 0 실패(rc=0xC0000409, stderr 'QThread: Destroyed while thread '' is still running', OK 없음); K40 — rc == 0 실패(rc=0xC0000409, 같은 qFatal. 죽기 전 자식 출력 accepted=2, statuses 에 (True, 'Connected') 두 번, OK 전에 죽음). 지금 동작과 달라 고친 단언: 없음. 자식 env 에 QT_FORCE_STDERR_LOGGING=1(Windows 에서 qFatal 문구를 stderr 로). src 불변. 테스트 파일 5회·tests/gui 3회 반복 흔들림 없음. DB 테스트: 911 passed / 10 skipped / 6 xfailed(-rs, skip 은 Windows posix 권한 테스트만)"
+    },
+    {
+      "step": 1,
+      "name": "socket-consumers",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "qtcpsocket-controller",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-10-18T21:03:09+0900"
 }
