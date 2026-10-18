@@ -7,7 +7,8 @@
       "name": "conflict-deleted-only",
       "status": "completed",
       "summary": "K20(승인): 내가 지운 행을 뺀 나머지 충돌이 있고 전부 deleted 면 덮어쓰기를 내놓지 않음. dialogs/conflict.can_overwrite(conflicts, my_deletions) + ConflictDialog(allow_overwrite=) 가 False 면 덮어쓰기 버튼을 만들지 않음 + ask_conflict(..., my_deletions), device_table._write_devices 가 deleted.keys() 를 넘김(탭 _write 는 그대로). FakeDialogs.ask_conflict 가 같은 can_overwrite 를 import해 판단하고 conflict_choices 를 남기며 내놓지 않은 OVERWRITE 답을 unexpected('내놓지 않은 OVERWRITE 답: 'Save Conflict'') + AssertionError 로 거부. RED: 수정 전 src 는 gui_support/dialogs.py 의 can_overwrite import 가 ImportError, 시그니처만 받는 스텁(늘 True)으로 18 failed: test_conflict_dialog_buttons[deleted] (보이는 버튼 [다시 읽기, 내 변경으로 덮어쓰기, 취소] != [다시 읽기, 취소]), test_reloading_a_device_save_after_another_user_deleted_the_edited_device·test_reloading_a_tab_save_after_another_user_deleted_the_device (conflict_choices[-1] ('reload','overwrite','cancel') != ('reload','cancel')), test_overwrite_on_a_deleted_only_conflict_is_unexpected (DID NOT RAISE AssertionError), test_can_overwrite[deleted]/[my-deletion+deleted]. 회귀 test_overwrite_is_offered_when_another_user_deleted_only_the_device_i_deleted 는 동작상 수정 전에도 통과(OVERWRITE 저장, nfet_a 저장됨). 변이: ① can_overwrite 늘 True → 18 failed(버튼·진짜 ask_conflict·가짜 거부·conflict_choices) ② _write_devices 가 my_deletions 를 안 넘김 → 내가 지운 행 테스트 실패(+teardown 오류) ③ ask_conflict 가 allow_overwrite 를 안 넘김 → test_real_ask_conflict_hides_overwrite_when_every_conflict_is_deleted 실패. 모두 되돌림. 해석: 내가 지운 행의 deleted 는 판단에서 뺌(사용자 확인 2026-10-17). 새 known-issue: stale+deleted 섞인 충돌의 덮어쓰기는 사라진 행 편집을 조용히 버림(test_a_stale_and_deleted_conflict_still_offers_overwrite 특성 테스트). GUI 361 passed / 1 xfailed, 전체 726 passed / 10 skipped / 1 xfailed(DB 붙음, Git Bash)",
-      "started_at": "2026-10-18T14:35:07+0900"
+      "started_at": "2026-10-18T14:35:07+0900",
+      "completed_at": "2026-10-18T14:45:47+0900"
     },
     {
       "step": 1,
