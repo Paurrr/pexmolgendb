@@ -113,7 +113,7 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 - 순서값: `save_all` 은 보통 화면 순서대로 `order = 0..n-1` 을 매긴다. 마지막 `refresh_devices` 가 Virtuoso 목록으로 숨긴 행이 있었으면, 보내는 행끼리 그때 읽은 자기들의 옛 순서값을 화면 순서대로 나눠 갖는다(`_filtered_orders`, 숨은 행은 보내지 않는다).
 - version 동기화: 탭 저장이 올린 version은 `deviceVersionChanged` 로 device 표에, device 저장이 올린 version은 `deviceVersionBumped` 로 탭에 간다. 탭은 정확히 +1일 때만 받는다(덮어쓰기로 남의 변경 위에 썼으면 다음 탭 저장이 충돌로 묻는다).
 
-**변경 감지**: `DeviceTabController` 의 10초 `QTimer` → `Task(repo.etag(process_id))` → 기억한 etag와 다르면 배너. 연속 3회 실패하면 멈추고, 다시 접속하면 되살아난다. 자동으로 다시 읽지 않는다. History 화면도 10초마다 `Task` 로 다시 읽고, 줄을 고르면 멈춘다.
+**변경 감지**: `DeviceTabController` 의 10초 `QTimer` → `Task(repo.etag(process_id))` → 기억한 etag와 다르면 배너. 연속 3회 실패하면 멈추고, 다시 접속하면 되살아난다. 자동으로 다시 읽지 않는다. History 화면도 10초마다 `Task` 로 다시 읽고, 줄을 고르면 멈춘다. 다시 읽는 중에 필터를 바꾸거나 DB가 바뀌면 끝난 뒤 한 번 더 읽고, 그사이 도착한 옛 결과는 버린다.
 
 **스키마**: `tab_config.json` 의 탭마다 자식 테이블 하나(`id IDENTITY`, `device_id … ON DELETE CASCADE`, payload `TEXT NOT NULL DEFAULT ''`, `(device_id, id)` 인덱스). 고정 테이블 `process`, `device`(version, updated_at, updated_by), `change_log`(FK 없음, JSONB detail). 전부 `CREATE … IF NOT EXISTS` + 탭 테이블의 빠진 컬럼은 카탈로그를 보고 `ADD COLUMN`(다 있으면 `ALTER` 를 실행하지 않아 ACCESS EXCLUSIVE 를 잡지 않는다)이라 `init_db` 는 여러 번 돌려도 된다. 같은 원본이 `TABLE_COLUMNS`, 화면 탭(`views/parameter_tab.py`), CSV import(`parse`, `row_per_token`), export, `diagnostics.expected_tables`(17개)와 탭 테이블의 컬럼을 만든다. DDL과 tab_config의 어긋남(테이블 집합, 컬럼 이름·순서)은 `tests/test_schema.py` 가 접속 없이 렌더링한 PostgreSQL DDL로 잡는다.
 
