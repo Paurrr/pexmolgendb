@@ -649,6 +649,10 @@ sudo -u postgres env PGBIN=/usr/pgsql-15/bin PGDATA=/var/lib/pgsql/15/data \
     ./tools/initdb.sh
 ```
 
+`PGHBA_CIDR` 를 주면서 `PGAUTH_HOST` 를 비워 두면 스크립트가 거부한다. 기본값
+`trust` 는 그 대역을 인증 없이 열기 때문이다(꼭 그래야 하면 `PGAUTH_HOST=trust` 로
+명시한다).
+
 **인증을 왜 이렇게 나누나.** `initdb --auth=X` 는 local 과 host 를 한꺼번에 정한다:
 
 | local | host | 슈퍼유저 비번 | 결과 |

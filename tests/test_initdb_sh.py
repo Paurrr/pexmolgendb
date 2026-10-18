@@ -156,7 +156,7 @@ def test_skip_start_does_not_call_pg_ctl(pg):
     assert calls(pg, "pg_ctl") == []
 
 
-# PGAUTH_HOST 는 늘 적는다. PGHBA_CIDR 만 주고 비우면 받지 않게 될 것이다(K26).
+# PGAUTH_HOST 는 늘 적는다. PGHBA_CIDR 만 주고 비우면 받지 않는다(K26).
 HBA_ENV = {
     "PGHBA_CIDR": "10.0.0.0/8",
     "PGHBA_DB": "molgen",
@@ -190,3 +190,53 @@ def test_an_existing_hba_line_is_not_added_again(pg):
     assert second.returncode == 0, second.stderr
     assert hba_lines(pg).count(HBA_LINE) == 1
     assert "추가" not in second.stdout
+
+
+# K26: PGHBA_CIDR 를 주면서 PGAUTH_HOST 를 정하지 않으면 기본값 trust 가 그 대역 전체를
+# 인증 없이 연다. 그런 실행은 무엇도 하기 전에 거부한다(승인 2026-10-17).
+CIDR = "10.0.0.0/8"
+
+
+def test_a_cidr_without_pgauth_host_is_refused(pg):
+    result = run_initdb(pg, PGHBA_CIDR=CIDR)
+    assert result.returncode == 1, result.stdout
+    assert "PGAUTH_HOST" in result.stderr
+    assert "trust" in result.stderr
+    assert not pg["record"].exists()
+    assert not pg["data"].exists()
+
+
+def test_a_cidr_without_pgauth_host_is_refused_on_an_existing_cluster(pg):
+    assert run_initdb(pg).returncode == 0
+    before = pg["record"].read_text(encoding="utf-8")
+    result = run_initdb(pg, PGHBA_CIDR=CIDR)
+    assert result.returncode == 1, result.stdout
+    assert hba_lines(pg) == []
+    assert pg["record"].read_text(encoding="utf-8") == before
+
+
+def test_an_empty_pgauth_host_counts_as_unset(pg):
+    result = run_initdb(pg, PGHBA_CIDR=CIDR, PGAUTH_HOST="")
+    assert result.returncode == 1, result.stdout
+    assert not pg["record"].exists()
+
+
+def test_an_explicit_trust_with_a_cidr_is_accepted(pg):
+    result = run_initdb(pg, PGHBA_CIDR=CIDR, PGAUTH_HOST="trust")
+    assert result.returncode == 0, result.stderr
+    assert hba_lines(pg) == [f"host all all {CIDR} trust"]
+
+
+def test_scram_with_a_cidr_is_accepted(pg):
+    result = run_initdb(pg, PGHBA_CIDR=CIDR, PGAUTH_HOST="scram-sha-256")
+    assert result.returncode == 0, result.stderr
+    assert hba_lines(pg) == [f"host all all {CIDR} scram-sha-256"]
+
+
+def test_without_a_cidr_the_default_host_auth_is_still_trust(pg):
+    # 개발 기본값: 원격 대역이 없으면 trust 는 루프백에만 쓰인다.
+    result = run_initdb(pg)
+    assert result.returncode == 0, result.stderr
+    [initdb_args] = calls(pg, "initdb")
+    assert "--auth-host=trust" in initdb_args
+    assert hba_lines(pg) == []

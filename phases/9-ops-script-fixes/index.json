@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "hba-trust-refuse",
-      "status": "pending"
+      "status": "completed",
+      "summary": "initdb.sh: PGHBA_CIDR 가 있고 PGAUTH_HOST 가 비었으면(정의 안 됨·빈 문자열) 무엇도 하기 전에 exit 1, 지정 문구 두 줄을 stderr 로(명시한 trust 는 허용, 승인 2026-10-17). 검사는 set -eu 바로 뒤, 기본값 채우기 전 원래 값으로. RED: test_a_cidr_without_pgauth_host_is_refused (result.returncode == 1 → assert 0 == 1, hba 에 '… 10.0.0.0/8 trust' 가 더해짐), test_a_cidr_without_pgauth_host_is_refused_on_an_existing_cluster·test_an_empty_pgauth_host_counts_as_unset 도 같은 단언으로 실패. 회귀 test_an_explicit_trust_with_a_cidr_is_accepted·test_scram_with_a_cidr_is_accepted·test_without_a_cidr_the_default_host_auth_is_still_trust(--auth-host=trust) 는 수정 전에도 통과. 변이: 검사 블록을 지우면 RED 3개 실패. README 서버 절 '1. 클러스터' 호출 예시 아래 한 문장. 셸 테스트 28 passed / 6 skipped(posix_only), 전체 695 passed / 9 skipped / 1 xfailed(DB 붙음). tools/*.sh i/lf w/lf, 100755 유지",
+      "started_at": "2026-10-18T09:16:48+0900"
     },
     {
       "step": 2,

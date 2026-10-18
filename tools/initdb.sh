@@ -11,7 +11,17 @@
 # 이 아니라 '인증 없음' 이라 공유 서버에 쓰면 안 된다.
 #
 # 조절할 수 있는 값은 아래 기본값 목록이 전부다.
+# 단 PGHBA_CIDR 를 주면서 PGAUTH_HOST 를 비워 두면 아무것도 하지 않고 거부한다.
 set -eu
+
+# K26: PGAUTH_HOST 의 기본값 trust 는 PGHBA_CIDR 로 연 원격 대역 전체를 인증 없이
+# 연다. 그래서 기본값을 채우기 전의 원래 값으로 보고, 비어 있으면 initdb·설정 파일
+# 수정보다 먼저 멈춘다. PGAUTH_HOST=trust 로 명시한 것은 사용자의 선택이라 받는다.
+if [ -n "${PGHBA_CIDR:-}" ] && [ -z "${PGAUTH_HOST:-}" ]; then
+    echo "오류: PGHBA_CIDR 를 주면 PGAUTH_HOST 도 정해야 한다(예: PGAUTH_HOST=scram-sha-256)." >&2
+    echo "      기본값 trust 는 그 대역 전체를 인증 없이 연다. 정말 그러려면 PGAUTH_HOST=trust 로 명시할 것." >&2
+    exit 1
+fi
 
 PGPORT="${PGPORT:-55433}"
 PGDATA="${PGDATA:-$HOME/pgdata/molgen}"
