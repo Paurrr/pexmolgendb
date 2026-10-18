@@ -96,6 +96,10 @@ def run_blocking(fn: Callable, parent=None):
         QGuiApplication.restoreOverrideCursor()
         _nesting -= 1
 
-    if task.error is not None:
-        raise task.error
-    return task.result
+    error, result = task.error, task.result
+    # 여기까지 왔으면 wait() 가 True 였다(끝났다). 지우지 않으면 parent 의 자식으로 남아
+    # 부를 때마다 하나씩 쌓인다. 기다림이 예외로 끊겼으면 아직 돌 수 있어서 지우지 않는다.
+    task.deleteLater()
+    if error is not None:
+        raise error
+    return result

@@ -12,7 +12,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QCoreApplication, QTimer  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from genviewer.utils import background  # noqa: E402
@@ -68,6 +68,68 @@ def test_is_busy_clears_after_a_failure(qapp):
     with pytest.raises(ValueError):
         background.run_blocking(lambda: (_ for _ in ()).throw(ValueError("x")))
     assert not background.is_busy(), "예외가 나도 재진입 가드는 풀려야 한다"
+
+
+def _tasks_left_under(parent: QObject) -> list:
+    """지연 삭제를 처리한 뒤에도 parent 의 자식으로 남은 Task."""
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    return parent.findChildren(background.Task)
+
+
+def test_a_successful_call_leaves_no_task_under_the_parent(qapp):
+    """K22: 컨트롤러가 parent 면 저장·접속마다 끝난 QThread 가 하나씩 쌓였다."""
+    parent = QObject()
+    assert background.run_blocking(lambda: 1, parent) == 1
+    assert _tasks_left_under(parent) == []
+
+
+def test_a_failed_call_leaves_no_task_under_the_parent(qapp):
+    parent = QObject()
+    boom = ValueError("x")
+
+    def explode():
+        raise boom
+
+    with pytest.raises(ValueError) as excinfo:
+        background.run_blocking(explode, parent)
+    assert excinfo.value is boom
+    assert _tasks_left_under(parent) == []
+
+
+def test_repeated_calls_do_not_pile_up_tasks_under_the_parent(qapp):
+    parent = QObject()
+    results = [background.run_blocking(lambda i=i: i, parent) for i in range(5)]
+    assert results == [0, 1, 2, 3, 4]
+    assert _tasks_left_under(parent) == []
+
+
+def test_a_task_still_running_when_the_wait_is_interrupted_is_not_released(
+    qapp, monkeypatch
+):
+    """기다림이 예외로 끊기면 워커는 아직 돈다. 돌고 있는 QThread 를 지우면 프로세스가 죽는다."""
+
+    class Interrupted(Exception):
+        pass
+
+    def interrupt(*_args):
+        raise Interrupted
+
+    parent = QObject()
+    release = threading.Event()
+    monkeypatch.setattr(QCoreApplication, "processEvents", staticmethod(interrupt))
+    try:
+        with pytest.raises(Interrupted):
+            background.run_blocking(lambda: release.wait(5), parent)
+        monkeypatch.undo()
+
+        left = _tasks_left_under(parent)
+        assert len(left) == 1
+        assert left[0].isRunning()
+    finally:
+        release.set()
+        for task in parent.findChildren(background.Task):
+            task.wait()
+    assert not background.is_busy()
 
 
 def test_falls_back_to_a_direct_call_without_qt(monkeypatch):
