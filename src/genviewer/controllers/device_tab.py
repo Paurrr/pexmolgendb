@@ -56,6 +56,8 @@ class DeviceTabController(QObject):
         self.client = None
         self.device_state_data: dict = {}
         self._poll_task: Task | None = None
+        # 도는 폴링을 시작할 때의 (process_id, repo). 결과는 그 process·DB 의 이야기다.
+        self._poll_key: tuple | None = None
         self._poll_failures = 0
 
         self.device_tab_toolbar = DeviceTabToolBarController(
@@ -239,16 +241,41 @@ class DeviceTabController(QObject):
         task.failed.connect(self._on_poll_failed)
         task.finished.connect(self._clear_poll_task)
         self._poll_task = task
+        self._poll_key = (process_id, repo)
         task.start()
 
     @Slot()
     def _clear_poll_task(self) -> None:
-        task, self._poll_task = self._poll_task, None
+        # 끝난 그 작업만 지운다. _release_db 가 기다린 작업의 finished 는 나중에 오고, 그때
+        # self._poll_task 는 비었거나 새로 띄운(돌고 있는) 작업이다.
+        task = self.sender()
+        if task is not None and task is self._poll_task:
+            self._poll_task = None
         if task is not None:
             task.deleteLater()
 
+    def _poll_is_current(self) -> bool:
+        """시그널을 낸 폴링이 지금 작업이고, 시작할 때의 process·DB 가 그대로인가.
+
+        아니면 그 결과·실패를 버린다(K23b). process 를 바꾼 뒤에 온 결과를 새 process 의 기준점과
+        비교하면 엉뚱한 배너가 뜨고, 재접속 전에 큐에 들어간 옛 DB 의 결과·실패는 새 DB 의 배너와
+        실패 횟수를 바꾼다. repo 는 identity 로 본다(재접속하면 set_repo 가 새로 만든다).
+        """
+        task = self.sender()
+        if task is None or task is not self._poll_task:
+            return False
+        if not self.connected or self.db is None:
+            return False
+        process_id, repo = self._poll_key
+        return (
+            process_id == self.device_table.current_process_id
+            and repo is self.device_table.repo
+        )
+
     @Slot(object)
     def _on_poll_result(self, etag: dict) -> None:
+        if not self._poll_is_current():
+            return
         self._poll_failures = 0
         base = self.device_table.remembered_etag()
         if base is None or etag_key(etag) == etag_key(base):
@@ -258,6 +285,8 @@ class DeviceTabController(QObject):
 
     @Slot(object)
     def _on_poll_failed(self, exc: Exception) -> None:
+        if not self._poll_is_current():
+            return
         self._poll_failures += 1
         if self._poll_failures >= POLL_FAILURE_LIMIT:
             self._poll_timer.stop()
