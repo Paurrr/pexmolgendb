@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "same-row-reclick",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T14:45:47+0900",
+      "summary": "K17: _switch_device_by_index 같은 device 분기에서 탭이 그 device 를 보이고(parameter_tab.current_device_id == cur_dev['id']) dirty 면 다시 읽지 않음(탭 모델·dirty·따라간 current_version 유지, 질문 없음). RED(--runxfail): test_clicking_the_same_row_after_a_device_save_keeps_the_tab_edits assert 'd' == 'dd'. strict xfail 제거, 구분 주석 '# -- K17 ---', 모듈 docstring 갱신, CLAUDE.md '(지금은 없다)'. 추가 테스트: test_tab_save_after_clicking_the_same_row_does_not_conflict_with_my_device_save (nfet_a description 편집으로 내 device 저장이 v+1 → 재클릭 뒤 탭 저장 True·충돌 없음·expected_version v+1·서버 'dd'; 수정 전 assert [] == [(1, 2)] 로 RED), 특성 테스트 test_clicking_the_same_row_after_a_device_save_reloads_clean_tabs(fetch_by_device 증가)·test_clicking_the_row_after_refresh_reads_the_server_tabs(Refresh 뒤 탭 비움, current_device_id 는 옛 nfet_a 로 남지만 섹션 device_id None 이라 is_dirty False → 서버 'd3' 를 읽고 dirty 아님; _clear_tabs 수정 불필요) 는 수정 전에도 통과. 변이: ① 조건을 늘 거짓(늘 다시 읽음) → 'd' == 'dd' 와 [] == [(1, 2)] 2 failed ② is_dirty() 조건만 뺌 → 두 특성 테스트가 waitUntil TimeoutError 2 failed. 모두 되돌림. 새 문구 없음, 선택 구조·다른 분기·choice is None(K25) 그대로. GUI 365 passed, 전체 730 passed / 10 skipped / 0 xfailed(DB 붙음, Git Bash). known-issues K17 은 마무리에서 지움"
     },
     {
       "step": 2,

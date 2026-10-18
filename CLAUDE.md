@@ -32,7 +32,7 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 
 ## 테스트 관례
 - DB가 필요한 테스트는 `tests/conftest.py` 의 `pg_dsn`/`db` fixture를 쓴다. `GENDB_TEST_PG_DSN` 은 **관리자 DSN**이어야 한다(fixture가 `gendb_test_<pid>` 데이터베이스를 만들고 지운다. 권한 테스트는 CREATE ROLE까지 한다). 없으면 skip된다. 개발 PC 기준선(DB 없음, phase 9 완료 후 2026-10-18)은 Git Bash에서 557 passed / 152 skipped / 1 xfailed다. `sh` 가 PATH에 없는 셸(PowerShell)에서는 셸 스크립트 테스트 32개(`test_deploy_sh.py`, `test_initdb_sh.py`)가 더 skip되어 525 / 184 / 1이 된다. DB를 붙이면 699 passed / 10 skipped / 1 xfailed(Windows 권한 테스트만 skip)다.
-- 재현했지만 고치지 않기로 한 버그의 테스트는 `pytest.mark.xfail(strict=True, reason="K<번호>: …")` 로 남기고 `docs/notes/known-issues.md` 의 그 항목에 테스트 이름을 적는다(지금은 K17 하나). 고치면 XPASS로 실패하므로 그때 xfail을 뗀다.
+- 재현했지만 고치지 않기로 한 버그의 테스트는 `pytest.mark.xfail(strict=True, reason="K<번호>: …")` 로 남기고 `docs/notes/known-issues.md` 의 그 항목에 테스트 이름을 적는다(지금은 없다). 고치면 XPASS로 실패하므로 그때 xfail을 뗀다.
 - POSIX 권한·심볼릭 링크 테스트는 `posix_only` 로 Windows에서 skip된다. 버그 재현(RED)은 Windows에서 도는 테스트로 보인다.
 - 셸 스크립트는 stub 명령을 PATH 앞(initdb.sh 는 `PGBIN`)에 두고 실제로 실행해서 테스트한다(`tests/test_deploy_sh.py`, `tests/test_initdb_sh.py`). 텍스트 토큰 검사만으로 끝내지 않는다.
 - GUI 테스트는 `tests/gui/` 에 둔다(pytest-qt, `qt_api = "pyside6"`). `tests/gui/conftest.py` 가 PySide6 import 전에 `QT_QPA_PLATFORM=offscreen` 을 둔다. `tests/test_background.py` 는 자기 `qapp` fixture로 따로 돈다.

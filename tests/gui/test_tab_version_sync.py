@@ -6,7 +6,8 @@ deviceVersionBumped(id, old, new) 로 알리고, 탭은 지금 열린 device 이
 정확히 한 번(old+1) 올린 것일 때만 받는다. 덮어쓰기로 남의 변경 위에 올린 것(+2 이상)이나 다시
 읽은 version 은 받지 않는다. 남의 변경은 탭 저장에서 여전히 충돌로 보여야 한다(ADR-004).
 
-K17(모델 reset 뒤 같은 행을 다시 누르면 탭을 다시 읽는다)은 고치지 않고 xfail 로 재현만 한다.
+K17: 모델 reset 뒤 같은 행을 다시 눌러도 탭이 그 device 를 보이고 dirty 면 다시 읽지 않는다(저장 안
+한 탭 편집과 따라간 version 이 남는다). 깨끗한 탭과 비운 탭(Refresh 뒤)은 지금처럼 읽는다.
 """
 
 import pytest
@@ -309,14 +310,9 @@ def test_adopt_device_version_accepts_only_one_step_on_the_open_device(
     assert store.calls[calls:] == []
 
 
-# -- K17 (고치지 않음) ---------------------------------------------------------------
+# -- K17 ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="K17: 모델 reset 뒤 stale QModelIndex 때문에 같은 행 재클릭이 탭을 다시 읽는다 "
-    "(docs/notes/known-issues.md K17)",
-)
 def test_clicking_the_same_row_after_a_device_save_keeps_the_tab_edits(
     device_tab_ctrl, store, qtbot
 ):
@@ -330,3 +326,65 @@ def test_clicking_the_same_row_after_a_device_save_keeps_the_tab_edits(
 
     assert tab_value(ctrl) == EDITED
     assert ctrl.parameter_tab.is_dirty()
+
+
+def test_tab_save_after_clicking_the_same_row_does_not_conflict_with_my_device_save(
+    device_tab_ctrl, store, dialogs, qtbot
+):
+    ctrl = device_tab_ctrl
+    open_nfet_a(ctrl, store, qtbot)
+    nfet_a = device_id(store, "nfet_a")
+    v = version_of(ctrl, 0)
+    edit_description(ctrl, 0)
+    edit_nfet_a_tab(ctrl)
+    assert ctrl.device_table.save_all() is True
+    assert ctrl.parameter_tab.current_version == v + 1
+
+    select_device_row(ctrl, 0)
+
+    # 따라간 version 이 남아 있어 탭 저장이 내 device 저장과 충돌하지 않는다.
+    assert ctrl.parameter_tab.current_version == v + 1
+    assert ctrl.parameter_tab.save_all() is True
+    assert conflicts(dialogs) == []
+    assert tab_saves(store) == [(nfet_a, v + 1)]
+    assert stored_value(store) == EDITED
+
+
+def test_clicking_the_same_row_after_a_device_save_reloads_clean_tabs(
+    device_tab_ctrl, store, qtbot
+):
+    ctrl = device_tab_ctrl
+    open_nfet_a(ctrl, store, qtbot)
+    assert ctrl.device_table.save_all() is True
+    reads = len(store.calls_of("fetch_by_device"))
+
+    select_device_row(ctrl, 0)
+
+    # 깨끗한 탭은 지금처럼 다시 읽는다(잃는 것이 없다).
+    qtbot.waitUntil(lambda: len(store.calls_of("fetch_by_device")) > reads)
+    assert ctrl.parameter_tab.current_device_id == device_id(store, "nfet_a")
+    assert not ctrl.parameter_tab.is_dirty()
+    assert tab_value(ctrl) == SEED
+
+
+def test_clicking_the_row_after_refresh_reads_the_server_tabs(
+    device_tab_ctrl, store, dialogs, qtbot
+):
+    ctrl = device_tab_ctrl
+    open_nfet_a(ctrl, store, qtbot)
+    nfet_a = device_id(store, "nfet_a")
+    edit_nfet_a_tab(ctrl)
+    store.set_rows(TABLE, nfet_a, [{"reserved_key": "DRN", COLUMN: "d3"}])
+    dialogs.answer_question(True)
+
+    ctrl.ui.refresh_banner.refreshRequested.emit()
+    # 다시 읽기가 탭을 비운다. current_device_id 는 옛 값(nfet_a)으로 남아 있다.
+    assert ctrl.parameter_tab.section(TAB).device_id is None
+    assert ctrl.parameter_tab.current_device_id == nfet_a
+
+    select_device_row(ctrl, 0)
+
+    qtbot.waitUntil(lambda: ctrl.parameter_tab.section(TAB).device_id == nfet_a)
+    qtbot.waitUntil(lambda: len(ctrl.parameter_tab.section(TAB).model.get_data()) == 1)
+    assert tab_value(ctrl) == "d3"
+    assert not ctrl.parameter_tab.is_dirty()

@@ -494,6 +494,13 @@ class DeviceTabController(QObject):
             return
 
         if prev_dev and prev_dev.get("id") == cur_dev.get("id"):
+            # 모델 reset 뒤 같은 행을 다시 눌러도 저장 안 한 탭 편집을 서버 내용으로 덮지
+            # 않는다(K17). 이전 index 는 낡았을 수 있으니 탭이 실제로 보이는 device 로 본다.
+            if (
+                self.parameter_tab.current_device_id == cur_dev["id"]
+                and self.parameter_tab.is_dirty()
+            ):
+                return
             self.parameter_tab.set_device_to_section(
                 cur_dev["id"], cur_dev.get("celltype"), cur_dev.get("version")
             )
