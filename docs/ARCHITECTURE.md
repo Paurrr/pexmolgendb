@@ -72,7 +72,7 @@ docs/                       # 이 문서들. notes/ 는 주입 제외
 - 강제: `tests/test_boundaries.py` 가 Qt 금지 구역(티어 0~2, 함수 안까지 보는 정적 스캔 + 새 인터프리터 import, 예외는 `cli.py` 의 `root` 안 `genviewer.main` 뿐)과 models·net 의 import 범위를 지킨다. `tests/test_py39_compat.py` 가 init_db 에서 닿는 모듈을 import를 따라가며 찾아(함수 안 import·부모 패키지 포함) 3.9 문법·런타임 `X | Y`·3.10+ 키워드와 이름·PEP 701 f-string을 정적으로 검사한다(3.9 인터프리터로 import해 보지는 않는다).
 
 ### 현재 어긋난 곳 (따라 하지 않는다)
-- `dialogs/connection.py` 가 `service.pool.Database` 를 직접 만들어 ping한다(view 쪽에서 서비스 호출).
+- `dialogs/connection.py` 가 `service.pool.Database` 를 직접 만들어 연결 테스트(`connection()` 으로 `SELECT 1`)를 한다(view 쪽에서 서비스 호출).
 - `MainWindowController`·`DeviceTabController`·`DeviceTableController` 가 다른 컴포넌트의 private 멤버를 부른다(`_open_connect`, `_clear_tabs`, `_selected_source_rows`, `_map_to_source_row` 등).
 - `utils/reporting.py` 가 `service.errors` 를 import한다(utils → service 역방향).
 - 모델 소유가 섞여 있다. 어떤 view는 자기 모델을 만들고, `TabSectionController`·`HistoryTabController` 는 controller가 만든다.
@@ -90,7 +90,7 @@ GENDB_PG_DSN ───────┴→ 있으면 그대로 사용 (설정 파�
        → GENDB_PG_DSN 이 생겼으면 그것, PG* 가 있으면 "" (libpq 가 환경변수로 조립), 없으면 찾아본 경로를 담아 RuntimeError
 ```
 
-**DB 접속** (`DeviceTabController.connect_db`): 시작 접속은 생성자가 `QTimer.singleShot(0)` 으로 예약한다(창의 로그 패널·알림이 이어진 뒤에 돈다. 그때까지 `connected` 는 None). 새 DB를 먼저 연다(`run_blocking`). 실패하면 지금 DB·repo·폴링을 그대로 둔다. 성공하면 폴링 타이머를 멈추고 도는 폴링 `Task` 를 기다린 뒤 옛 DB를 닫고 `dbChanged(새)` 를 한 번 낸다. 로그 패널로 가는 DSN은 `scrub()` 을 거친다. Connect… 창의 입구(`_on_connect`)는 device 표나 탭이 dirty면 `connect_db` 를 부르기 전에 Refresh 질문을 하고, 아니오면 아무것도 하지 않는다(시작 접속은 묻지 않는다).
+**DB 접속** (`DeviceTabController.connect_db`): 시작 접속은 생성자가 `QTimer.singleShot(0)` 으로 예약한다(창의 로그 패널·알림이 이어진 뒤에 돈다. 그때까지 `connected` 는 None). 새 DB를 먼저 연다(`run_blocking`). 확인은 `ping()`(원인을 삼키고 bool만 준다) 대신 `connection()` 으로 `SELECT 1` 을 돌리고, `open()` 이나 확인이 실패하면 그 새 DB를 닫은 뒤 원인이 담긴 예외를 그대로 올린다(로그 패널 `Database connect failed: <user_message>`). 실패하면 지금 DB·repo·폴링을 그대로 둔다. 성공하면 폴링 타이머를 멈추고 도는 폴링 `Task` 를 기다린 뒤 옛 DB를 닫고 `dbChanged(새)` 를 한 번 낸다. 로그 패널로 가는 DSN은 `scrub()` 을 거친다. Connect… 창의 입구(`_on_connect`)는 device 표나 탭이 dirty면 `connect_db` 를 부르기 전에 Refresh 질문을 하고, 아니오면 아무것도 하지 않는다(시작 접속은 묻지 않는다).
 
 **풀** (`service/pool.py`): `ConnectionPool(min 1, max 4, open=False, check=check_connection)`. 접속 옵션 `-c lock_timeout=5000 -c statement_timeout=15000`(의도된 값, ADR-008), `connect_timeout=5`, `application_name=genviewer:<user>`. `Database.connection()` 하나가 트랜잭션 하나(정상 종료 commit, 예외 rollback). 커넥션을 얻지 못한 것(`PoolTimeout`)만 `DbUnavailableError` 가 되고(그때 한 번 직접 접속해 실제 원인을 설명으로 싣는다), `with` 본문·commit 에서 난 예외는 타입 그대로 올라간다(`user_message` 의 SQLSTATE별 안내가 살아 있게).
 
@@ -109,7 +109,7 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 - 저장 결과: device·탭 `save_all()` 과 `DeviceTabController.save_db()` 는 bool이다(저장했거나 쓸 것이 없으면 True, 취소·다시 읽기·건너뛴 편집이면 False, 예외는 그대로). 호출부(Database → Save, Ctrl+S, process·device 전환)는 False면 "Saved" 를 띄우지 않고, 편집이 남아 있으면 옮기지 않는다. process 콤보는 `select_process_silently` 로 시그널 없이 되돌린다(되돌릴 process가 목록에 없으면 False이고, 그때는 되돌리지 않고 새 process로 넘어간다).
 - 창 닫기: `MainWindowController` 가 창에 이벤트 필터를 달아 Close를 판단한다(뷰는 컨트롤러를 모른다). `is_busy()` 면 무시하고, dirty면 묻고 `save_db()` 가 True일 때만 닫는다. `shutdown()` 이 먼저 필터를 뗀다.
 - 탭 로드 실패: `TabSectionController.update_model` 이 행을 읽지 못하면 섹션을 모델 없이 비우고 dirty를 푼다(이전 device의 모델이 남아 이 device에 저장되지 않게). 붙여넣기도 그 탭은 건너뛴다.
-- device 정렬: `DeviceTableModel.sort_rows` 가 모델의 모든 행을 정렬한다. 기준점은 그대로라 지운 device·편집 표시·undo가 남는다.
+- device 정렬: `DeviceTableModel.sort_rows` 가 모델의 모든 행을 정렬한다. 기준점은 그대로라 지운 device·편집 표시·undo가 남는다. 끌어 옮기기(`DeviceTableView.dropEvent`)는 고른 행이 모델에서도 이어져 있을 때만 받는다(필터가 사이 행을 숨겼으면 `ignore`).
 - 순서값: `save_all` 은 보통 화면 순서대로 `order = 0..n-1` 을 매긴다. 마지막 `refresh_devices` 가 Virtuoso 목록으로 숨긴 행이 있었으면, 보내는 행끼리 그때 읽은 자기들의 옛 순서값을 화면 순서대로 나눠 갖는다(`_filtered_orders`, 숨은 행은 보내지 않는다).
 - version 동기화: 탭 저장이 올린 version은 `deviceVersionChanged` 로 device 표에, device 저장이 올린 version은 `deviceVersionBumped` 로 탭에 간다. 탭은 정확히 +1일 때만 받는다(덮어쓰기로 남의 변경 위에 썼으면 다음 탭 저장이 충돌로 묻는다).
 

@@ -32,7 +32,6 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 |---|---|---|---|
 | K1 | `--check-config` 는 `--dsn`·`GENDB_PG_DSN` 이 있어도 설정 파일을 읽는다(status 는 2026-10-18 phase 7 에서 고침) | `cli.py` `_print_config`, `service/diagnostics.py` `inspect_config` | 승인 범위 밖 |
 | K2 | 풀이 `options`·`connect_timeout`·`application_name` 을 명시하므로 `PGOPTIONS`·`PGCONNECT_TIMEOUT`·`PGAPPNAME` 과 DSN 안의 `options=` 가 먹지 않는다 | `service/pool.py:27-41` | **고치지 않기로 함(2026-10-17).** 의도된 타임아웃(ADR-008)과 얽혀 있다. README에 `GENDB_PG_*` 를 쓰라고 적었다 |
-| K3 | 창의 시작·재접속 알림은 접속 실패의 실제 원인(비밀번호 틀림, DB 없음, 접속 수 초과)을 보여주지 않는다. `_open_database` 가 `ping()` 의 bool 만 보고 고정 문구("서버가 응답하지 않는다")를 낸다. CLI·status 는 2026-10-18 phase 7 에서 고침(풀이 커넥션을 못 주면 한 번 직접 접속해 그 오류의 첫 줄을 싣는다) | `controllers/device_tab.py` `_open_database` | GUI 시작·재접속 문구는 phase 11 step 1 |
 | K8 | `init_db --owner` 를 `--owner` 없이 처음 만든 옛 DB에 다시 돌리면 "must be owner of table" 로 DDL 트랜잭션 전체가 롤백된다 | `scripts/init_db.py:90-100` | **고치지 않기로 함(2026-10-17).** 2026-09-15 이전 DB에만 해당한다. 그런 DB는 `ALTER TABLE … OWNER TO` 로 한 번 정리한다 |
 | K33 | `upsert_device` 에 `id` 가 있는 dict를 주면 version 검사 없이 덮어쓰고 `process_id` 도 바꾼다 | `repo/device.py:97-` | **고치지 않기로 함(2026-10-17).** 지금 호출자(붙여넣기 `paste_rows`)는 `id` 없는 dict만 넘겨 닿지 않는다. phase 2 step 1이 가짜를 만들다 본 것이고 재현하지 않았다. 가짜도 지금 동작을 그대로 흉내 낸다 |
 | K44 | CSV에 Description 컬럼이 없다(molgen 형식). 불러오기로 만든 device는 description이 비고, 내보내기도 Description을 쓰지 않아 내보낸 CSV를 다시 넣으면 description이 따라오지 않는다. 저장된 device의 description은 불러오기가 건드리지 않는다 | `repo/io.py:118-122` (device INSERT), `:217` (export 헤더), `controllers/device_table.py:461-470` (GUI 내보내기 device_info) | 2026-10-17 사용자 제보("CSV import 하면 description 이 날라간다")를 조사하다 확인했다. 저장하지 않은 편집이 사라지는 쪽은 K36이다. 사용자가 같은 날 왕복을 승인했다(phase 18). molgen `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 먼저 등록해야 한다. 안 그러면 셀마다 `Unknown header type` warn이 뜬다 |
@@ -45,20 +44,16 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 |---|---|---|---|
 | K14 | Virtuoso 수신 쪽이 연결이 끊긴 것("DISCONNECTED"/"ERROR: …")을 접속 상태에 반영하지 않는다. UI는 계속 Connected라고 한다. UTF-8이 아닌 응답이 오면 수신이 멈춘다 | `net/workers.py:85-110` | phase 4 step 6은 크래시만 막고, 보내기 실패를 받기 오류와 같은 길(Socket 탭 수신 칸)로 보이게 했다. 상태 표시는 동작 변경이다 |
 | K15 | Load Libs 요청이 빈 프레임이다(stub) | `service/virtuoso_protocol.py:17-18` | **고치지 않기로 함(2026-10-17).** 기능이 아직 없다(Virtuoso 쪽 함수가 정해지지 않았다) |
-| K16 | Virtuoso 목록 필터가 부분 문자열(`name in r["name"]`)이라 더 많이 걸릴 수 있다. 내보내기 형식은 메뉴가 정하는데 대화상자는 두 확장자를 다 허용해서, `.csv` 이름에 xlsx가 써질 수 있다 | `controllers/device_table.py:296, 473-484` | 필터: **고치지 않기로 함(2026-10-17).** 접미사가 붙은 이름까지 잡는 것이 의도다. 내보내기 형식: phase 11 에서 확장자로 고른다 |
+| K16 | Virtuoso 목록 필터가 부분 문자열(`name in r["name"]`)이라 더 많이 걸릴 수 있다(내보내기 형식은 2026-10-18 phase 11 에서 파일 확장자로 정하게 고쳤다) | `controllers/device_table.py` `refresh_devices` | **고치지 않기로 함(2026-10-17).** 접미사가 붙은 이름까지 잡는 것이 의도다 |
 
 ## GUI (phase에 넣지 않은 것)
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
-| K18 | 필터가 켜진 상태에서 여러 행을 끌어 옮기면 숨은 행까지 옮겨진다 | `views/device_table.py:217-262` | phase 4 step 3이 정렬은 고쳤다(모델의 모든 행을 정렬). 끌어 옮기기는 같은 원인이지만 별도 재현이 필요하다 |
-| K21 | 저장 안 한 새 행에서 Run Selected를 누르면 `KeyError 'id'` 가 "Send Failed: 'id'" 로 보인다 | `controllers/device_tab.py:305-314` | 무해하다 |
-| K22 | 접속 실패 시 연 풀을 닫지 않는다. 남은 `Task` 객체, 매번 새로 만드는 selection model·delegate, 재접속 때 지워지지 않는 탭 섹션이 쌓인다 | `controllers/device_tab.py:147-153`, `utils/background.py:83`, `controllers/tab_section.py:203-241`, `views/parameter_tab.py:23-25` | 누수 규모가 작다. phase 4 step 4는 재접속 순서(새 DB 먼저)만 고치고 실패한 풀은 그대로 뒀다 |
+| K22 | 남은 `Task` 객체, 매번 새로 만드는 selection model·delegate, 재접속 때 지워지지 않는 탭 섹션이 쌓인다(접속에 실패한 풀은 2026-10-18 phase 11 에서 닫게 고쳤다) | `utils/background.py` `run_blocking`, `controllers/tab_section.py` `bind_model`·`apply_delegates_and_constraints`, `views/parameter_tab.py` `rebuild_tabs` | 누수 규모가 작다. phase 12 step 4~6 에서 고친다 |
 | K23 | 필터가 바뀌어도 History 다시 읽기가 진행 중이면 그 변경을 버린다. 폴링 결과가 폴링한 process에 묶여 있지 않아, 그 사이에 process를 바꾸면 엉뚱한 배너가 뜰 수 있다 | `controllers/history_tab.py:122`, `controllers/device_tab.py:210-230` | 낮은 확률, 보기 전용 |
 | K24 | 연결을 끊는 동안 상대가 프레임 중간에서 멈추면 GUI가 굳을 수 있다(`recv` 타임아웃 없음, `wait()` 타임아웃 없음) | `net/workers.py:99-101`, `net/controller.py:130-147` | 제안 P6 |
 | K25 | `question()` 은 None을 돌려주지 않으므로 `_switch_device_by_index` 의 `choice is None` 분기는 닿지 않는 코드다 | `controllers/device_tab.py:508`, `utils/dialogs.py:21-25` | 동작에 영향 없음 |
-| K34 | process 조회 실패 알림 본문이 `user_message()` 가 아니라 `str(e)` 다. 55P03·57014 같은 SQLSTATE별 한국어 안내 대신 원문이 보이고, conninfo가 든 예외라면 그대로 나간다(CLAUDE.md 비밀번호 규칙) | `controllers/device_tab_toolbar.py:150-157` (`get_process_id`) | phase 2 step 2가 코드를 읽다 본 것이고 재현하지 않았다. phase 0 뒤로 접속 실패는 `DbUnavailableError`(conninfo 없음)로 온다. 고치면 알림 문구가 바뀐다 |
-| K35 | 변경 감지 폴링이 3회 실패해 멈출 때 로그 패널에 `{exc}` 를 그대로 쓴다(`user_message`·`scrub` 를 거치지 않음) | `controllers/device_tab.py:233-238` (`_on_poll_failed`) | K34와 같다. 로그 패널 문구가 바뀐다 |
 | K39 | 창을 닫을 때 Virtuoso 접속(`ConnectWorker`)이 진행 중이면 `ConnectionController.shutdown()` 이 기다리지 않는다. `run_gui` 가 돌아온 뒤 실행 중인 QThread가 지워져 종료가 크래시로 끝날 수 있다 | `net/controller.py:67-77` (`shutdown`) | phase 4 step 6이 코드를 읽다 본 것이고 재현하지 않았다. 기다리면 접속 타임아웃만큼 창이 굳는다(K24와 같은 종류, 제안 P6) |
 | K40 | `ConnectWorker` 가 끝났지만 결과가 아직 GUI 큐에 있는 순간의 Connect는 "접속 중" 가드를 지나 새 시도를 시작한다. 두 결과가 다 성공이면 `_start_io_workers` 가 두 번 돌아 앞 IO 워커를 덮어쓸 수 있다 | `net/controller.py:37-52` (`connect`), `:85-99` | phase 4 step 6이 코드를 읽다 본 것이고 재현하지 않았다. Connect를 아주 빠르게 두 번 눌러야 닿는다 |
 | K41 | 재접속할 때 History 화면에서 도는 다시 읽기(`Task`)를 기다리지 않는다. 옛 풀이 닫힌 뒤 그 작업이 실패할 수 있고, 그 작업이 남아 있는 동안 `set_db(새)` 의 다시 읽기가 `_task` 가드로 건너뛰어 다음 자동 갱신(10초)까지 새 DB로 읽지 않는다 | `controllers/history_tab.py:76` (`set_db`), `:121-122` (`reload`), `controllers/device_tab.py:155-` (`connect_db`) | phase 4 step 4가 코드를 읽다 본 것이고 재현하지 않았다. History는 `--history` 로 띄웠을 때만 있고 보기 전용이다(K23과 같은 가드) |
