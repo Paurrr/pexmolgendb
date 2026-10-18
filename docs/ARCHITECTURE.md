@@ -51,7 +51,7 @@ src/genviewer/
 tools/                      # initdb.sh(클러스터 생성·기동), deploy.sh(태그 설치·런처)
 tests/                      # pytest. conftest: pg_dsn/db fixture (GENDB_TEST_PG_DSN)
   gui/                      #   pytest-qt GUI 테스트. conftest: offscreen, autouse dialogs(모달 가짜), store/device_tab_ctrl/main_window
-  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository·FakeVirtuosoClient), helpers.py(시드, install_fake_db, 사용자 동작)
+  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository·FakeVirtuosoClient), helpers.py(시드, install_fake_db·install_fake_history, 사용자 동작)
   fixtures/                 #   Qt 없는 테스트 헬퍼 패키지(pythonpath=tests): imports.py(import 스캐너, test_boundaries.py·test_py39_compat.py 가 쓴다)
 scripts/                    # 하네스 execute.py (+ test_execute.py). 앱 코드가 아니다 (ruff 제외)
 phases/                     # 하네스 step 파일
@@ -109,6 +109,7 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 - 저장 결과: device·탭 `save_all()` 과 `DeviceTabController.save_db()` 는 bool이다(저장했거나 쓸 것이 없으면 True, 취소·다시 읽기·건너뛴 편집이면 False, 예외는 그대로). 호출부(Database → Save, Ctrl+S, process·device 전환)는 False면 "Saved" 를 띄우지 않고, 편집이 남아 있으면 옮기지 않는다. process 콤보는 `select_process_silently` 로 시그널 없이 되돌린다(되돌릴 process가 목록에 없으면 False이고, 그때는 되돌리지 않고 새 process로 넘어간다).
 - 창 닫기: `MainWindowController` 가 창에 이벤트 필터를 달아 Close를 판단한다(뷰는 컨트롤러를 모른다). `is_busy()` 면 무시하고, dirty면 묻고 `save_db()` 가 True일 때만 닫는다. `shutdown()` 이 먼저 필터를 뗀다.
 - 탭 로드 실패: `TabSectionController.update_model` 이 행을 읽지 못하면 섹션을 모델 없이 비우고 dirty를 푼다(이전 device의 모델이 남아 이 device에 저장되지 않게). 붙여넣기도 그 탭은 건너뛴다.
+- 탭 섹션 수명: `TabSectionController` 는 device마다 모델을 캐시하고(`model_by_device`), 콤보 delegate는 컬럼마다 하나를 모든 모델이 같이 쓴다(후보는 `index.model()` 의 celltype). `setModel` 이 표·머리글에 새로 만든 selection model 중 지금 쓰지 않는 것은 지운다. 접속·재접속의 `rebuild_tabs` 는 떼어 낸 옛 섹션(과 그 컨트롤러)·옛 "+" 를 지우고 Summary는 다시 쓴다.
 - device 정렬: `DeviceTableModel.sort_rows` 가 모델의 모든 행을 정렬한다. 기준점은 그대로라 지운 device·편집 표시·undo가 남는다. 끌어 옮기기(`DeviceTableView.dropEvent`)는 고른 행이 모델에서도 이어져 있을 때만 받는다(필터가 사이 행을 숨겼으면 `ignore`).
 - 순서값: `save_all` 은 보통 화면 순서대로 `order = 0..n-1` 을 매긴다. 마지막 `refresh_devices` 가 Virtuoso 목록으로 숨긴 행이 있었으면, 보내는 행끼리 그때 읽은 자기들의 옛 순서값을 화면 순서대로 나눠 갖는다(`_filtered_orders`, 숨은 행은 보내지 않는다).
 - version 동기화: 탭 저장이 올린 version은 `deviceVersionChanged` 로 device 표에, device 저장이 올린 version은 `deviceVersionBumped` 로 탭에 간다. 탭은 정확히 +1일 때만 받는다(덮어쓰기로 남의 변경 위에 썼으면 다음 탭 저장이 충돌로 묻는다).
@@ -120,8 +121,8 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 **권한** (`scripts/init_db.py`): `SET ROLE <owner>` 후 DDL → `GRANT USAGE ON SCHEMA public`, `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES` → `ALTER DEFAULT PRIVILEGES`(새 탭 테이블도 자동). 시퀀스 권한은 IDENTITY라 필요 없다.
 
 ## 스레딩
-- `utils/background.run_blocking(fn, parent)`: `Task`(QThread)에서 fn을 돌리고 GUI 스레드는 `processEvents(ExcludeUserInputEvents)` 로 돌면서 대기 커서를 띄운다. 예외는 호출 지점에서 다시 난다. 접속·저장·CSV 불러오기·연결 테스트가 이것을 쓴다.
-- `Task` 단독(비동기): 변경 감지 폴링, History 다시 읽기. `done`/`failed` 시그널은 GUI 스레드에서 받는다.
+- `utils/background.run_blocking(fn, parent)`: `Task`(QThread)에서 fn을 돌리고 GUI 스레드는 `processEvents(ExcludeUserInputEvents)` 로 돌면서 대기 커서를 띄운다. 예외는 호출 지점에서 다시 난다. 끝난 `Task` 는 결과·예외를 읽은 뒤 지운다(parent 아래 쌓이지 않게). 접속·저장·CSV 불러오기·연결 테스트가 이것을 쓴다.
+- `Task` 단독(비동기): 변경 감지 폴링, History 다시 읽기. `done`/`failed` 시그널은 GUI 스레드에서 받는다. 결과·실패는 시그널을 낸 작업(`sender()`)이 지금 작업일 때만 쓰고, 정리(`finished`)는 끝난 그 작업만 지운다. 기다린 뒤 큐에 남은 옛 `finished` 가 돌고 있는 새 작업을 지우면 프로세스가 죽는다.
 - 아직 GUI 스레드에서 동기로 도는 DB 호출이 있다(process 목록·추가·삭제, 탭 로드, 복사·붙여넣기, export). 새 코드는 이 패턴을 따르지 않는다.
 - psycopg 커넥션은 스레드끼리 공유하지 않는다(풀에서 호출마다 꺼낸다).
 - `net/` 은 QThread 워커 셋(Connect/Receive/Send)이 `Client` 소켓 하나를 쓴다. 접속 중의 Connect는 무시하고, 보내기 실패는 받기 오류처럼 `received` 로 간다. 창을 닫으면 `ConnectionController.shutdown()` 이 받기·보내기 워커를 멈춘다(접속 중인 ConnectWorker는 기다리지 않는다, known-issues K39).
