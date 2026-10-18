@@ -1,4 +1,4 @@
-from PySide6.QtCore import QObject, QPoint, Signal, Slot
+from PySide6.QtCore import QItemSelectionModel, QObject, QPoint, Signal, Slot
 
 from genviewer.config.config import delegate_config
 from genviewer.delegates.combo_box import ComboBoxDelegate
@@ -26,6 +26,9 @@ class TabSectionController(QObject):
         self.model_by_device: dict[int, GenericTableModel] = {}
         self._copied_rows: list[dict] = []
         self.model: GenericTableModel | None = None
+        # 콤보 컬럼마다 하나. 후보는 delegate 가 index.model() 의 celltype 으로 고르므로 모든 device
+        # 모델이 같이 쓴다.
+        self._combo_delegates: dict[str, ComboBoxDelegate] = {}
 
         self.deviceChanged.connect(ui.on_device_changed)
         self.ui.contextMenuRequested.connect(self._on_context_menu)
@@ -202,7 +205,19 @@ class TabSectionController(QObject):
 
     def bind_model(self, model: GenericTableModel | None):
         self.model = model
-        self.ui.table_view.setModel(model)
+        view = self.ui.table_view
+        view.setModel(model)
+        # setModel 은 표와 두 머리글에 QItemSelectionModel 을 하나씩 새로 만들고(머리글은 곧
+        # 표의 것을 같이 쓴다) 옛 것을 지우지 않는다. device 를 고를 때마다 셋씩 쌓였다.
+        # 지금 쓰는 것만 남긴다.
+        in_use = (
+            view.selectionModel(),
+            view.horizontalHeader().selectionModel(),
+            view.verticalHeader().selectionModel(),
+        )
+        for sel in view.findChildren(QItemSelectionModel):
+            if sel not in in_use:
+                sel.deleteLater()
 
     def clear_model(self):
         self.bind_model(None)
@@ -229,6 +244,10 @@ class TabSectionController(QObject):
             if cfg.get("required", False):
                 model.set_required_column(col_name)
 
+            # 컬럼 delegate 는 표에 붙어 있어 모델을 바꿔도 남는다. 새 모델마다 만들면 밀려난
+            # delegate 가 섹션의 자식으로 본 device 수만큼 쌓였다.
+            if col_name in self._combo_delegates:
+                continue
             items = cfg.get("items") or []
             if items or cfg.get("items_by_celltype"):
                 delegate = ComboBoxDelegate(
@@ -239,3 +258,4 @@ class TabSectionController(QObject):
                     parent=self.ui,
                 )
                 self.ui.install_delegate(model, col_name, delegate)
+                self._combo_delegates[col_name] = delegate
