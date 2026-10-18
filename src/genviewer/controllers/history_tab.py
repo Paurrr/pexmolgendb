@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
 
 from genviewer.models.generic_table import GenericTableModel
+from genviewer.service.errors import user_message
 from genviewer.service.repo import audit
 from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.process import ProcessRepository
@@ -173,10 +174,13 @@ class HistoryTabController(QObject):
     @Slot(object)
     def _on_failed(self, exc: Exception) -> None:
         self._failures += 1
-        self.ui.show_count(f"이력을 읽지 못했다: {exc}")
+        # 개수 칸은 한 줄짜리 라벨이고, 로그 패널은 scrub 포매터를 지나지 않고(ADR-013)
+        # 줄 단위다. user_message 는 여러 줄일 수 있다.
+        reason = " ".join(user_message(exc).split())
+        self.ui.show_count(f"이력을 읽지 못했다: {reason}")
         if self._failures >= POLL_FAILURE_LIMIT:
             self._timer.stop()
-            self.logRequested.emit(f"이력 자동 갱신을 중단했다: {exc}")
+            self.logRequested.emit(f"이력 자동 갱신을 중단했다: {reason}")
 
     # ------------------------------------------------------------------
     # 선택
