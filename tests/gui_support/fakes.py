@@ -688,6 +688,9 @@ class FakeIORepository:
             if matched:
                 sections.append((section_info, matched))
 
+        # 실제와 같다: 정확히 "Description" 인 컬럼만 본다. 없으면 빈 값.
+        has_description = "Description" in df.columns
+
         store = self.db.store
         now = store._tick()
         created = 0
@@ -700,8 +703,9 @@ class FakeIORepository:
             if process_id is None:
                 process_id = store._insert_process(process_name)
 
+            description = row["Description"] if has_description else ""
             device = store._insert_device(
-                process_id, row["InstCellName"], row["CellType"], "", 0, actor, now
+                process_id, row["InstCellName"], row["CellType"], description, 0, actor, now
             )
             created += 1
 
@@ -754,7 +758,7 @@ class FakeIORepository:
                 tab_data_per_device[device_id][tab] = formatted_rows
                 tab_max_columns[tab] = max(tab_max_columns[tab], len(formatted_rows))
 
-        headers = ["CellType", "CdsLibName", "InstCellName"]
+        headers = ["CellType", "CdsLibName", "InstCellName", "Description"]
         for tab in tab_names:
             for _ in range(1, tab_max_columns[tab] + 1):
                 headers.append(tab)
@@ -768,7 +772,7 @@ class FakeIORepository:
             key=lambda x: priority_map.get(x.get("celltype", "UNKNOWN"), float("inf")),
         )
 
-        # Pass 2: 행을 만든다. celltype·process·name 은 device_info 의 값이다.
+        # Pass 2: 행을 만든다. celltype·process·name·description 은 device_info 의 값이다.
         rows: list[list[str]] = []
         for info in device_info_sorted:
             device_id = info["id"]
@@ -777,8 +781,9 @@ class FakeIORepository:
                 continue
             celltype = info.get("celltype") or ""
             device_name = info.get("name") or ""
+            description = info.get("description") or ""
 
-            row = [celltype, process_name, device_name]
+            row = [celltype, process_name, device_name, description]
 
             for tab in tab_names:
                 tab_rows = tab_data_per_device.get(device_id, {}).get(tab, [])

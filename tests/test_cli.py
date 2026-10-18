@@ -28,6 +28,7 @@ from genviewer.cli import app
 from genviewer.service import diagnostics, schema
 from genviewer.service.repo import audit
 from genviewer.service.repo.audit import AuditRepository
+from genviewer.service.repo.device import DeviceRepository
 from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.exporter import write_csv
 
@@ -400,6 +401,33 @@ def test_an_exported_file_loads_back(db, pg_dsn, tmp_path):
     result = runner.invoke(app, ["load", str(out), "--dsn", pg_dsn])
     assert result.exit_code == 0, result.output
     assert dict(ProcessRepository(db).list_with_counts())["sf2p"] == 4
+
+
+def test_export_writes_the_saved_description_and_load_brings_it_back(db, pg_dsn, tmp_path):
+    """export 는 InstCellName 다음 칸에 저장된 description 을 쓰고, load 가 다시 넣는다(K44)."""
+    runner.invoke(app, ["load", _csv(tmp_path / "in.csv"), "--dsn", pg_dsn])
+    pid = ProcessRepository(db).get_id("sf2p")
+    devices = DeviceRepository(db)
+    before = devices.fetch_devices_by_process(pid)
+    (nfet,) = [d for d in before if d["name"] == "nfet_b"]
+    devices.upsert_device(pid, {**nfet, "description": "ESD 용 2단"})
+    out = tmp_path / "out.csv"
+
+    result = runner.invoke(app, ["export", "sf2p", str(out), "--dsn", pg_dsn])
+    assert result.exit_code == 0, result.output
+    with open(out, newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert rows[0][:4] == ["CellType", "CdsLibName", "InstCellName", "Description"]
+    assert {r[2]: r[3] for r in rows[1:]} == {"nfet_b": "ESD 용 2단", "pfet_b": ""}
+
+    result = runner.invoke(app, ["load", str(out), "--dsn", pg_dsn])
+    assert result.exit_code == 0, result.output
+    old_ids = {d["id"] for d in before}
+    loaded = [d for d in devices.fetch_devices_by_process(pid) if d["id"] not in old_ids]
+    assert {d["name"]: d["description"] for d in loaded} == {
+        "nfet_b": "ESD 용 2단",
+        "pfet_b": "",
+    }
 
 
 def test_export_refuses_an_unknown_process(db, pg_dsn, tmp_path):

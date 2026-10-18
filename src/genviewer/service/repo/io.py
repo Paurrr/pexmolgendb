@@ -105,6 +105,10 @@ class IORepository:
             if matched:
                 sections.append((section_info, matched))
 
+        # Description 은 탭이 아니라 device 컬럼이다. 옛 CSV 와 molgen 이 만든 CSV
+        # 에는 없으므로 없으면 빈 값이다. 반복된 것(Description.1)은 보지 않는다.
+        has_description = "Description" in df.columns
+
         created = 0
         per_process: dict[str, int] = defaultdict(int)
         # 이번 불러오기가 새로 만든 process. 처음 나온 순서다. find_or_create 는
@@ -122,13 +126,14 @@ class IORepository:
                 if new_process:
                     new_processes.append(str(row["CdsLibName"]).strip())
 
+                description = row["Description"] if has_description else ""
                 # updated_by 를 넣는다. 예전에는 컬럼을 빼서 CSV 로 들어온 device
                 # 가 전부 빈 문자열이었고, 나중에 "이건 누가 넣은 거지" 에 아무도
                 # 답할 수 없었다.
                 device_row = cur.execute(
-                    "INSERT INTO device (process_id, name, celltype, updated_by) "
-                    "VALUES (%s, %s, %s, %s) RETURNING id",
-                    (process_id, row["InstCellName"], row["CellType"], actor),
+                    "INSERT INTO device (process_id, name, celltype, description, updated_by) "
+                    "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                    (process_id, row["InstCellName"], row["CellType"], description, actor),
                 ).fetchone()
                 device_id = device_row["id"]
                 created += 1
@@ -227,8 +232,8 @@ class IORepository:
                     tab_data_per_device[device_id][tab] = formatted_rows
                     tab_max_columns[tab] = max(tab_max_columns[tab], len(formatted_rows))
 
-        # Build headers
-        headers = ["CellType", "CdsLibName", "InstCellName"]
+        # Build headers. Description 은 device 가 전부 비어 있어도 늘 쓴다.
+        headers = ["CellType", "CdsLibName", "InstCellName", "Description"]
         for tab in tab_names:
             for _ in range(1, tab_max_columns[tab] + 1):
                 headers.append(tab)
@@ -255,8 +260,9 @@ class IORepository:
                 continue
             celltype = info.get("celltype") or ""
             device_name = info.get("name") or ""
+            description = info.get("description") or ""
 
-            row = [celltype, process_name, device_name]
+            row = [celltype, process_name, device_name, description]
 
             for tab in tab_names:
                 tab_rows = tab_data_per_device.get(device_id, {}).get(tab, [])

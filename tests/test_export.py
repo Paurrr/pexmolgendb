@@ -75,6 +75,15 @@ def test_each_row_carries_its_own_process_name(db, two_processes):
     assert got == {"nfet_b": "sf2p", "pfet_b": "sf4u"}
 
 
+def test_description_follows_inst_cell_name(db, two_processes):
+    """Description 은 InstCellName 다음 칸이고 값은 device_info 의 description 이다(K44)."""
+    info = [{**two_processes[0], "description": "ESD 용"}, two_processes[1]]
+    headers, rows = IORepository(db).fetch_export_data(info)
+
+    assert headers[:4] == ["CellType", "CdsLibName", "InstCellName", "Description"]
+    assert {row[2]: row[3] for row in rows} == {"nfet_b": "ESD 용", "pfet_b": ""}
+
+
 def test_child_row_order_is_preserved(db, two_processes):
     """InstTerm 컬럼들은 삽입 순서대로 나와야 한다.
 

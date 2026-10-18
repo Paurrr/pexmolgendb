@@ -114,6 +114,18 @@ def test_a_value_with_a_space_survives_the_round_trip(db, tmp_path):
     assert out["AddFGRParam"] == ["grLayer RX Only"]
 
 
+def test_description_survives_the_round_trip_with_its_spaces(db, tmp_path):
+    """Description 칸은 다듬지 않고 device.description 으로 들어갔다가 그대로 나온다(K44)."""
+    out = _round_trip(db, tmp_path, ["Description"], ["  ESD 용  2단 "])
+    assert out["Description"] == ["  ESD 용  2단 "]
+
+
+def test_a_csv_without_description_exports_an_empty_one(db, tmp_path):
+    """옛 CSV 에는 Description 이 없다. 빈 값으로 들어가고 내보내기에는 빈 칸으로 나온다."""
+    out = _round_trip(db, tmp_path, ["AddFGRParam"], ["grLayer RX"])
+    assert out["Description"] == [""]
+
+
 def test_every_variable_value_column_keeps_its_spaces(db, tmp_path):
     """같은 원인이 걸려 있던 나머지 컬럼들."""
     cells = {

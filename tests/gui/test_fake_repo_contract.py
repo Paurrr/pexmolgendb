@@ -31,6 +31,7 @@ from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.service.repo.process import ProcessRepository
+from genviewer.utils.exporter import write_csv
 
 DEVICE_KEYS = {
     "id",
@@ -686,18 +687,20 @@ def test_export_orders_rows_by_celltype_and_skips_info_without_a_process(backend
         ]
     )
 
+    # Description 은 description 이 전부 비어도 InstCellName 다음에 늘 있다(K44)
     assert headers == [
         "CellType",
         "CdsLibName",
         "InstCellName",
+        "Description",
         "InstTerm",
         "InstTerm",
         "InstSchParam",
     ]
     # celltype 우선순위(delegate_config)에서 NFET 이 PFET 보다 앞이다
     assert rows == [
-        ["NFET", "sf2p", "nfet_c", "DRN d", "GATE g", "LENGTH 1 2"],
-        ["PFET", "sf9x", "pfet_z", "DRN d", "", ""],
+        ["NFET", "sf2p", "nfet_c", "", "DRN d", "GATE g", "LENGTH 1 2"],
+        ["PFET", "sf9x", "pfet_z", "", "DRN d", "", ""],
     ]
 
 
@@ -712,11 +715,83 @@ def test_export_rows_carry_the_values_in_device_info(backend, tmp_path):
                 "process_name": "화면 process",
                 "name": "화면 이름",
                 "celltype": "PFET",
+                "description": "화면 설명",
             }
         ]
     )
 
-    assert rows == [["PFET", "화면 process", "화면 이름", "DRN d", "GATE g", "LENGTH 1 2"]]
+    assert rows == [
+        ["PFET", "화면 process", "화면 이름", "화면 설명", "DRN d", "GATE g", "LENGTH 1 2"]
+    ]
+
+
+def _import_text(backend, tmp_path, text) -> int:
+    path = tmp_path / "desc.csv"
+    path.write_text(text, encoding="utf-8", newline="")
+    return backend.io.import_data(str(path), actor="me")
+
+
+def test_import_puts_the_description_column_into_the_device(backend, tmp_path):
+    """Description 컬럼이 있으면 그 칸이 다듬지 않은 그대로 device.description 이다(K44)."""
+    text = (
+        "CellType,CdsLibName,InstCellName,Description,InstTerm\n"
+        'NFET,sf2p,nfet_c," ESD 용, 2단 ",DRN d\n'
+    )
+    assert _import_text(backend, tmp_path, text) == 1
+
+    dev = _only_device(backend, "sf2p")
+    assert dev["description"] == " ESD 용, 2단 "
+    assert backend.parameter.fetch_by_device("inst_terms", TERMS, dev["id"]) == _terms(
+        ("DRN", "d")
+    )
+
+
+def test_import_without_a_description_column_leaves_it_empty(backend, tmp_path):
+    """옛 CSV 와 molgen 이 만든 CSV 에는 Description 이 없다. 거부하지 않고 빈 값이다."""
+    assert _import(backend, tmp_path) == 2
+
+    assert _only_device(backend, "sf2p")["description"] == ""
+    assert _only_device(backend, "sf9x")["description"] == ""
+
+
+def test_import_reads_only_the_first_description_column(backend, tmp_path):
+    """반복된 Description(pandas 의 Description.1)은 지금처럼 무시한다."""
+    text = (
+        "CellType,CdsLibName,InstCellName,Description,Description\n"
+        "NFET,sf2p,nfet_c,첫 설명,둘째 설명\n"
+    )
+    assert _import_text(backend, tmp_path, text) == 1
+
+    assert _only_device(backend, "sf2p")["description"] == "첫 설명"
+
+
+def test_description_survives_export_and_import_again(backend, tmp_path):
+    """불러오기 → 내보내기 → 다시 불러오기에서 description 이 따라온다.
+
+    쉼표·줄바꿈은 넣지 않는다. CSV 쓰기가 molgen 로더에 맞춰 바꿔 쓰는 값이다(step 3).
+    """
+    text = (
+        "CellType,CdsLibName,InstCellName,Description,InstTerm\n"
+        "NFET,sf2p,nfet_c, ESD 용 2단 ,DRN d\n"
+        "PFET,sf2p,pfet_z,,DRN d\n"
+    )
+    assert _import_text(backend, tmp_path, text) == 2
+    pid = backend.process.get_or_create_id("sf2p")
+    first = backend.device.fetch_devices_by_process(pid)
+
+    headers, rows = backend.io.fetch_export_data(
+        [{**d, "process_name": "sf2p"} for d in first]
+    )
+    out = tmp_path / "out.csv"
+    write_csv(str(out), headers, rows)
+    assert backend.io.import_data(str(out), actor="me") == 2
+
+    first_ids = {d["id"] for d in first}
+    again = [d for d in backend.device.fetch_devices_by_process(pid) if d["id"] not in first_ids]
+    assert {d["name"]: d["description"] for d in again} == {
+        "nfet_c": " ESD 용 2단 ",
+        "pfet_z": "",
+    }
 
 
 # -- audit.recent ----------------------------------------------------------
