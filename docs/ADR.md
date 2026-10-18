@@ -19,7 +19,7 @@
 ### ADR-003: tab_config.json 이 단일 원본
 **결정**: 탭 하나 = molgen CSV 컬럼 하나 = 자식 테이블 하나. `config/tab_config.json` 에서 DDL(`service/schema.py`), 화면 탭, CSV import(`parse`, `row_per_token`), export, 허용 컬럼 목록(`TABLE_COLUMNS`)이 모두 만들어진다. `parse` 는 molgen `genMOLDB_config.il` 의 `pexGenDB_GenDev_Get_Header_Type()` 을 옮겨 적은 것이다.
 **이유**: 컬럼 정의가 여러 곳에 있으면 서로 어긋난다. 셀 문법의 기준은 molgen(`CSV_COLUMNS.md`)이다.
-**트레이드오프**: 새 탭 추가는 `init_db` 재실행으로 된다. 기존 탭에 컬럼을 추가하면 `init_db` 재실행이 빠진 컬럼을 `''` 로 더한다(2026-10-17 승인, 카탈로그를 보고 빠졌을 때만 `ALTER`). **컬럼 이름 변경·삭제·순서 변경은 여전히 마이그레이션이 없다.** JSON 키 구조를 바꾸면 모든 경로가 함께 바뀐다.
+**트레이드오프**: 새 탭 추가는 `init_db` 재실행으로 된다. 기존 탭에 컬럼을 추가하면 `init_db` 재실행이 빠진 컬럼을 `''` 로 더한다(2026-10-17 승인, 카탈로그를 보고 빠졌을 때만 `ALTER`). 안 돌렸으면 `genviewer status` 가 빠진 컬럼을 보이고 1로 끝난다. **컬럼 이름 변경·삭제·순서 변경은 여전히 마이그레이션이 없다.** JSON 키 구조를 바꾸면 모든 경로가 함께 바뀐다.
 
 ### ADR-004: 낙관적 잠금, 자동으로 다시 읽지 않음
 **결정**: `device.version` 을 쓰기마다 올린다. 저장은 process별 advisory lock + `FOR UPDATE` 후 화면이 들고 있던 version과 비교해 다르면 `StaleWriteError` 를 내고, 사용자에게 다시 읽기/덮어쓰기/취소를 묻는다. 화면에 없는 device는 지우지 않는다(명시적으로 지운 id만). 남이 바꾼 것은 10초 폴링(etag)으로 배너만 띄운다.

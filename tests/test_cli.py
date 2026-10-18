@@ -20,10 +20,12 @@ from datetime import datetime, timedelta
 
 import psycopg
 import pytest
+from psycopg import sql
 from typer.testing import CliRunner
 
 from genviewer import cli
 from genviewer.cli import app
+from genviewer.service import diagnostics, schema
 from genviewer.service.repo import audit
 from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.process import ProcessRepository
@@ -440,6 +442,129 @@ def test_status_points_at_init_db_when_a_table_is_missing(db, pg_dsn, isolated):
     result = runner.invoke(app, ["status", "--dsn", pg_dsn])
     assert result.exit_code == 1
     assert "genviewer-init-db" in result.output
+
+
+def _drop_columns(db, *columns):
+    """(테이블, 컬럼) 을 주어진 순서대로 지운다.
+
+    탭마다 **마지막** 컬럼부터 지운다. 되살린 컬럼은 물리적으로 맨 뒤에 붙으므로,
+    가운데 것을 지우면 되살린 뒤의 컬럼 순서가 새 DB 와 달라져 세션의 다른
+    테스트에 남는다.
+    """
+    with db.connection() as conn:
+        for table, column in columns:
+            conn.execute(
+                sql.SQL("ALTER TABLE {} DROP COLUMN {}").format(
+                    sql.Identifier(table), sql.Identifier(column)
+                )
+            )
+
+
+def _restore_schema(db):
+    """init_db 와 같은 DDL 로 지운 테이블·컬럼을 되살린다(step 0 뒤로는 컬럼도)."""
+    with db.connection() as conn:
+        for stmt in schema.postgres_all_ddl():
+            conn.execute(stmt)
+
+
+def test_status_names_a_missing_column_and_points_at_init_db(db, pg_dsn, isolated):
+    """tab_config 에 컬럼을 더하고 init-db 를 안 돌린 상태가 이렇게 보인다.
+
+    테이블은 다 있으니 "모두 있음" 으로 0 을 내면, status 는 정상인데 저장만
+    42703 으로 죽는다.
+    """
+    column = schema.child_tables()["inst_terms"][-1]
+    _drop_columns(db, ("inst_terms", column))
+    try:
+        result = runner.invoke(app, ["status", "--dsn", pg_dsn])
+    finally:
+        _restore_schema(db)
+
+    assert result.exit_code == 1, result.output
+    assert f"스키마: 컬럼 1개가 없다 (inst_terms.{column})" in result.output
+    assert "genviewer-init-db 를 다시 실행할 것." in result.output
+    assert "모두 있음" not in result.output
+
+
+def test_status_lists_every_missing_column_in_tab_config_order(db, pg_dsn, isolated):
+    """개수와 이름을 다 보인다. 순서는 tab_config 의 탭 순서, 그 안에서는 컬럼 순서다.
+
+    지우는 순서를 일부러 거꾸로 한다. 카탈로그 순서가 아니라 tab_config 순서여야 한다.
+    """
+    tabs = schema.child_tables()
+    *_, fgr_second_last, fgr_last = tabs["add_fgrs"]
+    term_last = tabs["inst_terms"][-1]
+    _drop_columns(
+        db,
+        ("add_fgrs", fgr_last),
+        ("add_fgrs", fgr_second_last),
+        ("inst_terms", term_last),
+    )
+    try:
+        result = runner.invoke(app, ["status", "--dsn", pg_dsn])
+    finally:
+        _restore_schema(db)
+
+    assert result.exit_code == 1, result.output
+    expected = (
+        f"inst_terms.{term_last}, "
+        f"add_fgrs.{fgr_second_last}, "
+        f"add_fgrs.{fgr_last}"
+    )
+    assert f"스키마: 컬럼 3개가 없다 ({expected})" in result.output
+
+
+def test_status_reports_a_missing_table_before_any_missing_column(db, pg_dsn, isolated):
+    """테이블이 통째로 없으면 지금 문구가 먼저이고, 그것만 나온다."""
+    with db.connection() as conn:
+        conn.execute("DROP TABLE IF EXISTS inst_terms")
+    _drop_columns(db, ("add_fgrs", schema.child_tables()["add_fgrs"][-1]))
+    try:
+        result = runner.invoke(app, ["status", "--dsn", pg_dsn])
+    finally:
+        _restore_schema(db)
+
+    assert result.exit_code == 1, result.output
+    assert "스키마: 테이블 1개가 없다 (inst_terms)" in result.output
+    assert "genviewer-init-db 를 먼저 실행할 것." in result.output
+    assert "컬럼" not in result.output
+
+
+def test_probe_finds_no_missing_column_on_a_fresh_schema(db):
+    info = diagnostics.probe(db)
+
+    assert info.reachable, info.message
+    assert info.missing_tables == []
+    assert info.missing_columns == []
+    assert info.schema_ready
+
+
+def test_probe_lists_a_missing_column_and_the_schema_is_not_ready(db):
+    column = schema.child_tables()["inst_terms"][-1]
+    _drop_columns(db, ("inst_terms", column))
+    try:
+        info = diagnostics.probe(db)
+    finally:
+        _restore_schema(db)
+
+    assert info.reachable, info.message
+    assert info.missing_tables == []
+    assert info.missing_columns == [f"inst_terms.{column}"]
+    assert not info.schema_ready
+
+
+def test_probe_does_not_count_the_columns_of_a_missing_table(db):
+    """없는 테이블은 missing_tables 로 한 번만 센다. 그 컬럼까지 "빠진 컬럼" 이 아니다."""
+    with db.connection() as conn:
+        conn.execute("DROP TABLE IF EXISTS inst_terms")
+    try:
+        info = diagnostics.probe(db)
+    finally:
+        _restore_schema(db)
+
+    assert info.missing_tables == ["inst_terms"]
+    assert info.missing_columns == []
+    assert not info.schema_ready
 
 
 def test_no_subcommand_opens_the_window(monkeypatch, isolated):

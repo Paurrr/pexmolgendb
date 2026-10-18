@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "status-columns",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T08:50:10+0900",
+      "summary": "diagnostics.probe: 있는 탭 테이블의 컬럼을 pg_attribute+pg_class+pg_namespace(current_schema, attnum > 0, NOT attisdropped)로 다 받아 Python 에서 child_tables() 와 비교해 ServerInfo.missing_columns(<테이블>.<컬럼>, tab_config 순서, 없는 테이블의 컬럼은 세지 않음), schema_ready 반영, 여전히 예외 없음. status: 테이블 검사 다음·'모두 있음' 앞에서 '스키마: 컬럼 N개가 없다 (…)' + 'genviewer-init-db 를 다시 실행할 것.'(stderr) + exit 1, 기존 줄 그대로. 새 테스트 6개(test_cli.py). 처음 실패한 테스트: test_status_names_a_missing_column_and_points_at_init_db·test_status_lists_every_missing_column_in_tab_config_order(assert result.exit_code == 1 → 0, '스키마: 테이블 17개 모두 있음'), test_probe_finds_no_missing_column_on_a_fresh_schema·test_probe_lists_a_missing_column_and_the_schema_is_not_ready·test_probe_does_not_count_the_columns_of_a_missing_table(AttributeError: 'ServerInfo' object has no attribute 'missing_columns'). 회귀 test_status_reports_a_missing_table_before_any_missing_column 은 구현 전에도 통과(지금 동작 고정). 변이: ① missing_columns=[] → CLI 2개·probe_lists 실패 ② NOT attisdropped 제거 → 살아남음(동치 변이: PG 는 지운 컬럼 attname 을 '........pg.dropped.N........' 로 바꿔 이름 비교에 안 걸림, 임시 테이블로 확인. 조건은 지시대로 유지) ③ 'if table in here' 제거 → probe_does_not_count 실패 ④ CLI 컬럼 검사를 테이블 검사 앞으로 → missing_table_before 등 3개 실패, 모두 손으로 되돌림. 임시 DB 에서 실제 genviewer status: 컬럼 2개 지움 → exit 1 '(add_layers.drawn_type, add_fgrs.fgr_parameter_header_name)', init-db 재실행 → exit 0. README(명령줄)·ARCHITECTURE(스키마)·ADR-003 한 줄·known-issues K7 행 삭제. DB 테스트: 687 passed / 9 skipped(posix_only) / 1 xfailed (PG 18.3, Git Bash)"
     }
   ],
   "created_at": "2026-10-18T08:40:04+0900"

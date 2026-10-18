@@ -203,6 +203,13 @@ def status(ctx: typer.Context, dsn: DsnOpt = "") -> None:
         typer.echo("genviewer-init-db 를 먼저 실행할 것.", err=True)
         raise typer.Exit(1)
 
+    # 테이블은 다 있어도 tab_config 에 더한 컬럼이 없으면 저장이 42703 으로 죽는다.
+    if server.missing_columns:
+        missing = ", ".join(server.missing_columns)
+        typer.echo(f"스키마: 컬럼 {len(server.missing_columns)}개가 없다 ({missing})")
+        typer.echo("genviewer-init-db 를 다시 실행할 것.", err=True)
+        raise typer.Exit(1)
+
     typer.echo(f"스키마: 테이블 {len(diagnostics.expected_tables())}개 모두 있음")
     typer.echo(f"내용: process {server.processes}개, device {server.devices}개")
 
