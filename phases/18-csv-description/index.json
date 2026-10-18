@@ -7,7 +7,8 @@
       "name": "send-fixed-columns",
       "status": "completed",
       "started_at": "2026-10-18T22:38:37+0900",
-      "summary": "send_device_data 가 고정 컬럼을 이름(_FIXED_COLUMNS = CellType/CdsLibName/InstCellName)으로 고르고 Description(_NOT_SENT)은 payload 에서 뺌(지금 헤더 payload 불변, 특성 테스트 test_payload_for_current_headers_is_unchanged 가 sf2p 전체 payload 를 바이트까지 고정). RED: test_description_header_is_not_sent[fourth]·[last]: fetch_export_data 를 감싸 헤더 3번 자리/끝에 Description(행 값 'ESD 용')을 끼워도 sent[1] == sent[0] — 수정 전 'Description list(\"ESD 용\") 이 끼어 둘 다 실패. 회귀 그물 test_fixed_columns_are_picked_by_name(CdsLibName·InstCellName 자리 바꿔도 같은 payload)은 수정 전에도 통과. 변이: i <= 2 위치 판단으로 되돌리면 [fourth]·[last] 실패, _NOT_SENT 검사만 빼도 같은 둘이 실패, 다시 고쳐 통과. fetch_export_data(진짜·가짜)·to_lisp_list_string·net/ 불변. 전체 933 passed / 10 skipped(DB 포함). 테스트 파일: tests/gui/test_send_device_data.py"
+      "summary": "send_device_data 가 고정 컬럼을 이름(_FIXED_COLUMNS = CellType/CdsLibName/InstCellName)으로 고르고 Description(_NOT_SENT)은 payload 에서 뺌(지금 헤더 payload 불변, 특성 테스트 test_payload_for_current_headers_is_unchanged 가 sf2p 전체 payload 를 바이트까지 고정). RED: test_description_header_is_not_sent[fourth]·[last]: fetch_export_data 를 감싸 헤더 3번 자리/끝에 Description(행 값 'ESD 용')을 끼워도 sent[1] == sent[0] — 수정 전 'Description list(\"ESD 용\") 이 끼어 둘 다 실패. 회귀 그물 test_fixed_columns_are_picked_by_name(CdsLibName·InstCellName 자리 바꿔도 같은 payload)은 수정 전에도 통과. 변이: i <= 2 위치 판단으로 되돌리면 [fourth]·[last] 실패, _NOT_SENT 검사만 빼도 같은 둘이 실패, 다시 고쳐 통과. fetch_export_data(진짜·가짜)·to_lisp_list_string·net/ 불변. 전체 933 passed / 10 skipped(DB 포함). 테스트 파일: tests/gui/test_send_device_data.py",
+      "completed_at": "2026-10-18T22:45:55+0900"
     },
     {
       "step": 1,
