@@ -149,7 +149,7 @@ uv run python -X utf8 scripts/execute.py {task-name} --push  # 실행 후 push
 
 `-X utf8` 은 빼지 않는다. 이유: 개발 PC 콘솔이 cp949라서 execute.py가 출력하는 한글·기호(`✓ ✗ ↻`)에서 인코딩 오류가 난다.
 
-실행 전에 작업 트리를 깨끗하게 둔다. 이유: execute.py는 step마다 `git add -A` 로 커밋하므로 남아 있던 변경이 step 커밋에 섞인다.
+실행 전에 작업 트리를 깨끗하게 둔다. 이유: execute.py는 step마다 `git add -A` 로 커밋하므로 남아 있던 변경이 step 커밋에 섞인다. 실행 중에도 저장소 파일을 고치지 않는다. 세션이 커밋한 뒤 execute.py가 다시 `git add -A` 를 하므로, 그 사이에 바뀐 파일이 step 커밋으로 들어간다(phase 10 step 0의 두 번째 커밋 `66890ac` 에 CLAUDE.md 정리가 들어갔다).
 
 execute.py가 자동으로 처리하는 것:
 
