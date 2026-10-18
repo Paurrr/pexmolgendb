@@ -526,6 +526,7 @@ class DeviceTableController(QObject):
                 "process_name": d.get("process_name"),
                 "name": d.get("name"),
                 "celltype": d.get("celltype"),
+                "description": d.get("description"),
             }
             for d in selected
         ]
