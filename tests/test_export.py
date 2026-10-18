@@ -4,8 +4,10 @@ molgen/CSV_COLUMNS.md §0: "로더가 비어 있지 않은 동명 컬럼을 순�
 하나의 리스트로 만든다" — 즉 자식 행의 순서는 의미를 갖는다.
 """
 
+import copy
 import csv
 
+import pytest
 from openpyxl import load_workbook
 
 from genviewer.service.repo.io import IORepository
@@ -60,6 +62,79 @@ def test_csv_keeps_values_starting_with_equals_as_written(tmp_path):
             ["a=b", "=SUM(A1:A2)"],
             ["plain", ""],
         ]
+
+
+# Description 이 가운데 있는 device CSV. molgen 로더(genMOLDB_csv.il 의
+# pexGenDB_GenDev_Load_CSV_File)는 따옴표를 모르고 한 줄을 ',' 로만 나눈다.
+DESC_HEADERS = ["CellType", "CdsLibName", "InstCellName", "Description", "InstTerm"]
+
+
+def _csv_rows(path):
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.reader(f))
+
+
+@pytest.mark.parametrize(
+    ("description", "written"),
+    [
+        ("ESD 용, 2단\r\n둘째 줄\n셋째", "ESD 용; 2단 둘째 줄 셋째"),
+        ("ESD 용, 2단", "ESD 용; 2단"),
+        ("첫째\r둘째", "첫째 둘째"),
+    ],
+    ids=["comma-crlf-lf", "comma", "cr"],
+)
+def test_csv_description_cannot_split_the_row_for_molgen(tmp_path, description, written):
+    """Description 의 ',' 는 ';' 로, 줄바꿈 하나는 공백 하나로 쓴다(K44, 2026-10-18 승인).
+
+    따옴표로 감싼 쉼표는 molgen 에서 그 행의 뒤 컬럼(InstTerm 등)을 한 칸씩 밀고,
+    따옴표 안의 줄바꿈은 행을 둘로 가른다.
+    """
+    path = tmp_path / "out.csv"
+    write_csv(str(path), DESC_HEADERS, [["nfet", "sf2p", "nfet_a", description, "DRN d"]])
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2  # 헤더 + 행 하나
+    cells = lines[1].split(",")  # molgen 과 같은 방식
+    assert len(cells) == len(DESC_HEADERS)
+    assert cells[-1] == "DRN d"
+    assert _csv_rows(path)[1] == ["nfet", "sf2p", "nfet_a", written, "DRN d"]
+
+
+def test_csv_keeps_commas_outside_the_description_column(tmp_path):
+    """바꾸는 것은 Description 열뿐이다. 다른 열과 Description 이 없는 CSV(이력)는 원문이다."""
+    device_csv = tmp_path / "device.csv"
+    write_csv(str(device_csv), DESC_HEADERS, [["nfet", "sf2p", "nfet_a", "", "DRN d, x\ny"]])
+    assert _csv_rows(device_csv)[1] == ["nfet", "sf2p", "nfet_a", "", "DRN d, x\ny"]
+
+    log_csv = tmp_path / "log.csv"
+    write_csv(str(log_csv), ["at", "summary"], [["2026-10-18", "수정, 2건\n둘째"]])
+    assert _csv_rows(log_csv) == [["at", "summary"], ["2026-10-18", "수정, 2건\n둘째"]]
+
+
+def test_csv_writes_a_non_string_description_as_before(tmp_path):
+    """문자열이 아닌 Description 값은 csv 모듈이 쓰던 그대로다(None 은 빈 칸)."""
+    path = tmp_path / "out.csv"
+    write_csv(str(path), DESC_HEADERS, [["a", "b", "c", None, "d"], ["a", "b", "c", 3, "d"]])
+
+    assert _csv_rows(path)[1:] == [["a", "b", "c", "", "d"], ["a", "b", "c", "3", "d"]]
+
+
+def test_write_csv_does_not_change_the_rows_it_was_given(tmp_path):
+    """호출자가 같은 rows 로 다른 형식을 쓸 수 있으므로 바꾼 사본을 쓴다."""
+    rows = [["nfet", "sf2p", "nfet_a", "ESD 용, 2단\r\n둘째", "DRN d"]]
+    original = copy.deepcopy(rows)
+
+    write_csv(str(tmp_path / "out.csv"), DESC_HEADERS, rows)
+
+    assert rows == original
+
+
+def test_xlsx_keeps_the_description_as_written(tmp_path):
+    """xlsx 는 molgen 이 읽지 않으므로 Description 도 원문이다."""
+    path = tmp_path / "out.xlsx"
+    write_xlsx(str(path), DESC_HEADERS, [["nfet", "sf2p", "nfet_a", "ESD 용, 2단\n둘째", "DRN d"]])
+
+    assert _xlsx_cells(path)[1][3] == ("ESD 용, 2단\n둘째", "s")
 
 
 def test_each_row_carries_its_own_process_name(db, two_processes):

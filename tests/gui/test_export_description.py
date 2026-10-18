@@ -2,7 +2,8 @@
 
 사용자 승인 2026-10-17: "내보내기(GUI·CLI, CSV·xlsx)는 InstCellName 다음에 Description
 컬럼을 쓴다". 값은 name·celltype 처럼 화면(모델)의 값이다. 저장하지 않은 편집이면 그 편집 값이고,
-DB 에서 다시 읽지 않는다. 쉼표·줄바꿈은 step 3(CSV 쓰기)의 일이라 여기 값에 넣지 않는다.
+DB 에서 다시 읽지 않는다. 쉼표·줄바꿈을 바꿔 쓰는 것은 step 3(CSV 쓰기)이고, 그 GUI 경로는
+마지막 두 테스트가 본다.
 """
 
 import csv
@@ -71,4 +72,38 @@ def test_xlsx_export_writes_the_description(device_tab_ctrl, store, dialogs, tmp
     export_to(ctrl, path, "xlsx")
 
     assert descriptions_in_xlsx(path) == {"nfet_a": "ESD 용", "nfet_b": "화면 값"}
+    assert dialogs.shown == [("info", "Save XLSX", "Success!\n - out.xlsx")]
+
+
+def test_csv_export_turns_description_commas_into_semicolons(
+    device_tab_ctrl, store, dialogs, tmp_path
+):
+    """molgen 은 CSV 한 줄을 ',' 로만 나눈다. 설명의 쉼표가 뒤 컬럼을 밀지 않는다.
+
+    사용자 승인 2026-10-18. DB 의 description 은 그대로다.
+    """
+    ctrl = device_tab_ctrl
+    store.touch_device(store.find_device("nfet_a")["id"], actor="kim", description="ESD 용, 2단")
+    ctrl.device_table.refresh_devices()
+    path = tmp_path / "out.csv"
+
+    export_to(ctrl, path, "csv")
+
+    assert descriptions_in_csv(path)["nfet_a"] == "ESD 용; 2단"
+    header, *lines = path.read_text(encoding="utf-8").splitlines()
+    (nfet_a,) = [line for line in lines if line.split(",")[2] == "nfet_a"]
+    assert len(nfet_a.split(",")) == len(header.split(","))
+    assert store.find_device("nfet_a")["description"] == "ESD 용, 2단"  # DB 값은 그대로
+    assert dialogs.shown == [("info", "Save CSV", "Success!\n - out.csv")]
+
+
+def test_xlsx_export_keeps_description_commas(device_tab_ctrl, store, dialogs, tmp_path):
+    ctrl = device_tab_ctrl
+    store.touch_device(store.find_device("nfet_a")["id"], actor="kim", description="ESD 용, 2단")
+    ctrl.device_table.refresh_devices()
+    path = tmp_path / "out.xlsx"
+
+    export_to(ctrl, path, "xlsx")
+
+    assert descriptions_in_xlsx(path)["nfet_a"] == "ESD 용, 2단"
     assert dialogs.shown == [("info", "Save XLSX", "Success!\n - out.xlsx")]
