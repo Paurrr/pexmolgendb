@@ -66,7 +66,8 @@ fi
 # 아예 안 된다 - 로컬 peer 로만 쓰라는 것이 원래 의도였다.
 if [ -n "$PGHBA_CIDR" ]; then
     hba_line="host $PGHBA_DB $PGHBA_USER $PGHBA_CIDR $PGAUTH_HOST"
-    if ! grep -qF "$hba_line" "$PGDATA/pg_hba.conf"; then
+    # 주석 처리된 같은 줄을 있음으로 보지 않게 줄 전체를 비교한다.
+    if ! grep -qxF "$hba_line" "$PGDATA/pg_hba.conf"; then
         echo "$hba_line" >> "$PGDATA/pg_hba.conf"
         echo "==> pg_hba.conf 에 추가: $hba_line"
     fi

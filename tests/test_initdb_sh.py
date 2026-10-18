@@ -154,3 +154,39 @@ def test_skip_start_does_not_call_pg_ctl(pg):
     result = run_initdb(pg, SKIP_START=1)
     assert "start 건너뜀 (SKIP_START=1)" in result.stdout
     assert calls(pg, "pg_ctl") == []
+
+
+# PGAUTH_HOST 는 늘 적는다. PGHBA_CIDR 만 주고 비우면 받지 않게 될 것이다(K26).
+HBA_ENV = {
+    "PGHBA_CIDR": "10.0.0.0/8",
+    "PGHBA_DB": "molgen",
+    "PGHBA_USER": "molgen_app",
+    "PGAUTH_HOST": "scram-sha-256",
+}
+HBA_LINE = "host molgen molgen_app 10.0.0.0/8 scram-sha-256"
+
+
+def hba_lines(pg):
+    return (pg["data"] / "pg_hba.conf").read_text(encoding="utf-8").splitlines()
+
+
+def test_a_commented_out_hba_line_does_not_count_as_present(pg):
+    # 사람이 꺼 둔 같은 줄을 "이미 있음" 으로 보면 원격 대역이 말없이 안 열린다(K27).
+    assert run_initdb(pg).returncode == 0
+    (pg["data"] / "pg_hba.conf").write_text(
+        f"# {HBA_LINE}\n", encoding="utf-8", newline="\n",
+    )
+    result = run_initdb(pg, **HBA_ENV)
+    assert result.returncode == 0, result.stderr
+    assert hba_lines(pg).count(HBA_LINE) == 1
+    assert "pg_hba.conf 에 추가" in result.stdout
+
+
+def test_an_existing_hba_line_is_not_added_again(pg):
+    first = run_initdb(pg, **HBA_ENV)
+    assert first.returncode == 0, first.stderr
+    assert "pg_hba.conf 에 추가" in first.stdout
+    second = run_initdb(pg, **HBA_ENV)
+    assert second.returncode == 0, second.stderr
+    assert hba_lines(pg).count(HBA_LINE) == 1
+    assert "추가" not in second.stdout

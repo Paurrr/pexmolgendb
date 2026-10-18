@@ -2,9 +2,28 @@
   "project": "genviewer",
   "phase": "9-ops-script-fixes",
   "steps": [
-    { "step": 0, "name": "hba-line-match", "status": "pending" },
-    { "step": 1, "name": "hba-trust-refuse", "status": "pending" },
-    { "step": 2, "name": "deploy-git-perms", "status": "pending" },
-    { "step": 3, "name": "deploy-missing-command", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "hba-line-match",
+      "status": "completed",
+      "summary": "initdb.sh hba 줄 검사를 grep -qxF(줄 전체)로: 주석 처리된 같은 줄을 있음으로 보지 않음. RED: test_a_commented_out_hba_line_does_not_count_as_present (hba_lines(pg).count(HBA_LINE) == 1 → assert 0 == 1, 파일엔 '# host …' 만). 회귀 test_an_existing_hba_line_is_not_added_again 는 수정 전에도 통과. 변이: -qF 로 되돌리면 test_a_commented_out_hba_line_does_not_count_as_present 실패. 셸 테스트 22 passed / 6 skipped(posix_only), 전체 689 passed / 9 skipped / 1 xfailed(DB 붙음)",
+      "started_at": "2026-10-18T09:10:42+0900"
+    },
+    {
+      "step": 1,
+      "name": "hba-trust-refuse",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "deploy-git-perms",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "deploy-missing-command",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-10-18T09:10:42+0900"
 }
