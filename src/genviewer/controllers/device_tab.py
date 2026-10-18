@@ -326,6 +326,15 @@ class DeviceTabController(QObject):
         if not selected_devices:
             self.statusMessageRequested.emit("No device selected", 2000)
             return
+        # 저장 안 한 새 행에는 id 가 없어 탭 내용을 읽을 수 없다. 저장된 것만 골라 보내지
+        # 않는다. 하나라도 있으면 아무것도 보내지 않는다(K21, 2026-10-17 승인).
+        if any(dev.get("id") is None for dev in selected_devices):
+            self.notifyRequested.emit(
+                "warn",
+                "Unsaved Devices",
+                "저장하지 않은 device 가 있어 보내지 않았다. 먼저 저장할 것.",
+            )
+            return
 
         device_info = [
             {
