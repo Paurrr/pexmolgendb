@@ -360,6 +360,28 @@ uv pip compile pyproject.toml --python-version 3.13 --python-platform x86_64-man
 쓴다(11 부터는 즉시 끝난다). 공유 서버라면 `--owner` 를 같이 준다 — 새 테이블이 소유자 명의로 만들어져 앱 role
 권한이 자동으로 따라간다(아래 '서버' 절).
 
+### Description 컬럼
+
+device 의 설명은 탭이 아니라 device 컬럼이고, CSV 에서는 `InstCellName` 다음
+칸의 `Description` 이다.
+
+- 내보내기(창·`genviewer export`, CSV·xlsx)는 늘 이 칸을 쓴다. 설명이 전부 비어
+  있어도 헤더는 있다. 창에서 내보내면 화면의 값(저장하지 않은 편집 포함)을 쓴다.
+  이름·celltype 과 같다.
+- **CSV 에서는 설명의 쉼표(`,`)를 `;` 로, 줄바꿈을 공백으로 바꿔 쓴다.** molgen
+  의 CSV 로더가 따옴표를 모르고 `,` 로만 칸을 나누기 때문이다. 그대로 쓰면 쉼표가
+  든 설명은 그 행의 뒤 컬럼을 한 칸씩 밀고, 줄바꿈은 행을 가른다. DB 의 값과 xlsx
+  는 원문 그대로다. 그래서 쉼표가 든 설명을 CSV 로 내보냈다가 다시 불러오면 `;`
+  로 돌아온다.
+- 불러오기는 `Description` 칸이 있으면 그 값을 앞뒤 공백까지 그대로 넣고, 없으면
+  (옛 CSV, molgen 이 만든 CSV) 빈 값이다. 이름이 정확히 `Description` 인 첫 칸만
+  본다. 불러오기는 쉼표를 바꾸지 않는다.
+- Virtuoso 로 보내는 `pydata` 에는 넣지 않는다.
+- molgen 에도 이 컬럼이 등록돼 있어야 한다(`genMOLDB_config.il` 의
+  `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"`, molgen
+  `CSV_COLUMNS.md` 9절). **운영에는 molgen 을 먼저 배포한다.** 등록 전의 molgen 은
+  이 칸의 셀마다 `Unknown header type` 경고를 낸다.
+
 ### 이름이 같은 행은 각각 device 가 된다
 
 **CSV 행 하나가 device 하나다.** 같은 `CdsLibName` + `InstCellName` 이 여러 행에

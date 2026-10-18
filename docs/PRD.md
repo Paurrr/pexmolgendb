@@ -9,7 +9,7 @@ molgen용 device 데이터를 만들고 고치는 사내 엔지니어 몇 명. R
 ## 핵심 기능
 1. **process / device 편집**: process를 고르면 device 목록(이름, celltype, 설명, 순서)을 보여준다. 추가·삭제·복사/붙여넣기·끌어서 순서 바꾸기·undo/redo.
 2. **파라미터 탭**: device마다 molgen CSV 컬럼 하나에 대응하는 탭 14개(`config/tab_config.json`). 값 후보·검증은 `config/delegate_config.json`. 요약 탭과 dirty 표시(` *`).
-3. **CSV / xlsx**: CSV 불러오기(행마다 새 device, 같은 파일을 두 번 넣으면 두 배), process 단위·선택 device 내보내기(.csv/.xlsx).
+3. **CSV / xlsx**: CSV 불러오기(행마다 새 device, 같은 파일을 두 번 넣으면 두 배), process 단위·선택 device 내보내기(.csv/.xlsx). device 설명은 `InstCellName` 다음 `Description` 컬럼으로 오간다(CSV 에서는 쉼표·줄바꿈을 바꿔 쓴다, Virtuoso 로는 보내지 않는다).
 4. **동시 편집**: 저장 시 `device.version` 으로 충돌을 잡아 다시 읽기/덮어쓰기/취소를 묻는다. 10초마다 지금 process가 남에 의해 바뀌었는지 보고 배너로 알린다. 자동으로 다시 읽지 않는다.
 5. **변경 이력**: 누가 언제 무엇을 더하고 지우고 고쳤는지 `change_log` 에 쌓고, `genviewer log`(숨김 명령)와 `--history` 화면으로 본다. 값이 실제로 바뀐 것만 남는다.
 6. **Virtuoso 연동**: TCP 소켓으로 Virtuoso SKILL 세션에 붙어 device 목록(`filterCellHasSymbolLayout`)을 받아 비교하고, 선택 device를 `pydata = list(...)` SKILL 리스트로 보낸다.
