@@ -14,7 +14,7 @@ phase 0~11과 이 phase의 step 0~1이 끝나 있다. 이 step에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 재현되지 않으면 `src/` 를 고치지 않는다. 테스트는 특성 테스트로 남기고 `"status": "completed"`, `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 11 직후) 기준 대략값이다. 이름으로 찾아라.
 
 테스트 기반: `history_ctrl`, `store`, `store.add_audit`, `store.hold_next`, `store.fail_next`, `store.calls_of("recent")`(인자 dict: `limit`, `since`, `actor`, `process`, `contains` …), `tests/gui_support/fakes.py` 의 `FakeDatabase(store, dsn)`. "아무 일도 없음" 은 `qtbot.wait` 고정 대기가 아니라 `store.calls`·`ctrl._task` 를 `qtbot.waitUntil` 로 기다린 뒤 단언한다. `waitUntil` 콜백은 bool을 돌려준다.
 
@@ -29,7 +29,7 @@ History 다시 읽기의 두 경합을 고친다(2026-10-17 분류: 버그). **`
 - `/CLAUDE.md`(GUI 스레드에서 DB를 기다리지 않는다, 자동으로 다시 읽지 않는다), `/docs/ARCHITECTURE.md`("DB 접속", "변경 감지", "스레딩")
 - `src/genviewer/controllers/history_tab.py` 전체: `set_db` (~76-93), `shutdown` (~95-100), `_tick`, `reload` (~120-149, `self._task is not None` 이면 돌아간다), `_clear_task` (~151-155, `self._task` 에 든 것을 deleteLater), `_on_result`, `_on_failed`
 - `src/genviewer/utils/background.py`: `Task`(QThread, `done`/`failed`/`finished`), `is_busy`
-- `src/genviewer/controllers/main_window.py`: History 배선(~53-62), `shutdown`(~95-106)
+- `src/genviewer/controllers/main_window.py`: History 배선(~53-62), `shutdown`(~97-106)
 - `src/genviewer/controllers/device_tab.py`: `connect_db`, `close_db`, `_release_db`, `_clear_poll_task`(같은 뼈대). 이 파일은 읽기만 한다.
 - `tests/gui/test_history_smoke.py`, `tests/gui/test_history_errors.py`
 

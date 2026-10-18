@@ -14,7 +14,7 @@ phase 0~11과 이 phase의 step 0~5가 끝나 있다. 이 step에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 재현되지 않으면 `src/` 를 고치지 않는다. 테스트는 특성 테스트로 남기고 `"status": "completed"`, `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 11 직후) 기준 대략값이다. 이름으로 찾아라.
 
 테스트 기반: `device_tab_ctrl`, `main_window`, `store`, `dialogs`, `select_device_row`. 고정 대기(`qtbot.wait`) 금지. Qt 객체가 지워졌는지는 지연 삭제를 처리한 뒤(`QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)`) `shiboken6.isValid(obj)` 로 본다.
 

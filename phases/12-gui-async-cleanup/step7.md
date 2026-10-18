@@ -16,7 +16,7 @@ phase 0~11과 이 phase의 step 0~6이 끝나 있다. 이 step에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 재현되지 않으면 `src/` 를 고치지 않는다. 테스트는 특성 테스트로 남기고 `"status": "completed"`, `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 11 직후) 기준 대략값이다. 이름으로 찾아라.
 
 테스트 기반: `device_tab_ctrl`, `store`(sf2p: nfet_a·nfet_b / sf4u: pfet_a, actor `tester`), `store.touch_device(id, actor=…)`, `store.calls_of("etag")`, `dialogs`(`answer_conflict`, `shown`), `edit_device_cell`. 본보기는 `tests/gui/test_smoke.py` 의 폴링 테스트다. `ctrl._poll_remote_changes()` 를 직접 부르고 `etag` 호출 수와 `ctrl._poll_task is None` 을 기다린다. 배너는 `ctrl.ui.refresh_banner`(`isHidden()`, `label.text()`)로 본다. 고정 대기(`qtbot.wait`)는 쓰지 않는다. `waitUntil` 콜백은 bool을 돌려준다.
 
@@ -24,10 +24,10 @@ phase 0~11과 이 phase의 step 0~6이 끝나 있다. 이 step에 닿는 것:
 
 - `/CLAUDE.md`(자동으로 다시 읽지 않는다, 남이 바꾼 것은 배너로), `/docs/ARCHITECTURE.md`("변경 감지"), `/docs/ADR.md`(ADR-004), `/docs/UI_GUIDE.md`(배너, "Save Complete")
 - `src/genviewer/controllers/device_table.py`
-  - `save_all` (~337-395): 쓰기 → `_emit_version_bumps` → `notifyRequested("info", "Save Complete", summary)` → `refresh_devices()` → 로그 → (있으면) "Save Skipped" 경고
-  - `refresh_devices` (~262-304, `@report("Load Failed")`): 끝에서 `remember_etag()` 를 부른다
-  - `remember_etag` (~306-322): docstring이 "기준점을 갱신하지 않으면 내가 방금 한 저장을 보고 '남이 바꿨다' 배너가 뜬다" 고 적고 있다
-  - `_write_devices` (~413-445): 충돌 → RELOAD/OVERWRITE/CANCEL
+  - `save_all` (~386-453): 쓰기 → `_emit_version_bumps` → `notifyRequested("info", "Save Complete", summary)` → `refresh_devices()` → 로그 → (있으면) "Save Skipped" 경고
+  - `refresh_devices` (~309-353, `@report("Load Failed")`): 끝에서 `remember_etag()` 를 부른다
+  - `remember_etag` (~355-371): docstring이 "기준점을 갱신하지 않으면 내가 방금 한 저장을 보고 '남이 바꿨다' 배너가 뜬다" 고 적고 있다
+  - `_write_devices` (~471-504): 충돌 → RELOAD/OVERWRITE/CANCEL
 - `src/genviewer/controllers/device_tab.py`: `_poll_remote_changes`, `_on_poll_result`(step 3이 바꿨다), `on_load_csv_requested`(다시 읽은 **뒤에** 알린다. 이 step이 따를 순서다)
 - `src/genviewer/controllers/parameter_tab.py`: `_apply`(알림 전에 `deviceVersionChanged` → `set_device_version` → `remember_etag`. 순서가 이미 맞다. 바꾸지 않는다)
 - `src/genviewer/views/main_window.py` `notify` → `utils/dialogs.py` `info` → `QMessageBox.information`. 모달이라 중첩 이벤트 루프가 돈다.

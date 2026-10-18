@@ -5,7 +5,7 @@
 이 저장소는 이미 여러 명이 쓰는 도구다. 평소에는 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 12는 2026-10-17에 `docs/notes/known-issues.md` 를 분류하면서 버그로 정한 GUI 비동기·수명 항목(History 화면의 오류 문구·다시 읽기 경합 K23a·K41, 변경 감지 폴링의 결과 묶기 K23b, Qt 객체 누수 K22 나머지)을 한 step에 하나씩 고친다. 모두 버그이고 승인 대상이 아니다. 사용자에게 보이는 문구를 새로 만들지 않는다.
 
 phase 0~11이 끝나 있다. 이 phase에 닿는 것:
-- phase 11 step 0(`user-message-sites`): `device_tab_toolbar.get_process_id` 와 `device_tab._on_poll_failed` 가 `user_message` 를 쓴다(로그는 한 줄). 이 step의 본보기다.
+- phase 11 step 0(`user-message-sites`): `device_tab_toolbar.get_process_id` 와 `device_tab._on_poll_failed` 가 `user_message` 를 쓴다(로그는 `" ".join(user_message(exc).split())` 로 한 줄). 이 step의 본보기다.
 - step 0(이 phase): `FakeAuditRepository`(`recent`), `store.add_audit`, `store.hold_next(method)`, `install_fake_history`, `history_ctrl` fixture. `store.fail_next("recent", exc)` 가 된다.
 
 모든 step에 같은 규칙이 적용된다.
@@ -13,7 +13,7 @@ phase 0~11이 끝나 있다. 이 phase에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 재현되지 않으면 `src/` 를 고치지 않는다. 테스트는 특성 테스트로 남기고 `"status": "completed"`, `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 11 직후) 기준 대략값이다. 이름으로 찾아라.
 
 테스트 기반: `history_ctrl`(첫 다시 읽기가 끝난 `HistoryTabController`), `store`, `store.add_audit`, `store.fail_next`, `store.calls_of("recent")`. 고정 대기(`qtbot.wait`) 금지. `waitUntil` 콜백은 bool을 돌려준다.
 

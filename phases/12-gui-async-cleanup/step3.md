@@ -15,7 +15,7 @@ phase 0~11과 이 phase의 step 0~2가 끝나 있다. 이 step에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 재현되지 않으면 `src/` 를 고치지 않는다. 테스트는 특성 테스트로 남기고 `"status": "completed"`, `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 11 직후) 기준 대략값이다. 이름으로 찾아라.
 6. `DeviceTabController.connect_db`/`_open_database` 는 phase 7·10·11·12가 차례로 건드린다. 이 파일은 그 본문을 인용하지 않는다. 지금 코드를 읽고, 적힌 불변식만 지켜라.
 
 테스트 기반: `device_tab_ctrl`, `main_window`, `store`(sf2p: nfet_a·nfet_b / sf4u: pfet_a), `store.touch_device(id, actor=…)`, `store.hold_next`, `store.fail_next("etag", exc)`, `store.calls_of("etag")`, `select_process`. 본보기: `tests/gui/test_smoke.py` 의 폴링 테스트(`ctrl._poll_remote_changes()` 를 직접 부르고 `etag` 호출과 `ctrl._poll_task is None` 을 기다린다), `tests/gui/test_connect_db.py` 의 `threading.Timer` 로 GUI 스레드의 `wait()` 를 풀어 주는 방식. 배너는 `ctrl.ui.refresh_banner`(`isHidden()`, `label.text()`). 고정 대기(`qtbot.wait`) 금지.
@@ -28,9 +28,9 @@ K23b: 변경 감지 폴링 결과가 그 폴링을 시작한 process·DB에 묶�
 
 - `/CLAUDE.md`(자동으로 다시 읽지 않는다, 남이 바꾼 것은 배너로), `/docs/ARCHITECTURE.md`("변경 감지", "DB 접속"), `/docs/ADR.md`(ADR-004)
 - `src/genviewer/controllers/device_tab.py`
-  - `_poll_remote_changes` (~196-215): 시작할 때 `repo`·`process_id` 를 잡는다.
-  - `_clear_poll_task` (~217-221): 그 순간 `self._poll_task` 에 든 것을 deleteLater 한다.
-  - `_on_poll_result` (~223-230): 도착한 순간의 `self.device_table.remembered_etag()` 와 비교한다.
+  - `_poll_remote_changes` (~223-242): 시작할 때 `repo`·`process_id` 를 잡는다.
+  - `_clear_poll_task` (~244-248): 그 순간 `self._poll_task` 에 든 것을 deleteLater 한다.
+  - `_on_poll_result` (~250-257): 도착한 순간의 `self.device_table.remembered_etag()` 와 비교한다.
   - `_on_poll_failed`, `_release_db`, `close_db`, `on_process_changed`(배너를 숨긴다)
 - `src/genviewer/controllers/device_table.py`: `remember_etag`, `remembered_etag`, `current_process_id`, `repo`
 - `src/genviewer/service/repo/device.py`: `etag_key`

@@ -20,7 +20,7 @@ phase 0~11이 끝나 있다. 이 phase에 닿는 것은 다음과 같다.
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 재현되지 않으면 `src/` 를 고치지 않는다. 테스트는 특성 테스트로 남기고 `"status": "completed"`, `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라. 이유: 같은 step의 테스트 변경까지 사라진다.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 11 직후) 기준 대략값이다. 이름으로 찾아라.
 6. `DeviceTabController.connect_db`/`_open_database` 는 phase 7·10·11·12가 차례로 건드린다. 이 파일은 그 본문을 인용하지 않는다. 지금 코드를 읽고, 적힌 불변식만 지켜라.
 
 GUI 테스트 기반은 phase 2가 만들었다. 이름을 그대로 쓴다. 작업 전에 `tests/gui/conftest.py`·`tests/gui_support/` 를 읽는다.
@@ -48,7 +48,7 @@ History 컨트롤러(`controllers/history_tab.py`)를 GUI 테스트에서 돌릴
 - `src/genviewer/views/history_tab.py`: 필터 위젯 `range_cb`·`who_field`·`process_cb`·`find_field`·`auto_cb`(기본 켜짐), `show_count`, `set_processes`
 - `src/genviewer/service/repo/audit.py`
   - `Entry`, `write(cur, actor, entries)`, `source()`/`set_source`, `_COLUMNS`
-  - `AuditRepository.recent` (~335-385): 조건에 맞는 마지막 `limit` 줄을 오래된 것부터 준다.
+  - `AuditRepository.recent` (~359-409): 조건에 맞는 마지막 `limit` 줄을 오래된 것부터 준다.
   - phase 7 step 3이 바꾼 naive datetime 처리도 읽는다.
 - `tests/gui_support/fakes.py`: `REPO_METHODS`, `FAILABLE`, `_recorded`, `FakeStore`, `FakeDatabase`
 - `tests/gui_support/helpers.py`: `install_fake_db`, `FAKE_REPOSITORIES`
