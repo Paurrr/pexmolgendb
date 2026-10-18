@@ -6,7 +6,7 @@
 
 phase 0~10이 끝나 있다. 이 phase에 닿는 것:
 - phase 7 step 2(`pool-failure-cause`): 풀에서 커넥션을 얻지 못하면 `Database.connection()` 이 한 번 직접 접속해 실제 원인을 `DbUnavailableError` 에 담는다.
-- phase 10: 저장·편집 보호. phase 10 step 4가 `connect_db` 앞에 질문(편집이 있을 때)을 넣었다.
+- phase 10: 저장·편집 보호. phase 10 step 4가 `_on_connect` 에서 `connect_db` 를 부르기 전에 질문(편집이 있을 때)을 넣었다. `connect_db` 본문은 그대로다.
 - step 0(이 phase): 예외 문자열이 `user_message` 를 거친다. step 1(이 phase): `_open_database` 와 Connect 창 연결 테스트가 원인이 담긴 예외를 보인다. **`_open_database` 의 확인 방법을 step 1이 바꿨다.**
 
 모든 step에 같은 규칙이 적용된다.
@@ -14,7 +14,7 @@ phase 0~10이 끝나 있다. 이 phase에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 재현되지 않으면 `src/` 를 고치지 않는다. 테스트는 특성 테스트로 남기고 `"status": "completed"`, `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 10 직후) 기준 대략값이다. 이름으로 찾아라.
 6. `DeviceTabController.connect_db`/`_open_database` 는 phase 7·10·11·12가 차례로 건드린다. 이 파일은 그 본문을 인용하지 않는다. 지금 코드를 읽고, 적힌 불변식만 지켜라.
 
 GUI 테스트 기반(phase 2)의 이름을 그대로 쓴다(`dialogs`, `device_tab_ctrl`, `main_window`, `store`, `store.fail_next`, `install_fake_db`). `install_fake_db` 는 `_open_database` 를 `store.open_database` 로 바꾸므로 fixture 안에서는 `_open_database` 본문이 돌지 않는다. `tests/gui_support/fakes.py` 의 `FakeDatabase` 는 `closed`·`close_count` 를 기록한다. 고정 대기(`qtbot.wait`) 금지.

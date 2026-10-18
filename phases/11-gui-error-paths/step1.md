@@ -6,7 +6,7 @@
 
 phase 0~10이 끝나 있다. 이 phase에 닿는 것:
 - phase 7 step 2(`pool-failure-cause`): 풀에서 커넥션을 얻지 못하면 `Database.connection()` 이 한 번 직접 접속해 그 실제 원인(첫 줄, `scrub` 거침)을 `DbUnavailableError` 에 담는다. `ping()` 은 여전히 bool이다. 정확한 API는 `src/genviewer/service/pool.py` 와 `phases/7-service-fixes/index.json` 의 summary로 확인하라.
-- phase 10: 저장·편집 보호(삭제 충돌의 덮어쓰기 숨김, 같은 행 재클릭, 붙여넣기 version·탭 dirty 거부, 재접속·CSV 불러오기 전 질문, Remove Process 뒤 편집 버림, 걸러 본 저장의 순서값). `controllers/device_tab.py`·`device_table.py`·`dialogs/conflict.py` 가 바뀌었다. phase 10 step 4가 `connect_db` 앞에 질문을 넣었다.
+- phase 10: 저장·편집 보호(삭제 충돌의 덮어쓰기 숨김, 같은 행 재클릭, 붙여넣기 version·탭 dirty 거부, 재접속·CSV 불러오기 전 질문, Remove Process 뒤 편집 버림, 걸러 본 저장의 순서값). `controllers/device_tab.py`·`device_table.py`·`dialogs/conflict.py` 가 바뀌었다. phase 10 step 4가 `_on_connect` 에서 `connect_db` 를 부르기 전에 질문(편집이 있을 때)을 넣었다. `connect_db` 본문은 그대로다.
 - step 0(이 phase): process 조회 실패 알림·폴링 중단 로그가 `user_message` 를 거친다.
 
 모든 step에 같은 규칙이 적용된다.
@@ -14,7 +14,7 @@ phase 0~10이 끝나 있다. 이 phase에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다. `posix_only` 테스트는 개발 PC에서 skip되므로 증명이 되지 못한다.
 3. 재현되지 않으면 `src/` 를 고치지 않는다. 테스트는 특성 테스트로 남기고 `"status": "completed"`, `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라. 이유: 같은 step의 테스트 변경까지 사라진다.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 10 직후) 기준 대략값이다. 이름으로 찾아라.
 6. `DeviceTabController.connect_db`/`_open_database` 는 phase 7·10·11·12가 차례로 건드린다. 이 파일은 그 본문을 인용하지 않는다. 지금 코드를 읽고, 적힌 불변식만 지켜라.
 
 GUI 테스트 기반(phase 2)의 이름을 그대로 쓴다. 작업 전에 `tests/gui/conftest.py`·`tests/gui_support/` 를 읽고, 이 파일의 서술과 다르면 실제 코드를 따른다.

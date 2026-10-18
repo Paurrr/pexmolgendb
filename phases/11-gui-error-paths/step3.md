@@ -13,7 +13,7 @@ phase 0~10과 이 phase의 step 0~2가 끝나 있다. 이 step에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 지금 동작이 설명과 다르면(이미 경고하고 보내지 않는다 등) `src/` 를 고치지 않고 `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 10 직후) 기준 대략값이다. 이름으로 찾아라.
 
 GUI 테스트 기반(phase 2)의 이름을 그대로 쓴다. 작업 전에 `tests/gui/conftest.py`·`tests/gui_support/` 를 읽는다.
 - `dialogs.shown`(`(kind, title, text)`, severity `warn` → kind `warning`)
@@ -30,8 +30,8 @@ GUI 테스트 기반(phase 2)의 이름을 그대로 쓴다. 작업 전에 `test
 ## 읽어야 할 파일
 
 - `/CLAUDE.md`, `/docs/UI_GUIDE.md`(원칙 4, "문구", "입력과 단축키")
-- `src/genviewer/controllers/device_tab.py`: `send_device_data`(~296-352, `@report("Send Failed")`. `device_info` 를 만들 때 `dev["id"]` 에서 KeyError가 난다)
-- `src/genviewer/controllers/device_table.py`: `get_selected_devices`(~255-260, `fallback_to_all`)
+- `src/genviewer/controllers/device_tab.py`: `send_device_data`(~306-362, `@report("Send Failed")`. `device_info` 를 만들 때 `dev["id"]` 에서 KeyError가 난다)
+- `src/genviewer/controllers/device_table.py`: `get_selected_devices`(~302-307, `fallback_to_all`)
 - `src/genviewer/controllers/device_tab_toolbar.py`: `run_selected`/`run_all`(`runModeRequested` 로 `"selected"`/`"all"`)
 - `src/genviewer/models/device_table.py`: `insert_row(row, values)`(id 없는 새 행), `get_device`, `get_devices`
 - `src/genviewer/utils/reporting.py`: `report`, `report_error`

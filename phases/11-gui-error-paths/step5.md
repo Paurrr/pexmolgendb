@@ -13,7 +13,7 @@ phase 0~10과 이 phase의 step 0~4가 끝나 있다. 이 step에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 지금 동작이 설명과 다르면(숨은 행이 옮겨지지 않는다) `src/` 를 고치지 않고 `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 10 직후) 기준 대략값이다. 이름으로 찾아라.
 
 GUI 테스트 기반(phase 2)의 이름을 그대로 쓴다: `device_tab_ctrl`, `store`, `store.add_device(process_id, name, celltype, order=…)`, `select_process`. `tests/gui/test_device_sort.py` 의 `store` fixture(sf2p에 `nfet_0`(order 2)을 더함), `names`·`visible_names` 헬퍼를 본보기로 삼는다.
 

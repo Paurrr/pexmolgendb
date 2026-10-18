@@ -12,7 +12,7 @@ phase 0~10과 이 phase의 step 0~3이 끝나 있다. 이 step에 닿는 것:
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 지금 동작이 설명과 다르면 `src/` 를 고치지 않고 `"summary": "not reproduced: <이유>"` 로 끝낸다.
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-5. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. 이름으로 찾아라.
+5. 이 파일의 행 번호는 2026-10-18(phase 10 직후) 기준 대략값이다. 이름으로 찾아라.
 
 GUI 테스트 기반(phase 2)의 이름을 그대로 쓴다.
 - `dialogs`: 파일 대화상자(`QFileDialog.get*`)와 메뉴는 막혀 있어 부르면 `AssertionError` 다. 저장 경로는 view의 `_ask_export_path` 를 인스턴스 속성으로 monkeypatch 해서 준다.
@@ -34,11 +34,11 @@ K16의 다른 절반(Virtuoso 목록 필터의 부분 문자열 일치)은 **사
 
 - `/CLAUDE.md`, `/docs/UI_GUIDE.md`("입력과 단축키")
 - `src/genviewer/controllers/device_table.py`
-  - `export_selected_devices(fmt)` (~454-488): 메뉴의 `fmt`(`"csv"`/`"xlsx"`)로 writer와 알림 제목 `"Save CSV"`/`"Save XLSX"` 를 고른다.
-  - 그것을 부르는 컨텍스트 메뉴(~95-101)
+  - `export_selected_devices(fmt)` (~513-547): 메뉴의 `fmt`(`"csv"`/`"xlsx"`)로 writer와 알림 제목 `"Save CSV"`/`"Save XLSX"` 를 고른다.
+  - 그것을 부르는 컨텍스트 메뉴(`_on_context_menu` ~114-135)
 - `src/genviewer/views/device_table.py`: `_ask_export_path` (~81-85, 필터 `"CSV Files (*.csv);;Excel Files (*.xlsx)"`)
 - `src/genviewer/utils/exporter.py`: `write_csv`, `write_xlsx`
-- `src/genviewer/cli.py`: `export` (~254-288, 확장자로 고르는 본보기)
+- `src/genviewer/cli.py`: `export` (~264-298, 확장자로 고르는 본보기)
 
 ## 승인된 동작 변경
 
