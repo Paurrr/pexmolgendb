@@ -32,6 +32,12 @@ POLL_INTERVAL_MS = 10_000
 # 호스트에 붙으려 드는 것을 막는다. 다시 접속하면 되살아난다.
 POLL_FAILURE_LIMIT = 3
 
+# 다시 읽으면 저장 안 한 편집이 사라지는 곳(새로고침, 재접속, CSV 불러오기)의 "Refresh" 질문.
+REFRESH_QUESTION = (
+    "저장하지 않은 편집이 있습니다.\n"
+    "서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?"
+)
+
 
 class DeviceTabController(QObject):
     sendDataRequested = Signal(str)
@@ -109,6 +115,13 @@ class DeviceTabController(QObject):
 
     @Slot(str)
     def _on_connect(self, dsn: str):
+        # 접속하면 apply_db 가 device 표를 다시 읽고 탭 섹션을 다시 만들어 두 쪽 편집을 다 버린다.
+        # 새 DB 를 열기 전에 묻는다(K36). connect_db 안에서 묻지 않는다. 첫 접속이 직접 부르고,
+        # 반환값(bool)으로는 아니오를 접속 실패와 구별할 수 없다.
+        if (
+            self.device_table.is_dirty() or self.parameter_tab.is_dirty()
+        ) and not question(self.ui, "Refresh", REFRESH_QUESTION):
+            return
         if self.connect_db(dsn):
             self.notifyRequested.emit("info", "Connected", "데이터베이스에 연결했다.")
         else:
@@ -242,12 +255,7 @@ class DeviceTabController(QObject):
         self.ui.hide_refresh_banner()
         if (
             self.device_table.is_dirty() or self.parameter_tab.is_dirty()
-        ) and not question(
-            self.ui,
-            "Refresh",
-            "저장하지 않은 편집이 있습니다.\n"
-            "서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?",
-        ):
+        ) and not question(self.ui, "Refresh", REFRESH_QUESTION):
             return
         self.device_table.refresh_devices()
         self.parameter_tab._clear_tabs()
@@ -359,6 +367,12 @@ class DeviceTabController(QObject):
             self.notifyRequested.emit(
                 "warn", "Database Not Loaded", "먼저 DB를 Load 해야 합니다."
             )
+            return
+        # 끝에서 device 표를 다시 읽어 그 편집을 버린다. 불러오기 전에 묻는다(K36). 탭 편집은
+        # 남으므로 그것만 있을 때는 묻지 않는다.
+        if self.device_table.is_dirty() and not question(
+            self.ui, "Refresh", REFRESH_QUESTION
+        ):
             return
 
         # 큰 CSV 는 몇 초씩 걸린다. GUI 스레드에서 돌리면 창이 얼어붙는다.
