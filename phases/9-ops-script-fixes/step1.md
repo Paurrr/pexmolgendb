@@ -20,7 +20,7 @@
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라. 이유: 같은 step의 테스트 변경까지 사라진다.
 5. `tools/*.sh` 는 LF와 실행 비트(100755)를 지킨다(`.gitattributes`, CLAUDE.md). Edit 도구가 줄 끝을 바꾸지 않았는지 AC의 `git ls-files --eol` 로 본다.
 6. PostgreSQL을 쓰지 않는다. 하네스 규칙 12(DB 테스트 필수)는 해당하지 않는다.
-7. 이 파일의 행 번호는 2026-10-17 기준 대략값이다. 이름으로 찾아라.
+7. 이 파일의 행 번호는 2026-10-18(phase 8 직후) 기준 대략값이다. 이름으로 찾아라.
 8. step 순서는 다음과 같다.
    - 0: pg_hba 주석 줄 오탐(K27 일부)
    - 1: `PGHBA_CIDR` + 기본 trust 거부(K26, 승인, 이 step)
@@ -55,8 +55,8 @@
 ## 읽어야 할 파일
 
 - `/CLAUDE.md`, `/docs/ADR.md` ADR-010(role 두 개, peer + scram)
-- `/README.md` '서버' 절의 "1. 클러스터"(~620-660)
-  - 호출 예시가 이미 `PGAUTH_HOST=scram-sha-256` 와 `PGHBA_CIDR` 를 함께 쓴다(~627-631).
+- `/README.md` '서버' 절의 "1. 클러스터"(~639-677)
+  - 호출 예시가 이미 `PGAUTH_HOST=scram-sha-256` 와 `PGHBA_CIDR` 를 함께 쓴다(~646-650).
   - 그 아래에 인증 표가 있다.
 - `tools/initdb.sh`
   - 머리 주석(~1-13)

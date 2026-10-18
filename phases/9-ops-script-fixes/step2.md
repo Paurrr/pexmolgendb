@@ -19,7 +19,7 @@
 4. 고친 뒤 수정을 손으로 되돌려 새 테스트가 실패하는지 확인하고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라. 이유: 같은 step의 테스트 변경까지 사라진다.
 5. `tools/*.sh` 는 LF와 실행 비트(100755)를 지킨다(`.gitattributes`, CLAUDE.md). Edit 도구가 줄 끝을 바꾸지 않았는지 AC의 `git ls-files --eol` 로 본다.
 6. PostgreSQL을 쓰지 않는다. 하네스 규칙 12(DB 테스트 필수)는 해당하지 않는다.
-7. 이 파일의 행 번호는 2026-10-17 기준 대략값이다. 이름으로 찾아라.
+7. 이 파일의 행 번호는 2026-10-18(phase 8 직후) 기준 대략값이다. 이름으로 찾아라.
 8. step 순서는 다음과 같다.
    - 0: pg_hba 주석 줄 오탐(K27 일부)
    - 1: `PGHBA_CIDR` + 기본 trust 거부(K26, 승인)
@@ -32,16 +32,16 @@
 
 ## 읽어야 할 파일
 
-- `/CLAUDE.md`, `/docs/ADR.md` ADR-011(배포는 단일 슬롯 deploy.sh), `/docs/ARCHITECTURE.md` "배포 구조"(~126-133)
-- `/README.md` '배포' 절(~236-300). 특히 아래 두 문장이다.
-  - "저장소 URL 에 토큰을 넣지 않는다. 트리를 `a+rX` 로 열기 때문에 `src/.git/config` 를 모두가 읽는다."(~280-281)
-  - `genviewer.env` 제외 설명(~282-284)
+- `/CLAUDE.md`, `/docs/ADR.md` ADR-011(배포는 단일 슬롯 deploy.sh), `/docs/ARCHITECTURE.md` "배포 구조"(~127-134)
+- `/README.md` '배포' 절(~247-311). 특히 아래 두 문장이다.
+  - "저장소 URL 에 토큰을 넣지 않는다. 트리를 `a+rX` 로 열기 때문에 `src/.git/config` 를 모두가 읽는다."(~288-289)
+  - `genviewer.env` 제외 설명(~290-292)
 - `tools/deploy.sh`
   - 소스 체크아웃(~54-69): `git clone "$url" "$root/src"` 라서 `src/.git` 이 언제나 있다.
   - 권한 절(~184-201): `chmod a+rx "$root"`, `chmod -R a+rX "$root/src" "$root/venv" "$root/bin"`(~198), `<ROOT>/python` 분기
 - `tests/test_deploy_sh.py`
   - `UV_STUB`, `source_repo`/`stub`/`root` fixture, `deploy()`
-  - **`CHMOD_STUB` 과 `chmod_record` fixture**(~104-125): PATH 앞에 chmod 기록기를 두고 진짜 chmod에 넘긴다. 호출 하나가 `|` 로 이은 한 줄이다.
+  - **`CHMOD_STUB` 과 `chmod_record` fixture**(~104-133): PATH 앞에 chmod 기록기를 두고 진짜 chmod에 넘긴다. 호출 하나가 `|` 로 이은 한 줄이다.
   - `chmod_calls`
   - 이 기록기를 쓰는 테스트들
     - `test_the_bundled_python_is_opened_up`
