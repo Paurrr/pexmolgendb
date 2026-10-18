@@ -21,7 +21,17 @@ class ParameterTab(QTabWidget):
         self.addTab(QWidget(), "+")
 
     def rebuild_tabs(self, available_tabs: dict, on_created=None):
+        # clear() 는 페이지를 떼기만 하고 지우지 않는다. 지우지 않으면 다시 만들 때마다 옛 섹션
+        # (과 그 컨트롤러·모델 캐시)과 옛 "+" 가 숨은 자식으로 쌓인다(K22).
+        # summary_view 는 다시 쓴다.
+        old_pages = [self.widget(i) for i in range(self.count())]
         self.clear()
+        for page in old_pages:
+            if page is self.summary_view:
+                continue
+            if getattr(self, "current_tab_section", None) is page:
+                self.current_tab_section = None
+            page.deleteLater()
         self.addTab(self.summary_view, "Summary")
 
         for name, cfg in available_tabs.items():
