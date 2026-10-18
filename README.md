@@ -285,8 +285,9 @@ DEPLOY_LINK_DIR=/usr/local/bin ./tools/deploy.sh /opt/genviewer v0.3.0
   site-packages 의 복사본에서 돈다.** `src` 를 고쳐도 아무의 앱도 바뀌지 않는다 —
   버전을 안 올리고 내용만 바뀌는 일이 없어야 태그에 고정한 의미가 있다.
   `pyproject.toml` 과 `uv.lock` 이 어긋난 태그는 거기서 멈춘다(태그 전에 `uv lock`).
-- 저장소 URL 에 토큰을 넣지 않는다. 트리를 `a+rX` 로 열기 때문에 `src/.git/config` 를
-  모두가 읽는다.
+- 배포는 트리를 `a+rX` 로 연 뒤 `src/.git` 을 다른 사용자에게서 다시 닫는다(`go-rwx`).
+  clone URL 이 든 `src/.git/config` 는 배포한 사람만 읽는다. 그래도 저장소 URL 에
+  토큰을 넣지 않는다.
 - `genviewer.env` 가 없으면 예시에서 심고 `640` 으로 둔다. **있으면 절대 덮지
   않는다.** 트리는 `a+rX` 로 열지만 이 파일만은 제외한다 — 거기엔 비밀번호가 있고,
   아무나 읽게 되면 앱이 스스로 실행을 거부한다.

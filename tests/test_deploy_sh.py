@@ -397,6 +397,83 @@ def test_the_tree_is_readable_by_others(root, source_repo, stub):
 
 
 # --------------------------------------------------------------------------
+# <ROOT>/src/.git - config 에 clone URL(넣었다면 토큰도)이 있다
+# --------------------------------------------------------------------------
+
+# group·other 권한을 모두 빼는 chmod 모드.
+CLOSING_MODES = {"go-rwx", "og-rwx", "go=", "og="}
+
+
+def src_openings(calls, root):
+    """src 를 재귀로 a+rX 하는 호출의 순번."""
+    return [
+        i for i, args in enumerate(calls)
+        if "-R" in args and "a+rX" in args
+        and any(a.endswith(f"/{root.name}/src") for a in args)
+    ]
+
+
+def git_dir_closings(calls, root):
+    """src/.git 에서 group·other 권한을 재귀로 빼는 호출의 순번."""
+    return [
+        i for i, args in enumerate(calls)
+        if "-R" in args and CLOSING_MODES.intersection(args)
+        and any(a.endswith(f"/{root.name}/src/.git") for a in args)
+    ]
+
+
+def test_the_git_dir_is_closed_again_after_the_tree_is_opened(
+    root, source_repo, stub, chmod_record
+):
+    """a+rX 가 src/.git 까지 열면 다른 사용자가 .git/config 의 clone URL 을 읽는다.
+
+    실행에는 필요 없다(코드는 --no-editable venv 의 사본에서 돈다). 닫는 호출이 여는
+    호출 앞에 오면 a+rX 가 다시 연다.
+    """
+    result = deploy(root, source_repo, stub, **chmod_record)
+
+    assert result.returncode == 0, result.stderr
+    calls = chmod_calls(chmod_record)
+    # Git Bash 는 /tmp/... 를, 파이썬은 C:\... 를 보므로 끝부분만 비교한다.
+    opened = src_openings(calls, root)
+    closed = git_dir_closings(calls, root)
+    assert opened, calls
+    assert closed, calls
+    assert max(closed) > max(opened), calls
+
+
+def test_an_upgrade_closes_the_git_dir_again(root, source_repo, stub, chmod_record):
+    """배포한 사람은 소유자라 닫힌 .git 에서도 fetch / checkout 이 된다."""
+    first = deploy(root, source_repo, stub, tag="v1.0.0", **chmod_record)
+    assert first.returncode == 0, first.stderr
+    chmod_record["CHMOD_RECORD"].unlink()
+
+    result = deploy(root, source_repo, stub, tag="v1.1.0", with_url=False, **chmod_record)
+
+    assert result.returncode == 0, result.stderr
+    assert pinned_tag(root) == "v1.1.0"
+    calls = chmod_calls(chmod_record)
+    opened = src_openings(calls, root)
+    closed = git_dir_closings(calls, root)
+    assert opened, calls
+    assert closed, calls
+    assert max(closed) > max(opened), calls
+
+
+@posix_only
+def test_the_git_dir_is_private_to_the_deployer(root, source_repo, stub):
+    """.git 만 닫힌다. 작업 트리는 여전히 모두가 읽는다."""
+    result = deploy(root, source_repo, stub)
+
+    assert result.returncode == 0, result.stderr
+    git_dir = root / "src" / ".git"
+    for path in (git_dir, git_dir / "config"):
+        assert (path.stat().st_mode & 0o077) == 0, f"{path} 를 다른 사용자가 읽는다"
+    assert (root / "src" / "pyproject.toml").stat().st_mode & 0o004
+    assert ((root / "src").stat().st_mode & 0o005) == 0o005
+
+
+# --------------------------------------------------------------------------
 # <ROOT>/python - 확인 절 경고가 uv 관리 CPython 을 두라고 시키는 곳
 # --------------------------------------------------------------------------
 

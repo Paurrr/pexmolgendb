@@ -127,7 +127,7 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 ## 배포 구조
 ```
 <ROOT>/genviewer.env   접속 설정 (640, 배포가 덮지 않음, a+rX 대상에서 제외)
-<ROOT>/src             태그에 detach 된 체크아웃
+<ROOT>/src             태그에 detach 된 체크아웃 (.git 은 배포한 사람만, go-rwx)
 <ROOT>/venv            uv sync --locked --no-dev --no-editable (코드는 site-packages 사본에서 돈다)
 <ROOT>/bin             런처: venv 인터프리터에 콘솔 스크립트를 넘긴다 (shebang 127바이트 제한 회피)
 <ROOT>/python          (선택) DEPLOY_PYTHON 용 CPython. 있으면 a+rX

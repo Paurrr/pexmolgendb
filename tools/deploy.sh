@@ -184,6 +184,7 @@ fi
 # ---- 권한
 #
 # 모두가 읽고 지나갈 수 있게. 쓰는 것은 배포한 사람뿐이다.
+# src/.git 은 연 뒤에 배포한 사람만 보게 다시 닫는다.
 #
 # genviewer.env 는 **일부러 제외한다.** 거기엔 PGPASSWORD 가 들어 있어서, 아무나
 # 읽을 수 있게 되면 앱이 스스로 실행을 거부한다(service/env_file.py 의
@@ -196,6 +197,10 @@ fi
 
 chmod a+rx "$root"
 chmod -R a+rX "$root/src" "$root/venv" "$root/bin"
+# .git/config 에 clone URL(거기 토큰을 넣었다면 그것도)이 있다. 실행에는 필요 없다 -
+# 코드는 --no-editable venv 의 사본에서 돈다. 위의 a+rX 뒤에 와야 다시 열리지 않는다.
+# 배포한 사람은 소유자라 다음 배포의 fetch / checkout 은 그대로 된다.
+chmod -R go-rwx "$root/src/.git"
 if [ -d "$root/python" ]; then
     chmod -R a+rX "$root/python"
 fi

@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "deploy-git-perms",
-      "status": "pending"
+      "status": "completed",
+      "summary": "deploy.sh: a+rX 뒤에 chmod -R go-rwx <ROOT>/src/.git (clone URL·토큰 비공개). RED: test_the_git_dir_is_closed_again_after_the_tree_is_opened (assert closed, calls → assert [], src 를 여는 a+rX 호출만 있고 .git 을 닫는 호출 없음), test_an_upgrade_closes_the_git_dir_again (두 번째 배포, 같은 단언으로 실패). 변이: 그 줄을 지우면 두 테스트 assert [] 실패, a+rX 앞으로 옮기면 두 테스트 max(closed) > max(opened) 실패(assert 7 > 8). posix_only 비트 테스트 test_the_git_dir_is_private_to_the_deployer 추가(개발 PC skip). 회귀 test_opening_the_python_does_not_open_the_config 는 새 -R 호출 경로가 /src/.git 로 끝나 루트 자체가 아니므로 그대로 통과(루트를 재귀로 열지 않는다는 성질과 무관). src 작업 트리·venv·bin 은 a+rX, genviewer.env 640 그대로. README 배포·ARCHITECTURE 배포 구조. 셸 테스트 30 passed / 7 skipped(posix_only), 전체 697 passed / 10 skipped / 1 xfailed(DB 붙음). tools/*.sh i/lf w/lf, 100755 유지",
+      "started_at": "2026-10-18T09:24:01+0900"
     },
     {
       "step": 3,
