@@ -23,7 +23,7 @@
 1. 기능이라 TDD로 한다. 새 동작을 단언하는 테스트를 먼저 쓰고, 수정 전에 실패하는 것을 본다(RED). 그 테스트 이름과 단언을 summary에 적는다.
 2. RED는 **Windows 개발 PC에서** 보여야 한다. 가짜 쪽 contract test는 DB 없이도 돈다.
 3. 고친 뒤 구현을 손으로 망가뜨려 새 테스트가 실패하는지 보고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-4. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. phase 7(K5 import 잠금, K32 import의 process 이력, K9 파라미터 한도, K12 xlsx 리터럴)이 `io.py`·`exporter.py` 를 바꿨다. 이름으로 찾아라.
+4. 이 파일의 행 번호는 2026-10-18(phase 13 직후) 기준 대략값이다. phase 7(K5 import 잠금, K32 import의 process 이력, K9 파라미터 한도, K12 xlsx 리터럴)이 `io.py`·`exporter.py` 를 바꿨다. 이름으로 찾아라.
    - phase 14~17(구조 제안 P2 Prompts·P4 공개 API·P3 SaveCoordinator·P5 남은 동기 DB 호출을 워커로, `docs/notes/architecture-proposal.md`)이 이 phase보다 먼저 끝났을 수 있다. 대화상자 대역(`FakeDialogs` → Prompts 가짜), private 이름(`_ask_export_path` 등), 내보내기·보내기의 DB 호출 위치(워커)가 바뀌었으면 실제 코드를 따르고 summary에 적는다. 그 구조를 되돌리지 않는다.
 5. `config/tab_config.json` 의 키 구조를 바꾸지 않는다. Description은 탭이 아니라 device 컬럼이다(`device.description TEXT NOT NULL DEFAULT ''`, 이미 있다). 스키마는 바꾸지 않는다.
 6. 사용자에게 보이는 문구(알림·로그·CLI 출력)를 새로 만들거나 바꾸지 않는다.
@@ -54,12 +54,12 @@
 
 ## 읽어야 할 파일
 
-- `/CLAUDE.md`, `/docs/ADR.md`(ADR-002 tab_config 단일 원본), `/docs/ARCHITECTURE.md`(io.py, CSV 흐름), `README.md` `## CSV 컬럼과 탭`(이름이 같은 행은 각각 device가 된다)
-- `src/genviewer/service/repo/io.py`: `import_data`(~66-170, device INSERT ~118-122), `fetch_export_data`(~172-257, 헤더 ~217, 행 ~245)
+- `/CLAUDE.md`, `/docs/ADR.md`(ADR-003 tab_config 단일 원본), `/docs/ARCHITECTURE.md`(io.py, CSV 흐름), `README.md` `## CSV 컬럼과 탭`(이름이 같은 행은 각각 device가 된다)
+- `src/genviewer/service/repo/io.py`: `import_data`(~70-185, device INSERT ~129-131), `fetch_export_data`(~186-271, 헤더 ~231, 행 ~259)
 - `src/genviewer/service/schema.py`: device DDL(`description TEXT NOT NULL DEFAULT ''`)
 - `src/genviewer/cli.py`: `load`, `export`
 - `tests/gui_support/fakes.py`: `FakeIORepository.import_data`(`store._insert_device(process_id, name, celltype, description, order, actor, now)` 에 지금 `""` 를 넘긴다), `FakeIORepository.fetch_export_data`
-- `tests/gui/test_fake_repo_contract.py`: `CSV_TEXT`, `_import`, `_only_device`, `_device`, export 헤더를 정확히 단언하는 테스트(~661-681), `test_export_rows_carry_the_values_in_device_info`(~684-)
+- `tests/gui/test_fake_repo_contract.py`: `CSV_TEXT`, `_import`, `_only_device`, `_device`, export 헤더를 정확히 단언하는 테스트(~669-703), `test_export_rows_carry_the_values_in_device_info`(~704-)
 - `tests/test_csv_import.py`: `BASE_HEADERS`, `_round_trip`(DB), `test_a_csv_without_the_required_columns_raises`
 - `tests/test_export.py`, `tests/test_cli.py`(`test_an_exported_file_loads_back`, `test_export_writes_every_device_of_the_process`, `HEADERS`)
 

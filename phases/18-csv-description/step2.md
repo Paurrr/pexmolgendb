@@ -17,7 +17,7 @@
 1. 기능이라 TDD로 한다. 새 동작을 단언하는 테스트를 먼저 쓰고, 수정 전에 실패하는 것을 본다(RED). 그 테스트 이름과 단언을 summary에 적는다.
 2. RED는 **Windows 개발 PC에서** 보여야 한다.
 3. 고친 뒤 구현을 손으로 망가뜨려 새 테스트가 실패하는지 보고 다시 고친다(변이 검사). `git checkout`/`git stash` 로 되돌리지 마라.
-4. 이 파일의 행 번호는 2026-10-17(phase 6 전) 기준 대략값이다. phase 11 step 4가 `export_selected_devices` 를 바꿨다(형식을 저장 파일 확장자로 고른다). 이름으로 찾아라.
+4. 이 파일의 행 번호는 2026-10-18(phase 13 직후) 기준 대략값이다. phase 11 step 4가 `export_selected_devices` 를 바꿨다(형식을 저장 파일 확장자로 고른다). 이름으로 찾아라.
    - phase 14~17(구조 제안 P2 Prompts·P4 공개 API·P3 SaveCoordinator·P5 남은 동기 DB 호출을 워커로, `docs/notes/architecture-proposal.md`)이 이 phase보다 먼저 끝났을 수 있다. 대화상자 대역(`FakeDialogs` → Prompts 가짜), private 이름(`_ask_export_path` 등), 내보내기·보내기의 DB 호출 위치(워커)가 바뀌었으면 실제 코드를 따르고 summary에 적는다. 그 구조를 되돌리지 않는다.
 5. `config/tab_config.json` 의 키 구조와 스키마를 바꾸지 않는다.
 6. 사용자에게 보이는 문구(알림 "Save CSV"/"Save XLSX", 로그)를 새로 만들거나 바꾸지 않는다.
@@ -45,7 +45,7 @@ GUI 테스트 기반(phase 2)은 다음과 같다. 작업 전에 `tests/gui/conf
 ## 읽어야 할 파일
 
 - `/CLAUDE.md`, `/docs/UI_GUIDE.md`("입력과 단축키", 내보내기)
-- `src/genviewer/controllers/device_table.py`: `export_selected_devices`(~454-488, `device_info` 를 만드는 곳), `get_selected_devices`, `refresh_devices`(모델 device dict에 `description` 이 있다)
+- `src/genviewer/controllers/device_table.py`: `export_selected_devices`(~516-555, `device_info` 를 만드는 곳), `get_selected_devices`, `refresh_devices`(모델 device dict에 `description` 이 있다)
 - `src/genviewer/models/device_table.py`: `_columns`(`name`, `celltype`, `description`), `get_device`, `get_devices`
 - `src/genviewer/views/device_table.py`: `_ask_export_path`
 - `src/genviewer/utils/exporter.py`: `write_csv`(utf-8), `write_xlsx`
