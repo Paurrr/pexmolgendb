@@ -55,6 +55,7 @@
 - 값 후보와 검증은 `delegate_config.json`(`items`, `items_by_celltype`, `strict`, `required`, `pattern`, `syntax`)이 정한다. 화면에서 따로 하드코딩하지 않는다.
 - device 표 붙여넣기는 바로 저장되고 목록을 다시 읽는다. 저장 안 한 device 편집이나 탭 편집이 있으면 붙여넣지 않고 경고한다(`Unsaved Changes`, 본문은 둘이 다르다. 둘 다면 device 편집 문구).
 - Virtuoso 로 보내기(Run Selected / Run All)는 저장하지 않은 device 가 있으면 보내지 않고 경고한다(`Unsaved Devices`).
+- device 표 내보내기는 고른 파일의 확장자(.csv / .xlsx)로 형식을 정한다. 둘 다 아니면 메뉴에서 고른 형식이다.
 - 재접속(Database → Connect…)은 device 표나 탭에, CSV 불러오기는 device 표에 저장 안 한 편집이 있으면 새로고침과 같은 `Refresh` 질문을 먼저 한다. 아니오면 아무것도 하지 않는다.
 - Remove Process를 확인하면 지운 process의 저장 안 한 편집은 묻지 않고 버린다(`Save Changes` 도 충돌 대화상자도 없다).
 - CellType이 `delegate_config` 목록에 없는 device는 저장하지 않는다. 그런 행을 편집했으면 저장 뒤 경고(`Save Skipped`)로 이름을 알린다.

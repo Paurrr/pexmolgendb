@@ -534,6 +534,11 @@ class DeviceTableController(QObject):
         if not save_path:
             return
 
+        # 형식은 고른 파일의 확장자로 정한다(CLI 와 같게). 둘 다 아니면 메뉴에서 고른 형식이다.
+        suffix = Path(save_path).suffix.lower()
+        if suffix in (".csv", ".xlsx"):
+            fmt = suffix[1:]
+
         # 쓰다 실패하면 예외가 올라간다. @report 가 이유까지 담아 상자로 띄운다.
         if fmt.lower() == "csv":
             write_csv(save_path, headers, rows)

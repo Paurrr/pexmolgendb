@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "export-format-by-suffix",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T18:18:02+0900",
+      "summary": "export_selected_devices: .csv/.xlsx 확장자로 형식, 둘 다 아니면 메뉴 (사용자 승인 2026-10-17). 경로를 받은 뒤 Path(save_path).suffix.lower() 가 .csv/.xlsx 면 fmt 를 그것으로 바꾸고 writer·제목(Save CSV/Save XLSX)이 따른다. 파일 이름·제안 이름 f\"{process}.{fmt}\"·대화상자 필터·알림 본문·로그 줄·exporter·cli 는 그대로. 지금 동작(RED): test_the_file_suffix_decides_the_export_format[xlsx-a.csv-csv]: written_format == 'xlsx' (zip 바이트가 a.csv 에), [csv-a.xlsx-xlsx]: 'csv' (CSV 텍스트가 a.xlsx 에). 나머지 셋([csv-a.CSV-csv]·[xlsx-a-xlsx]·[csv-a.txt-csv])과 회귀 test_cancelling_the_save_dialog_writes_nothing[csv]·[xlsx](파일·알림 없음)는 수정 전에도 통과. 표 밖으로 [xlsx-a.CSV-csv] 한 줄을 더함(대소문자 무시는 메뉴와 다를 때만 드러난다, 수정 전에는 이것도 실패). 변이: 확장자 덮어쓰기를 빼면 3개, .lower() 를 빼면 [xlsx-a.CSV-csv], 제목을 메뉴 형식으로 두면 메뉴와 다른 3개(제목 단언), 확장자 없을 때 덧붙이면 [xlsx-a-xlsx]·[csv-a.txt-csv](FileNotFoundError)가 실패. UI_GUIDE '입력과 단축키' 에 내보내기 형식 한 줄. DB 테스트: 805 passed / 10 skipped. tests/gui/test_export_format.py"
     },
     {
       "step": 5,
