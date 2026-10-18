@@ -353,6 +353,32 @@ def test_deploy_commands_overrides_discovery(root, source_repo, stub):
     assert [p.name for p in (root / "bin").iterdir()] == ["genviewer"]
 
 
+def test_an_unknown_deploy_command_is_refused(root, source_repo, stub):
+    """오타 이름으로 런처를 만들면 python 이 exit 2 로 끝나 마지막 확인(126·127)을 지난다.
+
+    venv 에 없는 이름은 런처를 쓰기 전에 멈추고 그 이름을 알린다.
+    """
+    result = deploy(root, source_repo, stub, DEPLOY_COMMANDS="genviewer nosuch")
+
+    assert result.returncode != 0, result.stdout
+    assert "nosuch" in result.stderr
+    assert not (root / "bin" / "nosuch").exists()
+
+
+def test_a_refused_deploy_keeps_the_previous_launchers(root, source_repo, stub):
+    """지난 런처 정리보다 앞에서 멈춰야 실패한 배포가 쓰던 명령을 빼앗지 않는다."""
+    first = deploy(root, source_repo, stub)
+    assert first.returncode == 0, first.stderr
+
+    result = deploy(
+        root, source_repo, stub, with_url=False, DEPLOY_COMMANDS="genviewer nosuch"
+    )
+
+    names = sorted(p.name for p in (root / "bin").iterdir())
+    assert names == ["genviewer", "genviewer-init-db"]
+    assert result.returncode != 0, result.stdout
+
+
 # --------------------------------------------------------------------------
 # 설정 파일 - 업그레이드해도 살아남아야 하고, 남에게 읽히면 안 된다
 # --------------------------------------------------------------------------

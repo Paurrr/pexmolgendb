@@ -26,7 +26,8 @@
 #   DEPLOY_PYTHON     venv 를 만들 인터프리터. 예: /usr/bin/python3.13 또는
 #                     <ROOT> 아래에 설치해 둔 것(<ROOT>/python 아래면 배포가 열어 준다)
 #   DEPLOY_COMMANDS   프로젝트의 console_scripts 를 자동으로 못 읽을 때 쓸,
-#                     공백으로 구분한 명령 이름들
+#                     공백으로 구분한 명령 이름들. venv 에 없는 이름이면 런처를
+#                     만들기 전에 멈춘다
 #   DEPLOY_LINK_DIR   이미 사용자들 PATH 에 있는 디렉터리. 명령을 거기로 심볼릭
 #                     링크해서 아무도 셸 프로파일을 고치지 않아도 되게 한다
 set -eu
@@ -113,6 +114,16 @@ fi
     echo "error: console_scripts 를 찾지 못했다. DEPLOY_COMMANDS 로 직접 줄 것." >&2
     exit 1
 }
+
+# 런처가 넘길 콘솔 스크립트가 venv 에 있는지 본다. 없는 이름의 런처는 python 이
+# exit 2 로 끝나 아래 확인(126·127만 본다)을 지나므로 여기서 멈춘다. 지난 런처를
+# 지우기 전이라 실패한 배포는 bin/ 을 건드리지 않는다.
+for cmd in $commands; do
+    [ -f "$root/venv/bin/$cmd" ] || {
+        echo "error: $root/venv/bin/$cmd 가 없다. DEPLOY_COMMANDS 의 이름이 프로젝트의 console_scripts 와 맞는지 볼 것." >&2
+        exit 1
+    }
+done
 
 # ---- 런처
 #
