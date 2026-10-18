@@ -21,6 +21,7 @@ import pytest
 from gui_support.virtuoso_server import LocalVirtuoso, frame
 from PySide6.QtCore import QCoreApplication, QThread
 
+from genviewer.controllers.main_window import MainWindowController
 from genviewer.net.controller import ConnectionController
 
 HOST = "127.0.0.1"
@@ -42,17 +43,8 @@ def server() -> Iterator[LocalVirtuoso]:
     srv.close()  # 멱등. make_controller 정리가 먼저 불렀을 수 있다
 
 
-@pytest.fixture
-def make_controller(server) -> Iterator[Callable[[], ConnectionController]]:
-    made: list[ConnectionController] = []
-
-    def make() -> ConnectionController:
-        ctrl = ConnectionController()
-        made.append(ctrl)
-        return ctrl
-
-    yield make
-
+def stop_controllers(server: LocalVirtuoso, made: list[ConnectionController]) -> None:
+    """테스트가 쓴 컨트롤러를 멈춘다. 끝나지 않은 스레드가 있으면 쥐고 테스트를 실패시킨다."""
     # 1. 서버를 먼저 닫는다. 연결이 닫혀야 막혀 있는 recv 가 풀린다.
     server.close()
     stuck: list[QThread] = []
@@ -74,6 +66,31 @@ def make_controller(server) -> Iterator[Callable[[], ConnectionController]]:
         _STUCK.extend(stuck)
         names = [type(t).__name__ for t in stuck]
         pytest.fail(f"정리 때 끝나지 않은 스레드: {names}", pytrace=False)
+
+
+@pytest.fixture
+def make_controller(server) -> Iterator[Callable[[], ConnectionController]]:
+    made: list[ConnectionController] = []
+
+    def make() -> ConnectionController:
+        ctrl = ConnectionController()
+        made.append(ctrl)
+        return ctrl
+
+    yield make
+    stop_controllers(server, made)
+
+
+@pytest.fixture
+def window(main_window, server) -> Iterator[MainWindowController]:
+    """`main_window` 이고, 그 `connection_controller` 를 make_controller 와 같은 순서로 정리한다.
+
+    pytest-qt 는 fixture 정리보다 먼저 창을 닫는다. 그때 `main_window` 의 before_close_func 가
+    `shutdown()` 을 한 번 부른다(서버를 닫기 전). 여기 테스트에서는 서버가 프레임을 보내지 않아
+    받기 워커가 recv 에 막혀 있지 않으므로 바로 끝난다.
+    """
+    yield main_window
+    stop_controllers(server, [main_window.connection_controller])
 
 
 def record(signal) -> list[tuple]:
@@ -248,6 +265,48 @@ def test_connect_again_after_disconnecting(qtbot, server, make_controller):
     qtbot.waitUntil(lambda: server.frames() == [b"again"])
     server.send_frame("back")
     qtbot.waitUntil(lambda: received == ["back"])
+
+
+# -- 창: Load Virtuoso 의 목록 표시 -------------------------------------------------
+# "Device List"·"Filtered List" 는 DB 와 Virtuoso 에 둘 다 붙어 있을 때만 보인다(UI_GUIDE 레이아웃).
+
+
+def virtuoso_lists_hidden(window: MainWindowController) -> tuple[bool, bool]:
+    ui = window.device_tab.ui
+    return (ui.search_labeled_virtuoso_device.isHidden(), ui.search_labeled_filter.isHidden())
+
+
+def test_load_virtuoso_keeps_the_lists_hidden_before_connecting(window):
+    assert window.device_tab.connected  # DB 에는 붙어 있다. Virtuoso 만 아니다
+
+    window.device_tab.device_tab_toolbar.show_views()
+
+    assert virtuoso_lists_hidden(window) == (True, True)
+
+
+def test_load_virtuoso_shows_the_lists_while_connected(qtbot, server, window):
+    connect_and_wait(qtbot, window.connection_controller, server)
+
+    window.device_tab.device_tab_toolbar.show_views()
+
+    assert virtuoso_lists_hidden(window) == (False, False)
+
+
+def test_load_virtuoso_hides_the_lists_again_after_disconnecting(qtbot, server, window):
+    ctrl = window.connection_controller
+    statuses = record(ctrl.statusChanged)
+    connect_and_wait(qtbot, ctrl, server)
+    window.device_tab.device_tab_toolbar.show_views()
+    assert virtuoso_lists_hidden(window) == (False, False)
+
+    ctrl.disconnect()
+    qtbot.waitUntil(lambda: statuses[-1] == DISCONNECTED)
+
+    assert virtuoso_lists_hidden(window) == (False, False)  # 끊는다고 숨기지는 않는다(지금 동작)
+    window.device_tab.ui.hide_views()  # process 를 바꾸면 숨긴다
+    window.device_tab.device_tab_toolbar.show_views()
+
+    assert virtuoso_lists_hidden(window) == (True, True)
 
 
 # -- 버그 재현 (strict xfail) ------------------------------------------------------

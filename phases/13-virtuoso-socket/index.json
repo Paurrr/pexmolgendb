@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "socket-consumers",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T21:18:17+0900",
+      "summary": "DeviceTabController.set_client/client → set_virtuoso_connected(bool)/virtuoso_connected(초기값 False), MainWindowController._on_status_changed 가 connected 인자를 넘김. src 에서 ConnectionController.client 사용 0(grep 결과는 net/ 안의 Client 정의·사용뿐). 테스트: test_load_virtuoso_keeps_the_lists_hidden_before_connecting, test_load_virtuoso_shows_the_lists_while_connected, test_load_virtuoso_hides_the_lists_again_after_disconnecting(끊은 직후 아직 보임 = 끊어도 숨기지 않는 지금 동작도 단언) — 지금 코드에서도 통과(14 passed / 6 xfailed). 정리: step 0 정리를 stop_controllers(server, made) 로 빼서 make_controller 와 새 window fixture(main_window.connection_controller)가 같이 쓴다. pytest-qt 가 fixture 정리 전에 before_close_func 로 shutdown 을 먼저 부르지만 서버가 프레임을 보내지 않아 막히지 않는다. 변이: 늘 False → shows_the_lists_while_connected 와 hides_the_lists_again_after_disconnecting 의 assert virtuoso_lists_hidden(window) == (False, False) 실패((True, True)); 초기값 True → keeps_the_lists_hidden_before_connecting 의 assert virtuoso_lists_hidden(window) == (True, True) 실패((False, False)). 둘 다 손으로 되돌림. net/·test_socket_workers.py 불변. 테스트 파일 5회 반복 흔들림 없음, tests/gui 545 passed / 6 xfailed. DB 테스트: 914 passed / 10 skipped / 6 xfailed(-rs, skip 은 Windows posix 권한 테스트만)"
     },
     {
       "step": 2,

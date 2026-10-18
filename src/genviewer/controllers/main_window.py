@@ -189,9 +189,7 @@ class MainWindowController(QObject):
     @Slot(bool, str)
     def _on_status_changed(self, connected: bool, text: str):
         self.ui.apply_connection_ui(connected, text)
-        self.device_tab.set_client(
-            self.connection_controller.client if connected else None
-        )
+        self.device_tab.set_virtuoso_connected(connected)
         self.notify_status(text)
 
     @Slot()

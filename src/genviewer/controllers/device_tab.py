@@ -53,7 +53,7 @@ class DeviceTabController(QObject):
         self.ui = ui
         self.connected: bool | None = None
         self.db: Database | None = None
-        self.client = None
+        self.virtuoso_connected = False
         self.device_state_data: dict = {}
         self._poll_task: Task | None = None
         # 도는 폴링을 시작할 때의 (process_id, repo). 결과는 그 process·DB 의 이야기다.
@@ -113,8 +113,8 @@ class DeviceTabController(QObject):
         self.device_tab_toolbar.set_repo(ProcessRepository(db))
         self.parameter_tab.set_repo(ParameterRepository(db))
 
-    def set_client(self, client):
-        self.client = client
+    def set_virtuoso_connected(self, connected: bool) -> None:
+        self.virtuoso_connected = connected
 
     @Slot(str)
     def _on_connect(self, dsn: str):
@@ -340,7 +340,7 @@ class DeviceTabController(QObject):
         self.parameter_tab.rebuild_all_sections()
 
     def show_views(self):
-        if self.connected and self.client:
+        if self.connected and self.virtuoso_connected:
             self.ui.show_views()
 
     def clear(self):
