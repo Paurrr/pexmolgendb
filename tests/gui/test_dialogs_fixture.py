@@ -139,6 +139,39 @@ def test_ask_conflict_without_answer_raises(dialogs):
     dialogs.unexpected.clear()
 
 
+@pytest.mark.parametrize("module_name", CONFLICT_MODULES)
+def test_overwrite_on_a_deleted_only_conflict_is_unexpected(dialogs, module_name):
+    """덮어쓰기를 내놓지 않은 대화상자(전부 deleted)에 OVERWRITE 로 답하면 테스트가 틀렸다."""
+    ask_conflict = importlib.import_module(module_name).ask_conflict
+    deleted = [Conflict(2, "pfet_b", "deleted")]
+    dialogs.answer_conflict(OVERWRITE)
+
+    with pytest.raises(AssertionError, match="OVERWRITE"):
+        ask_conflict(None, deleted)
+
+    assert dialogs.shown == [("conflict", "Save Conflict", deleted[0].describe())]
+    assert dialogs.conflict_choices == [(RELOAD, CANCEL)]
+    assert dialogs.unexpected == ["내놓지 않은 OVERWRITE 답: 'Save Conflict'"]
+    dialogs.unexpected.clear()
+
+
+@pytest.mark.parametrize("module_name", CONFLICT_MODULES)
+def test_ask_conflict_records_the_offered_choices(dialogs, module_name):
+    ask_conflict = importlib.import_module(module_name).ask_conflict
+    deleted = [Conflict(2, "pfet_b", "deleted")]
+    dialogs.answer_conflict(RELOAD, OVERWRITE, CANCEL)
+
+    assert ask_conflict(None, deleted) == RELOAD
+    assert ask_conflict(None, deleted, my_deletions={2}) == OVERWRITE  # 내가 지운 행
+    assert ask_conflict(None, _conflicts()) == CANCEL
+
+    assert dialogs.conflict_choices == [
+        (RELOAD, CANCEL),
+        (RELOAD, OVERWRITE, CANCEL),
+        (RELOAD, OVERWRITE, CANCEL),
+    ]
+
+
 def test_answer_conflict_rejects_unknown_choice(dialogs):
     with pytest.raises(ValueError):
         dialogs.answer_conflict("bogus")

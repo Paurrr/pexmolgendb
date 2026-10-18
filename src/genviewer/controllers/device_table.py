@@ -432,7 +432,8 @@ class DeviceTableController(QObject):
             return run_blocking(lambda: write(False), self)
         except StaleWriteError as e:
             # 다이얼로그는 run_blocking 이 끝난 뒤 GUI 스레드에서 뜬다.
-            choice = ask_conflict(self.ui, e.conflicts)
+            # 내가 지운 행은 남이 먼저 지웠어도 덮어쓰기가 해가 없다(conflict.can_overwrite).
+            choice = ask_conflict(self.ui, e.conflicts, my_deletions=deleted.keys())
             if choice == RELOAD:
                 self.refresh_devices()
                 self.logRequested.emit("Save conflict: 서버 내용으로 다시 읽었다.")

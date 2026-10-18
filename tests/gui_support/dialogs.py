@@ -4,6 +4,8 @@ GUI 테스트에서 진짜 모달이 뜨면 offscreen 이라 누를 사람이 �
 `install_dialogs` 가 모달을 띄우는 자리를 전부 이 가짜로 바꾼다.
 
 - 예/아니오(`question`)와 저장 충돌(`ask_conflict`)은 테스트가 미리 정한 답을 차례로 돌려준다.
+  충돌 대화상자가 덮어쓰기를 내놓을지는 진짜와 같은 `can_overwrite` 로 정하고, 내놓지 않은
+  OVERWRITE 답은 `unexpected` 로 간다.
 - 알림(info/warning/error/critical)은 `shown` 에 (kind, title, text) 로 남기기만 한다.
 - 답을 정하지 않은 모달, 파일·입력 대화상자, 컨텍스트 메뉴, GUI 스레드 밖에서 뜬 모달은
   `unexpected` 에 한 줄 남기고 `AssertionError` 를 낸다. 답이 없을 때 기본값을 돌려주지 않는다.
@@ -20,7 +22,7 @@ from typing import NoReturn
 
 from PySide6.QtWidgets import QDialog, QFileDialog, QInputDialog, QMenu, QMessageBox
 
-from genviewer.dialogs.conflict import CANCEL, OVERWRITE, RELOAD
+from genviewer.dialogs.conflict import CANCEL, OVERWRITE, RELOAD, can_overwrite
 
 # `from genviewer.utils.dialogs import question` 으로 이름을 묶은 모듈(정의한 모듈 포함).
 # 묶인 이름은 모듈마다 따로 바꿔야 한다. 새 모듈이 묶으면 여기에 더한다
@@ -74,6 +76,8 @@ class FakeDialogs:
     def __init__(self) -> None:
         self.shown: list[tuple[str, str, str]] = []  # (kind, title, text). 뜬 순서대로
         self.unexpected: list[str] = []  # 답을 정하지 않은 모달, 워커 스레드에서 뜬 모달
+        # 충돌 대화상자마다 내놓은 선택. (RELOAD, OVERWRITE, CANCEL) 또는 (RELOAD, CANCEL)
+        self.conflict_choices: list[tuple[str, ...]] = []
         self._questions: deque[bool] = deque()
         self._conflicts: deque[str] = deque()
 
@@ -128,13 +132,21 @@ class FakeDialogs:
     def critical(self, parent, title: str, message: str) -> None:
         self._message("critical", title, message)
 
-    def ask_conflict(self, parent, conflicts) -> str:
+    def ask_conflict(self, parent, conflicts, my_deletions=()) -> str:
         self._require_gui_thread("conflict", CONFLICT_TITLE)
         text = "\n".join(c.describe() for c in conflicts)
         self.shown.append(("conflict", CONFLICT_TITLE, text))
+        # 판단은 진짜 함수 그대로 쓴다. 규칙을 여기 다시 쓰면 둘이 어긋나도 테스트가 통과한다.
+        offered = CONFLICT_CHOICES if can_overwrite(conflicts, my_deletions) else (RELOAD, CANCEL)
+        self.conflict_choices.append(offered)
         if not self._conflicts:
             self._fail("conflict", CONFLICT_TITLE)
-        return self._conflicts.popleft()
+        choice = self._conflicts.popleft()
+        if choice not in offered:
+            line = f"내놓지 않은 {choice.upper()} 답: {CONFLICT_TITLE!r}"
+            self.unexpected.append(line)
+            raise AssertionError(line)
+        return choice
 
     # -- 내부 -------------------------------------------------------------
 
