@@ -162,11 +162,21 @@ class DeviceTabController(QObject):
     def _open_database(dsn: str) -> Database:
         """워커 스레드에서 도는 부분. 확인이 connect_timeout 만큼 걸릴 수 있다."""
         db = Database(load_config(dsn))
-        db.open()
-        # ping 은 예외를 삼키고 bool 만 준다. 그러면 connection() 이 실패 원인(비밀번호 틀림,
-        # DB 없음 등)을 담아 낸 DbUnavailableError 가 사라진다. 예외 그대로 올린다(K3).
-        with db.connection() as conn:
-            conn.execute("SELECT 1")
+        try:
+            db.open()
+            # ping 은 예외를 삼키고 bool 만 준다. 그러면 connection() 이 실패 원인(비밀번호 틀림,
+            # DB 없음 등)을 담아 낸 DbUnavailableError 가 사라진다. 예외 그대로 올린다(K3).
+            with db.connection() as conn:
+                conn.execute("SELECT 1")
+        except BaseException:
+            # 연 풀을 닫지 않으면 실패할 때마다 하나씩 남아 워커가 죽은 서버에 계속 다시 붙고,
+            # 종료할 때 ConnectionPool.__del__ 이 그 워커를 join 하려다 멈출 수 있다(K22).
+            # 닫기 실패가 원래 예외(화면에 보일 원인)를 가리면 안 된다.
+            try:
+                db.close()
+            except Exception:
+                log.warning("접속에 실패한 데이터베이스를 닫지 못했다", exc_info=True)
+            raise
         return db
 
     def connect_db(self, dsn: str) -> bool:
