@@ -60,11 +60,13 @@
 **결정**: `molgen_owner`(스키마 소유, DDL, `init_db` 만)와 `molgen_app`(테이블 DML만, 모두의 `genviewer.env`). `init_db --owner` 가 DDL 앞에서 `SET ROLE` 해 주인을 정하고 `ALTER DEFAULT PRIVILEGES` 를 건다. 클러스터는 `local=peer`, `host=scram-sha-256`, 원격은 `PGHBA_CIDR`/`PGHBA_DB`/`PGHBA_USER` 로 좁힌다. 전용 스키마 대신 `public`.
 **이유**: 전원이 소유자로 붙으면 아무나 `DROP TABLE` 을 할 수 있다. 슈퍼유저 비밀번호를 만들지 않으려면 local을 peer로 둔다(`trust` 는 "인증 없음"). PG 15부터 `public` 은 DB 소유자만 쓸 수 있어 `ALTER DATABASE … OWNER` 가 필요하다.
 **트레이드오프**: 사람별 접근 통제는 없다(필요하면 ldap/gss + 사람별 role). TLS를 켜지 않으면 데이터는 평문이다(`PGSSLMODE`).
+**phase 9 보강**: `tools/initdb.sh` 는 `PGHBA_CIDR` 를 주면서 `PGAUTH_HOST` 를 비워 두면 무엇도 하기 전에 거부한다. 기본값 `trust` 가 그 원격 대역 전체를 인증 없이 열기 때문이다(2026-10-17 승인, K26). `PGAUTH_HOST=trust` 로 명시한 것은 받고, CIDR 없는 개발 기본값(루프백 trust)은 그대로다. 원격 hba 줄은 주석이 아닌 같은 줄이 있을 때만 건너뛴다(K27).
 
 ### ADR-011: 배포는 단일 슬롯 deploy.sh (Pexorche 형태)
 **결정**: `tools/deploy.sh <ROOT> <TAG>` 가 `refs/tags/` 로만 detach 체크아웃하고, `uv sync --locked --no-dev --no-editable` 로 `<ROOT>/venv` 를 만들고, venv 인터프리터에 콘솔 스크립트를 넘기는 런처를 `<ROOT>/bin` 에 둔다. `genviewer.env` 는 없을 때만 예시에서 심고(640) 절대 덮지 않으며 `a+rX` 대상에서 뺀다. 마지막에 런처를 실제로 실행해 본다. 롤백은 옛 태그로 다시 돌린다.
 **이유**: 여러 도구를 한 사람이 관리하므로 Pexorche와 같은 방식이 낫다(버전별 디렉터리 + `current` 링크 방식은 쓰다가 되돌렸다). Pexorche는 `uv pip install` 이지만 여기는 PySide6→glibc→3.13 사슬 때문에 `uv.lock` 을 그대로 재현하는 `uv sync` 를 쓴다. `--no-editable` 이라야 `src` 를 고쳐도 아무의 앱도 바뀌지 않는다.
 **트레이드오프**: 교체가 제자리라 설치 중에 띄우면 반쯤 바뀐 트리를 볼 수 있다. uv 관리 CPython이 배포자 홈에 있으면 남이 실행하지 못한다(`DEPLOY_PYTHON`).
+**phase 9 보강**: 트리를 `a+rX` 로 연 뒤 `src/.git` 을 `go-rwx` 로 다시 닫는다. `.git/config` 의 clone URL(토큰을 넣었다면 그것도)을 남이 읽지 못하게 하고, 실행에는 `.git` 이 필요 없다(K28). 그래서 다음 배포도 처음 배포한 사람이 한다. `DEPLOY_COMMANDS` 의 이름이 `venv/bin` 에 없으면 지난 런처를 지우기 전에 멈춘다(K29).
 
 ### ADR-012: CLI 는 typer, rich 없이, 편집은 창에서만
 **결정**: `genviewer` 하나에 서브커맨드(`status`, `processes`, `load`, `export`, 숨김 `log`). 서브커맨드가 없으면 창을 띄운다. `typer.Typer(rich_markup_mode=None, pretty_exceptions_enable=False)`, 콘솔 스크립트는 `main()` 을 가리키고 `main()` 이 인코딩을 손본 뒤 예외를 한 줄 문장으로 바꾼다. 종료 코드 0/1/2/130. 관리 도구(`init_db`)는 argparse.

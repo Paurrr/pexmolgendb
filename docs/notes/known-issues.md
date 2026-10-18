@@ -76,8 +76,5 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
-| K26 | `PGHBA_CIDR` 만 주고 `PGAUTH_HOST` 를 안 주면 기본값 `trust` 로 그 대역 전체가 무인증이 된다 | `tools/initdb.sh:24, 68` | README 서버 절이 `PGAUTH_HOST=scram-sha-256` 을 함께 쓴다. 거부하게 바꾸면 기본값이 바뀐다 |
-| K27 | 다시 돌릴 때 `listen_addresses`·`port`·pg_hba 줄은 "없을 때만 추가" 라 값을 바꿔도 반영되지 않는다. 주석 처리된 같은 줄도 "있음" 으로 본다(`grep -qF`) | `tools/initdb.sh:50, 57, 69` | 주석 줄 오탐은 phase 9 에서 고친다. 값 반영: **고치지 않기로 함(2026-10-17).** 처음 한 번 쓰는 도구다 |
-| K28 | `chmod -R a+rX "$root/src"` 가 `.git/config` 도 연다. clone URL에 토큰을 넣었다면 모두가 읽는다 | `tools/deploy.sh:192` | URL에 토큰을 넣지 않는다(README) |
-| K29 | `DEPLOY_COMMANDS` 로 없는 명령을 주면 python이 exit 2를 내고, 마지막 확인(126/127만 봄)을 통과한다 | `tools/deploy.sh:250-252` | 자동으로 읽은 명령은 항상 있다 |
+| K27 | 다시 돌릴 때 `listen_addresses`·`port`·pg_hba 줄은 "없을 때만 추가" 라 값을 바꿔도 반영되지 않는다 | `tools/initdb.sh:60, 67, 80` | **고치지 않기로 함(2026-10-17).** 처음 한 번 쓰는 도구다. 주석 처리된 같은 hba 줄을 "있음" 으로 보던 것은 2026-10-18 phase 9 에서 고쳤다(`grep -qxF`) |
 | K30 | 윈도우 `SKIP_START=1` 은 첫 실행에서 createdb가 실패한다(서버가 아직 안 떴다) | `tools/initdb.sh:75-102` | **고치지 않기로 함(2026-10-17).** README에 "서버를 띄운 뒤 다시 돌린다" 로 적었다 |
