@@ -40,7 +40,7 @@
 - 대화상자 **제목은 영어**(`Save Complete`, `Load Failed`, `Connect Failed` …), **본문과 로그·CLI 출력은 주로 한국어**다. 섞여 있는 것이 현재 상태이고, 버그 수정 중에 기존 문구를 번역하거나 다듬지 않는다.
 - 알림은 controller가 `notifyRequested(severity, title, text)` 로 올리고 `MainWindow.notify` 가 띄운다. severity는 `info` / `warn` / `critical` / 그 밖(error)이다. 로그 패널은 `logRequested`, 상태 표시줄은 `statusMessageRequested`.
 - 예/아니오 질문은 `utils/dialogs.question(parent, title, message) -> bool`(Yes/No 두 개뿐, 취소 없음).
-- 저장 충돌은 `dialogs/conflict.ask_conflict` 의 세 갈래: **다시 읽기**(RELOAD) / **덮어쓰기**(OVERWRITE, force) / **취소**(CANCEL, 창 닫기 포함). 충돌 목록은 `Conflict.describe()`("이름: X 님이 수정 (YYYY-MM-DD HH:MM)").
+- 저장 충돌은 `dialogs/conflict.ask_conflict` 의 세 갈래: **다시 읽기**(RELOAD) / **덮어쓰기**(OVERWRITE, force) / **취소**(CANCEL, 창 닫기 포함). 충돌 목록은 `Conflict.describe()`("이름: X 님이 수정 (YYYY-MM-DD HH:MM)"). 내가 지운 행을 뺀 나머지 충돌이 전부 삭제면 덮어쓰기 버튼을 만들지 않는다(다시 읽기/취소만, 다른 문구는 그대로).
 - CSV 불러오기 뒤에는 만든 device 수와 "불러올 때마다 새로 쌓인다" 를 반드시 보여준다.
 
 ## 입력과 단축키
@@ -53,7 +53,9 @@
 
 - 저장·접속·CSV 불러오기 중에는 대기 커서를 띄우고 사용자 입력 이벤트를 처리하지 않는다(`run_blocking`). 위젯을 비활성화하지는 않는다.
 - 값 후보와 검증은 `delegate_config.json`(`items`, `items_by_celltype`, `strict`, `required`, `pattern`, `syntax`)이 정한다. 화면에서 따로 하드코딩하지 않는다.
-- device 표 붙여넣기는 바로 저장되고 목록을 다시 읽는다. 저장 안 한 device 편집이 있으면 붙여넣지 않고 경고한다(`Unsaved Changes`).
+- device 표 붙여넣기는 바로 저장되고 목록을 다시 읽는다. 저장 안 한 device 편집이나 탭 편집이 있으면 붙여넣지 않고 경고한다(`Unsaved Changes`, 본문은 둘이 다르다. 둘 다면 device 편집 문구).
+- 재접속(Database → Connect…)은 device 표나 탭에, CSV 불러오기는 device 표에 저장 안 한 편집이 있으면 새로고침과 같은 `Refresh` 질문을 먼저 한다. 아니오면 아무것도 하지 않는다.
+- Remove Process를 확인하면 지운 process의 저장 안 한 편집은 묻지 않고 버린다(`Save Changes` 도 충돌 대화상자도 없다).
 - CellType이 `delegate_config` 목록에 없는 device는 저장하지 않는다. 그런 행을 편집했으면 저장 뒤 경고(`Save Skipped`)로 이름을 알린다.
 - 창 닫기: 저장 안 한 편집이 있으면 `Save Changes`(Yes/No)를 묻고, Yes면 `save_db()` 가 True일 때만 닫는다. `run_blocking` 중의 닫기는 무시한다.
 - device 표 정렬(머리글 메뉴)은 모델의 모든 행을 정렬하는 undo 가능한 저장 안 한 변경이다. 프록시는 정렬하지 않고 필터는 그대로다.

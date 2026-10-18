@@ -90,7 +90,7 @@ GENDB_PG_DSN ───────┴→ 있으면 그대로 사용 (설정 파�
        → GENDB_PG_DSN 이 생겼으면 그것, PG* 가 있으면 "" (libpq 가 환경변수로 조립), 없으면 찾아본 경로를 담아 RuntimeError
 ```
 
-**DB 접속** (`DeviceTabController.connect_db`): 시작 접속은 생성자가 `QTimer.singleShot(0)` 으로 예약한다(창의 로그 패널·알림이 이어진 뒤에 돈다. 그때까지 `connected` 는 None). 새 DB를 먼저 연다(`run_blocking`). 실패하면 지금 DB·repo·폴링을 그대로 둔다. 성공하면 폴링 타이머를 멈추고 도는 폴링 `Task` 를 기다린 뒤 옛 DB를 닫고 `dbChanged(새)` 를 한 번 낸다. 로그 패널로 가는 DSN은 `scrub()` 을 거친다.
+**DB 접속** (`DeviceTabController.connect_db`): 시작 접속은 생성자가 `QTimer.singleShot(0)` 으로 예약한다(창의 로그 패널·알림이 이어진 뒤에 돈다. 그때까지 `connected` 는 None). 새 DB를 먼저 연다(`run_blocking`). 실패하면 지금 DB·repo·폴링을 그대로 둔다. 성공하면 폴링 타이머를 멈추고 도는 폴링 `Task` 를 기다린 뒤 옛 DB를 닫고 `dbChanged(새)` 를 한 번 낸다. 로그 패널로 가는 DSN은 `scrub()` 을 거친다. Connect… 창의 입구(`_on_connect`)는 device 표나 탭이 dirty면 `connect_db` 를 부르기 전에 Refresh 질문을 하고, 아니오면 아무것도 하지 않는다(시작 접속은 묻지 않는다).
 
 **풀** (`service/pool.py`): `ConnectionPool(min 1, max 4, open=False, check=check_connection)`. 접속 옵션 `-c lock_timeout=5000 -c statement_timeout=15000`(의도된 값, ADR-008), `connect_timeout=5`, `application_name=genviewer:<user>`. `Database.connection()` 하나가 트랜잭션 하나(정상 종료 commit, 예외 rollback). 커넥션을 얻지 못한 것(`PoolTimeout`)만 `DbUnavailableError` 가 되고(그때 한 번 직접 접속해 실제 원인을 설명으로 싣는다), `with` 본문·commit 에서 난 예외는 타입 그대로 올라간다(`user_message` 의 SQLSTATE별 안내가 살아 있게).
 
@@ -103,11 +103,14 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 → audit.write(cur, …)  (값이 실제로 바뀐 행만)
 ```
 - 탭 저장(`repo/parameter.py: replace_many_for_device`): `FOR UPDATE OF d` → `expected_version` 비교 → 테이블마다 DELETE … RETURNING + INSERT → `device.version+1` → audit.
-- GUI 쪽: 모델이 dirty·baseline을 들고 있다. 컨트롤러가 `run_blocking` 으로 repo를 부르고, `StaleWriteError` 면 `dialogs/conflict.ask_conflict` 로 RELOAD / OVERWRITE(force) / CANCEL을 묻는다.
+- GUI 쪽: 모델이 dirty·baseline을 들고 있다. 컨트롤러가 `run_blocking` 으로 repo를 부르고, `StaleWriteError` 면 `dialogs/conflict.ask_conflict` 로 RELOAD / OVERWRITE(force) / CANCEL을 묻는다. 내가 지운 행을 뺀 나머지 충돌이 전부 deleted면 OVERWRITE를 내놓지 않는다(`conflict.can_overwrite`, 테스트 가짜도 같은 함수로 판단한다).
+- 붙여넣기: device 행을 바로 저장하고, 그 저장이 돌려준 version으로 탭 행을 쓴다(`pasteRequested` 가 version을 싣는다). device 표나 탭이 dirty면 붙여넣지 않는다.
+- Remove Process: 삭제가 성공하면 `processRemoved` 가 목록을 다시 채우기 전에 지금 process의 device·탭 편집을 버린다(저장할 곳이 없다).
 - 저장 결과: device·탭 `save_all()` 과 `DeviceTabController.save_db()` 는 bool이다(저장했거나 쓸 것이 없으면 True, 취소·다시 읽기·건너뛴 편집이면 False, 예외는 그대로). 호출부(Database → Save, Ctrl+S, process·device 전환)는 False면 "Saved" 를 띄우지 않고, 편집이 남아 있으면 옮기지 않는다. process 콤보는 `select_process_silently` 로 시그널 없이 되돌린다(되돌릴 process가 목록에 없으면 False이고, 그때는 되돌리지 않고 새 process로 넘어간다).
 - 창 닫기: `MainWindowController` 가 창에 이벤트 필터를 달아 Close를 판단한다(뷰는 컨트롤러를 모른다). `is_busy()` 면 무시하고, dirty면 묻고 `save_db()` 가 True일 때만 닫는다. `shutdown()` 이 먼저 필터를 뗀다.
 - 탭 로드 실패: `TabSectionController.update_model` 이 행을 읽지 못하면 섹션을 모델 없이 비우고 dirty를 푼다(이전 device의 모델이 남아 이 device에 저장되지 않게). 붙여넣기도 그 탭은 건너뛴다.
 - device 정렬: `DeviceTableModel.sort_rows` 가 모델의 모든 행을 정렬한다. 기준점은 그대로라 지운 device·편집 표시·undo가 남는다.
+- 순서값: `save_all` 은 보통 화면 순서대로 `order = 0..n-1` 을 매긴다. 마지막 `refresh_devices` 가 Virtuoso 목록으로 숨긴 행이 있었으면, 보내는 행끼리 그때 읽은 자기들의 옛 순서값을 화면 순서대로 나눠 갖는다(`_filtered_orders`, 숨은 행은 보내지 않는다).
 - version 동기화: 탭 저장이 올린 version은 `deviceVersionChanged` 로 device 표에, device 저장이 올린 version은 `deviceVersionBumped` 로 탭에 간다. 탭은 정확히 +1일 때만 받는다(덮어쓰기로 남의 변경 위에 썼으면 다음 탭 저장이 충돌로 묻는다).
 
 **변경 감지**: `DeviceTabController` 의 10초 `QTimer` → `Task(repo.etag(process_id))` → 기억한 etag와 다르면 배너. 연속 3회 실패하면 멈추고, 다시 접속하면 되살아난다. 자동으로 다시 읽지 않는다. History 화면도 10초마다 `Task` 로 다시 읽고, 줄을 고르면 멈춘다.
