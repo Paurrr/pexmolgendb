@@ -38,6 +38,11 @@ REFRESH_QUESTION = (
     "서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?"
 )
 
+# Virtuoso 로 보낼 때 스칼라로 보내는 고정 컬럼. 위치가 아니라 이름으로 고른다.
+_FIXED_COLUMNS = ("CellType", "CdsLibName", "InstCellName")
+# Description 은 CSV 에만 쓴다(phase 18, 2026-10-17 승인). Virtuoso payload 는 그대로다.
+_NOT_SENT = ("Description",)
+
 
 class DeviceTabController(QObject):
     sendDataRequested = Signal(str)
@@ -380,7 +385,7 @@ class DeviceTabController(QObject):
 
         tab_indices = defaultdict(list)
         for i, h in enumerate(headers):
-            if i <= 2:
+            if h in _FIXED_COLUMNS or h in _NOT_SENT:
                 continue
             tab_indices[h].append(i)
 
