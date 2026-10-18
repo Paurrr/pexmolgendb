@@ -92,3 +92,8 @@
 **결정**: 2026-10 부터 `pexqa` 와 같은 하네스(`scripts/execute.py`, `phases/`, `.claude/commands/{harness,review}.md`, Stop 훅 = `ruff check src tests && pytest -q -x`)로 유지보수한다. 기능 추가·리팩터는 하지 않고 에러·버그만 고친다. 버그 주장은 실패하는 테스트로 먼저 재현하고, 재현되지 않으면 고치지 않는다. 사용자에게 보이는 동작이 바뀌는 수정은 사용자가 승인한 것만 한다. 구조 개선은 `docs/notes/architecture-proposal.md` 에 제안으로만 둔다.
 **이유**: 이미 여러 명이 쓰는 도구라 동작이 바뀌는 비용이 크다. 분석 에이전트가 낸 버그 후보 중에는 실제로 닿지 않는 경로가 있을 수 있다.
 **트레이드오프**: 근본 원인(저장 흐름이 컨트롤러 셋에 흩어진 것 등)은 증상 단위로만 고쳐진다. GUI 테스트 기반(pytest-qt, fake repo, controller fixture)은 phase `2-gui-test-infra` 에서 깔았다. 가짜의 의미는 contract test가 실제 PostgreSQL과 맞춰 둔다.
+
+### ADR-016: Virtuoso 소켓은 GUI 스레드의 QTcpSocket 하나
+**결정**: `net/` 의 `ConnectionController` 는 GUI 스레드의 `QTcpSocket` 하나로 시그널만 받아 돈다. 워커 스레드와 `waitFor*` 는 없다. 프레임은 그대로 4바이트 big-endian 길이 다음에 UTF-8 본문이다. 0바이트 프레임은 메시지가 아니라서 버린다. 상대가 끊거나 주고받기가 실패하면 Socket 탭에 `ERROR: … failed - …` 를 보이고(상대가 닫으면 옛 문구 `ERROR: recv failed - Server connection closed`) 상태를 Disconnected로 바꾼다(K14). 접속 중의 Connect는 무시하고, 접속 중의 끊기·창 닫기는 그 시도를 abort한다. 2026-10-17 승인(제안 P6, phase 13).
+**이유**: QThread 워커 셋이 소켓 하나를 나눠 썼다. 끊김이 상태에 반영되지 않았고(K14), 프레임 중간에서 끊으면 창이 굳었고(K24), 접속 중 창 닫기와 빠른 두 번 Connect는 실행 중인 QThread를 지워 프로세스가 죽었다(K39·K40).
+**트레이드오프**: 접속 실패 문구는 Qt 오류를 옛 매핑(`InvalidAddress`/`ConnectionRefused`/`ConnectionTimedOut`)에 맞춘 것이다. OS가 낸 접속 타임아웃은 Qt가 `NetworkError` 로 올려서 `Error: Connection timed out` 으로 보인다(2026-10-18 사용자 확인). Windows에서 잰 실패 시간은 옛 코드의 약 두 배다(거부 약 4초, 타임아웃 약 42초). 호스트 이름은 IPv4만이 아니라 풀린 주소를 차례로 시도한다(옛 코드는 `AF_INET`). 테스트는 127.0.0.1의 `LocalVirtuoso` 에 공개 API로 붙는다. 보내기 `write == -1` 과 RST 말고 다른 소켓 오류는 그렇게 만들 수 없어서 테스트가 없다.

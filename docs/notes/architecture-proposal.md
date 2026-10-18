@@ -6,7 +6,7 @@
 - **2026-10-17 사용자 승인**: P1~P7 전부 승인했다. 담당 phase는 아래와 같다. 끝나면 이 표에 완료를 적는다.
   - P1 → `6-boundary-guards` — 2026-10-18 완료(`tests/test_boundaries.py`, `tests/test_py39_compat.py`, 헬퍼 `tests/fixtures/imports.py`)
   - P7 → `8-schema-migration` — 2026-10-18 완료(`schema.pg_child_add_columns_ddl`, `diagnostics.ServerInfo.missing_columns`)
-  - P6 → `13-virtuoso-socket`. known-issues K14·K24·K39·K40을 먼저 재현한 뒤 재작성으로 없앤다.
+  - P6 → `13-virtuoso-socket` — 2026-10-18 완료(`net/controller.py` 의 QTcpSocket 하나, `workers.py`·`client.py` 삭제, `tests/gui/test_virtuoso_connection.py` + `tests/gui_support/virtuoso_server.py`). K14·K24·K39·K40 해소
   - P2 → `14-prompts`
   - P4 → `15-public-api`
   - P3 → `16-save-coordinator`

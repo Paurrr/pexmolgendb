@@ -42,7 +42,6 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
-| K14 | Virtuoso 수신 쪽이 연결이 끊긴 것("DISCONNECTED"/"ERROR: …")을 접속 상태에 반영하지 않는다. UI는 계속 Connected라고 한다. UTF-8이 아닌 응답이 오면 수신이 멈춘다 | `net/workers.py:85-110` | phase 4 step 6은 크래시만 막고, 보내기 실패를 받기 오류와 같은 길(Socket 탭 수신 칸)로 보이게 했다. 상태 표시는 동작 변경이다 |
 | K15 | Load Libs 요청이 빈 프레임이다(stub) | `service/virtuoso_protocol.py:17-18` | **고치지 않기로 함(2026-10-17).** 기능이 아직 없다(Virtuoso 쪽 함수가 정해지지 않았다) |
 | K16 | Virtuoso 목록 필터가 부분 문자열(`name in r["name"]`)이라 더 많이 걸릴 수 있다(내보내기 형식은 2026-10-18 phase 11 에서 파일 확장자로 정하게 고쳤다) | `controllers/device_table.py` `refresh_devices` | **고치지 않기로 함(2026-10-17).** 접미사가 붙은 이름까지 잡는 것이 의도다 |
 
@@ -50,10 +49,7 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 
 | # | 문제 | 위치 | 왜 기록만 하나 |
 |---|---|---|---|
-| K24 | 연결을 끊는 동안 상대가 프레임 중간에서 멈추면 GUI가 굳을 수 있다(`recv` 타임아웃 없음, `wait()` 타임아웃 없음) | `net/workers.py:99-101`, `net/controller.py:130-147` | 제안 P6 |
 | K25 | `question()` 은 None을 돌려주지 않으므로 `_switch_device_by_index` 의 `choice is None` 분기는 닿지 않는 코드다 | `controllers/device_tab.py:508`, `utils/dialogs.py:21-25` | 동작에 영향 없음 |
-| K39 | 창을 닫을 때 Virtuoso 접속(`ConnectWorker`)이 진행 중이면 `ConnectionController.shutdown()` 이 기다리지 않는다. `run_gui` 가 돌아온 뒤 실행 중인 QThread가 지워져 종료가 크래시로 끝날 수 있다 | `net/controller.py:67-77` (`shutdown`) | phase 4 step 6이 코드를 읽다 본 것이고 재현하지 않았다. 기다리면 접속 타임아웃만큼 창이 굳는다(K24와 같은 종류, 제안 P6) |
-| K40 | `ConnectWorker` 가 끝났지만 결과가 아직 GUI 큐에 있는 순간의 Connect는 "접속 중" 가드를 지나 새 시도를 시작한다. 두 결과가 다 성공이면 `_start_io_workers` 가 두 번 돌아 앞 IO 워커를 덮어쓸 수 있다 | `net/controller.py:37-52` (`connect`), `:85-99` | phase 4 step 6이 코드를 읽다 본 것이고 재현하지 않았다. Connect를 아주 빠르게 두 번 눌러야 닿는다 |
 | K45 | 내 쓰기가 시작되기 직전에 출발한 폴링의 결과가 `remember_etag` 뒤에 도착하면, 저장 전 etag와 새 기준점이 달라 거짓 배너가 뜰 수 있다 | `controllers/device_tab.py` `_poll_remote_changes`·`_on_poll_result`, `controllers/device_table.py` `remember_etag` | K43을 조사하다 코드를 읽고 본 것이고 재현하지 않았다. 폴링 쿼리가 저장 전체보다 오래 걸려야 닿아서 확률이 매우 낮다. 2026-10-18 phase 12 step 3 은 결과를 시작할 때의 process·DB 에 묶었을 뿐 기준점에는 묶지 않아(같은 process 로 돌아온 뒤 도착한 결과는 써야 한다) 이 경합은 그대로다 |
 | K48 | 충돌에 "수정"(stale)과 "삭제"(deleted)가 섞여 있으면 지금처럼 다시 읽기/덮어쓰기/취소를 다 내놓는다. 덮어쓰기를 고르면 남이 지운 device의 편집은 쓸 행이 없어 조용히 버려진다 | `controllers/device_table.py` `_write_devices`, `service/repo/device.py` `_update_existing`(force면 사라진 행은 맞는 행이 없어 지나간다) | 2026-10-18 phase 10 step 0이 찾았다. 승인 범위는 남은 충돌이 전부 삭제일 때만 덮어쓰기를 숨기는 것이었다(K20). `tests/gui/test_conflict_deleted_only.py::test_a_stale_and_deleted_conflict_still_offers_overwrite` 가 세 갈래를 고정한다(취소로 끝나서 버려지는 것은 재현하지 않았다) |
 | K49 | Remove Process 뒤 process 목록 다시 읽기가 실패하면("Process List Failed") 콤보와 device 표가 지운 process에 머문다. 편집은 버려서 dirty가 아니지만 device 표를 다시 읽지 않아, 지운 device 행이 고친 셀 표시까지 그대로 보인다. 탭은 비었다 | `controllers/device_tab_toolbar.py` `remove_process`, `controllers/device_tab.py` `_on_process_removed` | 2026-10-18 phase 10 step 5가 찾았다. `tests/gui/test_deleted_process_revert.py::test_a_failed_list_refresh_after_removing_still_drops_the_edits` 가 이 상태를 고정한다. 삭제는 성공하고 바로 뒤의 목록 조회만 실패해야 닿는다 |

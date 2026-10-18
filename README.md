@@ -133,6 +133,7 @@ Connect 창의 **연결 테스트** 결과에는 실제 원인(비밀번호 틀�
 > 아니다. `--host` 도 그쪽이다. 둘은 별개다.
 > Virtuoso 쪽이 연결을 끊으면 상태 표시가 Disconnected로 바뀐다(Socket 탭에는 지금처럼
 > `ERROR: recv failed - Server connection closed` 가 보인다).
+> 상대 호스트가 응답하지 않아 접속 시간이 다 되면 상태 표시는 `Error: Connection timed out` 이다.
 
 ## 명령줄
 
