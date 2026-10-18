@@ -5,13 +5,16 @@
 이 저장소는 평소에 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 18은 예외로 **사용자가 2026-10-17 승인한 기능**이다(known-issues K44). 승인된 동작은 다음과 같다.
 
 > 내보내기(GUI·CLI, CSV·xlsx)는 InstCellName 다음에 Description 컬럼을 쓴다. 불러오기는 Description 컬럼이 있으면 그 값을 device.description 에 넣고, 없으면(옛 CSV) 지금처럼 빈 값이다. Virtuoso로 보내는 payload는 바꾸지 않는다.
+>
+> 사용자 승인 2026-10-18: CSV 내보내기(GUI·CLI)는 Description 값의 쉼표(`,`)를 `;` 로, 줄바꿈(`\r\n`·`\n`·`\r`)을 공백으로 바꿔 쓴다. molgen CSV 로더(`genMOLDB_csv.il` 의 `pexGenDB_GenDev_Load_CSV_File`)가 따옴표를 모르고 `,` 로만 칸을 나눠서, 쉼표가 든 설명은 그 행의 뒤 컬럼(InstTerm 등)을 밀고 줄바꿈은 행을 가른다. xlsx·DB 값·불러오기는 그대로다. step 3이 한다.
 
 이 phase의 step은 다음 순서로 간다.
 - step 0: Virtuoso payload가 고정 컬럼을 이름으로 고르고 Description을 뺀다(끝났다).
 - step 1: `io.py`·가짜·contract test가 Description을 왕복시킨다(끝났다). `fetch_export_data` 는 InstCellName 다음에 Description 헤더를 늘 쓴다. 값은 **넘겨받은 device_info의 `description`** 이다.
 - step 2(이 step): GUI 내보내기가 device_info에 화면의 description을 넣는다.
+- step 3: CSV 쓰기(`utils/exporter.write_csv`)가 Description 값의 쉼표·줄바꿈을 바꿔 쓴다(molgen 로더 대응).
 
-**선행 조건(이 phase 범위 밖)**: molgen의 `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 등록해야 한다. 운영 배포 전에 molgen 쪽이 먼저 나가야 한다. **molgen 저장소를 고치지 마라.**
+**선행 조건(끝났다)**: molgen의 `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 등록했다(molgen 커밋 `c7da3a0`, 2026-10-18, `CSV_COLUMNS.md` 9절 포함). 운영 배포는 molgen이 먼저 나가야 한다. gendb 테스트는 molgen 없이 돈다. **molgen 저장소를 고치지 마라.**
 
 모든 step에 같은 규칙이 적용된다.
 1. 기능이라 TDD로 한다. 새 동작을 단언하는 테스트를 먼저 쓰고, 수정 전에 실패하는 것을 본다(RED). 그 테스트 이름과 단언을 summary에 적는다.
@@ -62,6 +65,7 @@ GUI 테스트 기반(phase 2)은 다음과 같다. 작업 전에 `tests/gui/conf
 - **저장 안 한 편집**: `edit_device_cell(ctrl, 1, "description", "화면 값")` 뒤 내보내면 nfet_b 행이 `"화면 값"` 이다.
 - **xlsx**: `out.xlsx` 로 내보내고 openpyxl로 읽어 같은 값을 본다.
 - 알림은 지금처럼 `("info", "Save CSV"/"Save XLSX", …)` 하나뿐이다(문구 불변).
+- description 값에는 쉼표·줄바꿈을 넣지 않는다. 이유: step 3이 CSV 쓰기에서 바꾼다.
 
 ### 2. 수정
 
@@ -100,4 +104,5 @@ uv run pytest -q
 - `send_device_data` 의 `device_info` 에 description을 넣지 마라. 이유: payload에 쓰지 않는다(step 0). 넣어도 빠지지만 괜히 넣을 이유가 없다.
 - 내보내기 형식 고르기(phase 11 step 4)·알림 문구를 바꾸지 마라.
 - `io.py`·가짜 repo를 바꾸지 마라. 이유: step 1에서 끝났다.
+- `utils/exporter.py` 를 바꾸지 마라. 이유: step 3의 일이다.
 - 기존 테스트를 깨뜨리지 마라.

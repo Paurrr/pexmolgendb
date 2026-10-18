@@ -5,6 +5,8 @@
 이 저장소는 평소에 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 18은 예외로 **사용자가 2026-10-17 승인한 기능**이다(known-issues K44). 승인된 동작은 다음과 같다.
 
 > 내보내기(GUI·CLI, CSV·xlsx)는 InstCellName 다음에 Description 컬럼을 쓴다. 불러오기는 Description 컬럼이 있으면 그 값을 device.description 에 넣고, 없으면(옛 CSV) 지금처럼 빈 값이다. Virtuoso로 보내는 payload는 바꾸지 않는다.
+>
+> 사용자 승인 2026-10-18: CSV 내보내기(GUI·CLI)는 Description 값의 쉼표(`,`)를 `;` 로, 줄바꿈(`\r\n`·`\n`·`\r`)을 공백으로 바꿔 쓴다. molgen CSV 로더(`genMOLDB_csv.il` 의 `pexGenDB_GenDev_Load_CSV_File`)가 따옴표를 모르고 `,` 로만 칸을 나눠서, 쉼표가 든 설명은 그 행의 뒤 컬럼(InstTerm 등)을 밀고 줄바꿈은 행을 가른다. xlsx·DB 값·불러오기는 그대로다. step 3이 한다.
 
 지금은 이렇게 된다.
 - molgen CSV 형식에 Description 컬럼이 없다(`molgen/genMOLDB_config.il` 의 `pexGenDB_GenDev_Get_Header_Type()`).
@@ -16,8 +18,9 @@
 - step 0: Virtuoso로 보내는 payload가 고정 컬럼을 **이름**으로 고르게 하고 Description을 빼게 한다. 다음 step이 헤더를 바꿔도 payload가 그대로이도록 계약을 먼저 세운다.
 - step 1: 서비스 계층 `io.py` 의 import·export, 가짜 `FakeIORepository`, contract test. DB step이다.
 - step 2: GUI 내보내기(`export_selected_devices`)가 화면의 description을 넘긴다.
+- step 3: CSV 쓰기(`utils/exporter.write_csv`)가 Description 값의 쉼표·줄바꿈을 바꿔 쓴다(molgen 로더 대응).
 
-**선행 조건(이 phase 범위 밖)**: molgen의 `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 등록해야 한다(`'Status` 와 같은 방식). molgen `CSV_COLUMNS.md` 도 고쳐야 한다. 등록하지 않으면 molgen이 셀마다 `Unknown header type: nil, header: Description, …` warn을 낸다(`molgen/genMOLDB_csv.il` `pexGenDB_GenDev_Convert_One_Value`). 운영 배포 전에 molgen 쪽이 먼저 나가야 한다. gendb 테스트는 molgen 없이 돌므로 이 phase의 실행을 막지는 않는다. **molgen 저장소를 고치지 마라.**
+**선행 조건(끝났다)**: molgen의 `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 등록했다(molgen 커밋 `c7da3a0`, 2026-10-18, `CSV_COLUMNS.md` 9절 포함). 운영 배포는 molgen이 먼저 나가야 한다. gendb 테스트는 molgen 없이 돈다. **molgen 저장소를 고치지 마라.**
 
 모든 step에 같은 규칙이 적용된다.
 1. 기능이라 TDD로 한다. 새 동작을 단언하는 테스트를 먼저 쓰고, 수정 전에 실패하는 것을 본다(RED). 그 테스트 이름과 단언을 summary에 적는다.

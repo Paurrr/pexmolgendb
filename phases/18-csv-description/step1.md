@@ -5,6 +5,8 @@
 이 저장소는 평소에 **에러·버그만 고친다**(CLAUDE.md, ADR-015). phase 18은 예외로 **사용자가 2026-10-17 승인한 기능**이다(known-issues K44). 승인된 동작은 다음과 같다.
 
 > 내보내기(GUI·CLI, CSV·xlsx)는 InstCellName 다음에 Description 컬럼을 쓴다. 불러오기는 Description 컬럼이 있으면 그 값을 device.description 에 넣고, 없으면(옛 CSV) 지금처럼 빈 값이다. Virtuoso로 보내는 payload는 바꾸지 않는다.
+>
+> 사용자 승인 2026-10-18: CSV 내보내기(GUI·CLI)는 Description 값의 쉼표(`,`)를 `;` 로, 줄바꿈(`\r\n`·`\n`·`\r`)을 공백으로 바꿔 쓴다. molgen CSV 로더(`genMOLDB_csv.il` 의 `pexGenDB_GenDev_Load_CSV_File`)가 따옴표를 모르고 `,` 로만 칸을 나눠서, 쉼표가 든 설명은 그 행의 뒤 컬럼(InstTerm 등)을 밀고 줄바꿈은 행을 가른다. xlsx·DB 값·불러오기는 그대로다. step 3이 한다.
 
 지금은 이렇게 된다.
 - molgen CSV 형식에 Description 컬럼이 없다(`molgen/genMOLDB_config.il` 의 `pexGenDB_GenDev_Get_Header_Type()`).
@@ -16,8 +18,9 @@
 - step 0: Virtuoso payload가 고정 컬럼을 이름으로 고르고 Description을 뺀다(끝났다).
 - step 1(이 step): `io.py` 의 import·export, 가짜 `FakeIORepository`, contract test. DB step이다.
 - step 2: GUI 내보내기가 화면의 description을 넘긴다.
+- step 3: CSV 쓰기(`utils/exporter.write_csv`)가 Description 값의 쉼표·줄바꿈을 바꿔 쓴다(molgen 로더 대응).
 
-**선행 조건(이 phase 범위 밖)**: molgen의 `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 등록해야 한다(`'Status` 와 같은 방식). molgen `CSV_COLUMNS.md` 도 고쳐야 한다. 등록하지 않으면 molgen이 셀마다 `Unknown header type` warn을 낸다. 운영 배포 전에 molgen 쪽이 먼저 나가야 한다. gendb 테스트는 molgen 없이 돈다. **molgen 저장소를 고치지 마라.**
+**선행 조건(끝났다)**: molgen의 `pexGenDB_GenDev_Get_Header_Type()` 에 `'Description "string"` 을 등록했다(molgen 커밋 `c7da3a0`, 2026-10-18, `CSV_COLUMNS.md` 9절 포함). 운영 배포는 molgen이 먼저 나가야 한다. gendb 테스트는 molgen 없이 돈다. **molgen 저장소를 고치지 마라.**
 
 모든 step에 같은 규칙이 적용된다.
 1. 기능이라 TDD로 한다. 새 동작을 단언하는 테스트를 먼저 쓰고, 수정 전에 실패하는 것을 본다(RED). 그 테스트 이름과 단언을 summary에 적는다.
@@ -79,6 +82,8 @@ DB 테스트:
 - `tests/test_export.py`: 헤더 4번째가 `Description` 이다.
 - `tests/test_cli.py`: `genviewer export` 로 쓴 파일의 Description 열에 저장된 description이 있고, `load` 로 다시 넣으면 따라온다. `test_an_exported_file_loads_back` 을 넓히거나 새 테스트를 둔다.
 
+왕복(내보내기 → 다시 불러오기) 테스트의 description에는 공백·한글만 쓰고 쉼표·줄바꿈은 넣지 않는다(예 `"ESD 용 2단"`). 이유: step 3이 CSV 쓰기에서 쉼표를 `;` 로, 줄바꿈을 공백으로 바꾼다. 그 왕복은 step 3이 고정한다. 불러오기만 보는 테스트(`"ESD 용, 2단"`)는 쉼표를 그대로 둔다. 불러오기는 바꾸지 않는다.
+
 수정 전에는 헤더 단언과 Description 값 단언이 실패해야 한다(가짜·진짜 모두).
 
 ### 2. 수정
@@ -88,7 +93,7 @@ DB 테스트:
   - `fetch_export_data`: 헤더와 행에 Description을 InstCellName 다음에 넣는다.
   - 고정 헤더 목록이 두 군데 이상이면 모듈 상수 하나로 묶어도 된다.
 - `tests/gui_support/fakes.py` `FakeIORepository`: 진짜와 같은 의미로 고친다. 같은 규칙을 다르게 쓰지 마라. 이유: contract test가 둘을 같은 기대값으로 묶는다.
-- `utils/exporter.py`(CSV·xlsx 쓰기)는 헤더·행을 그대로 쓰므로 고치지 않는다. phase 7 step 8의 xlsx 리터럴 처리가 Description에도 그대로 적용되는지만 확인한다(`=` 로 시작하는 description).
+- `utils/exporter.py`(CSV·xlsx 쓰기)는 이 step에서 고치지 않는다(Description의 쉼표·줄바꿈은 step 3이 고친다). phase 7 step 8의 xlsx 리터럴 처리가 Description에도 그대로 적용되는지만 확인한다(`=` 로 시작하는 description).
 
 ### 3. 변이 검사
 
@@ -127,4 +132,5 @@ uv run pytest -q -rs
 - change_log 형식(`audit.csv_import`)을 바꾸지 마라. 이유: 승인 범위 밖이다.
 - molgen 저장소와 `docs/`·README를 바꾸지 마라. 이유: molgen은 선행 조건이고, 문서는 phase 마무리에서 고친다.
 - GUI 컨트롤러(`controllers/`)를 바꾸지 마라. 이유: step 0·2의 일이다.
+- `utils/exporter.py` 를 바꾸지 마라. 이유: Description의 쉼표·줄바꿈 바꿔 쓰기는 step 3의 일이다.
 - 기존 테스트를 깨뜨리지 마라. 정확한 헤더를 단언하던 테스트는 승인된 동작에 맞게 기대값을 고친다. 고친 테스트 이름을 summary에 적는다.

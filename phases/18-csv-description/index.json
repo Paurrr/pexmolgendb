@@ -4,6 +4,7 @@
   "steps": [
     { "step": 0, "name": "send-fixed-columns", "status": "pending" },
     { "step": 1, "name": "io-description", "status": "pending" },
-    { "step": 2, "name": "gui-export-description", "status": "pending" }
+    { "step": 2, "name": "gui-export-description", "status": "pending" },
+    { "step": 3, "name": "csv-molgen-safe", "status": "pending" }
   ]
 }
