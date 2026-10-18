@@ -123,13 +123,16 @@ class ConnectionDialog(QDialog):
 
     def _on_test(self) -> None:
         from genviewer.service.config import load_config
+        from genviewer.service.errors import user_message
         from genviewer.service.pool import Database
         from genviewer.utils.background import run_blocking
 
-        def probe() -> bool:
+        def probe() -> None:
             db = Database(load_config(self.dsn()))
             try:
-                return db.ping()
+                # ping 은 예외를 삼키고 bool 만 준다. 실패 원인이 담긴 예외가 올라오게 직접 본다.
+                with db.connection() as conn:
+                    conn.execute("SELECT 1")
             finally:
                 db.close()
 
@@ -137,10 +140,11 @@ class ConnectionDialog(QDialog):
         self.test_btn.setEnabled(False)
         try:
             # 죽은 호스트를 찍었을 때 이 창까지 같이 얼지 않게 워커에서 돈다.
-            ok = run_blocking(probe, self)
+            run_blocking(probe, self)
         except Exception as e:
-            self.status_label.setText(f"실패: {e}")
+            # str(e) 를 쓰면 안 된다. psycopg 의 접속 실패 문자열에는 conninfo(비밀번호)가 있다.
+            self.status_label.setText(f"실패: {user_message(e)}")
             return
         finally:
             self.test_btn.setEnabled(True)
-        self.status_label.setText("연결 성공" if ok else "실패: 접속할 수 없다")
+        self.status_label.setText("연결 성공")

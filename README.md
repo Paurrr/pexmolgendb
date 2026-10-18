@@ -117,8 +117,9 @@ uv run genviewer --dsn "postgresql://molgen_app@<서버IP>:55433/molgen"
 붙다가 실패하면 지금 붙어 있는 DB 를 그대로 쓴다.
 
 시작할 때의 접속은 창이 뜬 뒤에 돈다. 접속에 실패하면 아래 로그 패널에
-`Database connect failed: …` 가 남고, 첫 조회가 실패하면 알림이 뜬다. 로그 패널의
-`Database connected: …` 줄에는 비밀번호가 가려져 나온다.
+`Database connect failed: …` 가 남고, 첫 조회가 실패하면 알림이 뜬다. 그 줄과
+Connect 창의 **연결 테스트** 결과에는 실제 원인(비밀번호 틀림, DB 없음 등. 비밀번호는
+가려진다)이 나온다. 로그 패널의 `Database connected: …` 줄에는 비밀번호가 가려져 나온다.
 
 `--dsn` 을 주면 `genviewer.env` 를 읽지 않으므로 거기 적힌 `PGPASSWORD` 도 쓰이지
 않는다. 비밀번호는 `~/.pgpass` 나 그 실행에만 준 `PGPASSWORD` 환경변수로 준다.

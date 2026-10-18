@@ -8,7 +8,7 @@ from genviewer.controllers.device_tab_toolbar import DeviceTabToolBarController
 from genviewer.controllers.device_table import DeviceTableController
 from genviewer.controllers.parameter_tab import ParameterTabController
 from genviewer.service.config import load_config
-from genviewer.service.errors import DbUnavailableError, user_message
+from genviewer.service.errors import user_message
 from genviewer.service.pool import Database
 from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.io import IORepository
@@ -160,11 +160,13 @@ class DeviceTabController(QObject):
 
     @staticmethod
     def _open_database(dsn: str) -> Database:
-        """워커 스레드에서 도는 부분. ping 이 connect_timeout 만큼 걸릴 수 있다."""
+        """워커 스레드에서 도는 부분. 확인이 connect_timeout 만큼 걸릴 수 있다."""
         db = Database(load_config(dsn))
         db.open()
-        if not db.ping():
-            raise DbUnavailableError("서버가 응답하지 않는다")
+        # ping 은 예외를 삼키고 bool 만 준다. 그러면 connection() 이 실패 원인(비밀번호 틀림,
+        # DB 없음 등)을 담아 낸 DbUnavailableError 가 사라진다. 예외 그대로 올린다(K3).
+        with db.connection() as conn:
+            conn.execute("SELECT 1")
         return db
 
     def connect_db(self, dsn: str) -> bool:

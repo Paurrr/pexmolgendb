@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "connect-failure-cause",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T17:44:00+0900",
+      "summary": "_open_database·Connect 창 연결 테스트가 phase 7 step 2 의 원인 담긴 DbUnavailableError 를 user_message 로 보임(확인 방법: ping() bool 대신 `with db.connection() as conn: conn.execute(\"SELECT 1\")` 로 예외를 그대로 올림. _open_database 는 open() 뒤 그 확인, probe() 는 None 을 돌려주고 finally close 그대로, 실패 표시는 \"실패: \" + user_message(e), 성공은 \"연결 성공\"). service/·ping()·\"Connect Failed\" 문구·로그 접두어는 그대로, device_tab 의 안 쓰게 된 DbUnavailableError import 제거. RED: test_open_database_raises_the_real_cause: 'password authentication failed' not in user_message(DbUnavailableError('서버가 응답하지 않는다')), test_a_failed_reconnect_logs_the_real_cause: 로그 줄이 '…접속 설정을 확인할 것.\\n\\n서버가 응답하지 않는다' 라 원인 없음, test_the_connection_test_shows_the_real_cause: status '실패: 접속할 수 없다', test_an_unexpected_connection_test_error_hides_the_password: 's3cret' in '실패: bad password=s3cret'. 회귀(성공 시 연 db 반환·open 1회, '연결 성공', test_connect_db.py)는 수정 전에도 통과. 변이: 두 곳 확인을 ping() bool 로 되돌리면 원인 테스트 3개, 창의 user_message(e) 를 {e} 로 되돌리면 예상 밖 예외 테스트가 실패. README '일회성으로 다른 데 붙기' 에 원인 표시 한 문장. known-issues K3 행과 ARCHITECTURE '현재 어긋난 곳' 의 'ping한다' 표현은 마무리 docs 동기화 몫으로 남김. DB 테스트: 785 passed / 10 skipped. tests/gui/test_connect_failure.py (OPEN_DATABASE·RefusingDatabase/AcceptingDatabase·install_controller_database/install_dialog_database 는 step 2 가 재사용)"
     },
     {
       "step": 2,
