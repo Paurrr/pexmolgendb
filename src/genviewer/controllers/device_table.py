@@ -34,6 +34,30 @@ def _describe_save(result: SaveResult) -> str:
     return f"{', '.join(parts)}."
 
 
+def _filtered_orders(devices: list[dict], old_orders: dict[int, int]) -> list[int]:
+    """걸러 본 화면에서 보낼 행(모델 순서)마다 줄 order (K19).
+
+    old_orders 는 마지막 refresh_devices 가 읽은 모든 행(숨은 행 포함)의 {id: order} 다. 거기 있는
+    id 행은 그 행들의 옛 값을 오름차순으로 모아 화면 순서대로 하나씩 받는다. 그래서 보이던 행은
+    원래 차지하던 자리만 쓰고, 편집도 순서 변경도 없으면 값이 그대로라 쓰이지 않는다. 새 행(id 가
+    없거나 그때 없던 id)은 바로 위 id 행과 같은 값을 받아 그 뒤에 온다(ORDER BY "order", id 에서
+    새 id 가 더 크다). 위에 id 행이 없으면 가장 작은 값 - 1, id 행이 하나도 없으면 읽은 모든 행의
+    최댓값 + 1(읽은 행이 없었으면 0).
+    """
+    slots = sorted(old_orders[d["id"]] for d in devices if d.get("id") in old_orders)
+    if slots:
+        above = slots[0] - 1
+    else:
+        above = max(old_orders.values(), default=-1) + 1
+    remaining = iter(slots)
+    orders = []
+    for d in devices:
+        if d.get("id") in old_orders:
+            above = next(remaining)
+        orders.append(above)
+    return orders
+
+
 class DeviceTableController(QObject):
     # device_id, celltype, 탭 행, 그 행을 저장한 version(탭 쓰기의 expected_version).
     pasteRequested = Signal(object, str, dict, object)
@@ -55,6 +79,9 @@ class DeviceTableController(QObject):
         self.dirty_by_process_id: dict[int, bool] = {}
         self._copied_rows: list[dict] = []
         self._etag: dict | None = None
+        # 마지막 refresh_devices 가 숨긴 행이 있었는가, 그때 읽은 모든 행의 {id: order}(K19).
+        self._hid_rows_on_refresh = False
+        self._orders_on_refresh: dict[int, int] = {}
         # 탭에 저장 안 한 편집이 있는가. DeviceTabController 가 넘겨 준다(기본: 없음).
         self._has_unsaved_tabs: Callable[[], bool] = lambda: False
 
@@ -317,6 +344,8 @@ class DeviceTableController(QObject):
                     visible_devices.append(device)
                     break
 
+        self._hid_rows_on_refresh = len(visible_devices) < len(rows)
+        self._orders_on_refresh = {r["id"]: r["order"] for r in rows}
         model = self.ui.model_safe()
         model.update_devices(visible_devices, known_names)
         model.clear_dirty()
@@ -376,11 +405,20 @@ class DeviceTableController(QObject):
         to_save: list[dict] = []
 
         for i, d in enumerate(devices):
-            d["order"] = i
             if d.get("celltype") in valid_celltypes:
                 to_save.append(d)
             elif model.is_row_changed(i):
                 skipped_edits.append(d.get("name", "<Unknown>"))
+
+        if self._hid_rows_on_refresh:
+            # 걸러 본 화면은 일부만 들고 있다. 0..k-1 을 매기면 숨은 행과 순서값이 겹친다(K19).
+            # 보내는 행끼리 그 행들의 옛 값을 나눠 갖는다(보내지 않는 행의 값은 그 행 몫이다).
+            orders = _filtered_orders(to_save, self._orders_on_refresh)
+            for d, order in zip(to_save, orders, strict=True):
+                d["order"] = order
+        else:
+            for i, d in enumerate(devices):
+                d["order"] = i
 
         deleted = model.deleted_devices()
         # 쓰기가 새 version 을 이 dict 들에 덮어쓰므로 쓰기 전에 잡아 둔다.

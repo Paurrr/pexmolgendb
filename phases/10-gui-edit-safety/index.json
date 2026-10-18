@@ -53,7 +53,10 @@
     {
       "step": 6,
       "name": "filtered-save-order",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T15:30:38+0900",
+      "summary": "K19(승인): 숨긴 행이 있던 refresh 뒤 save_all 은 보이는 id 행에 그 행들의 옛 order 를 정렬해 화면 순서대로 나눠 줌(새 행은 위 id 행 값, 없으면 최소-1, id 행이 없으면 max+1), 숨긴 행이 없으면 order=i 그대로(필터 없음·모두 보이는 필터). 구현은 controllers/device_table.py 만: refresh_devices 가 _hid_rows_on_refresh(보인 행 < 읽은 행)와 _orders_on_refresh({id: order}, 숨은 행 포함, max 도 여기서)를 기억하고, 모듈 함수 _filtered_orders(devices, old_orders) 가 계산(refresh 때 없던 id 는 새 행 취급). 옛 값은 모델 dict 의 order 가 아니라 refresh 때 값. 숨은 행은 보내지 않음, repo·가짜 repo·필터 매칭 불변, 새 문구 없음. RED(수정 전, tests/gui/test_filtered_save_order.py): test_saving_a_filtered_view_without_edits_writes_nothing {'nfet_c': 1} != {'nfet_c': 2}, test_reordering_the_visible_rows_reuses_their_own_order_values {'nfet_a': 1} != {'nfet_a': 2}, 편집 하나·보이는 행 삭제 nfet_c 1/0 != 2, 새 행 목록 index 1 'nfet_b' != 'nfet_new', 맨 위 새 행 {'nfet_new': 0} != {'nfet_new': -1}, id 행 없음 {'nfet_new': 0} != {'nfet_new': 3}, Save Skipped [('nfet_a', 1)] != [('nfet_a', 0)], 취소 뒤 다시 저장 [('nfet_c', 0), ('nfet_a', 1)] != [('nfet_c', 0), ('nfet_a', 2)], 취소 뒤 nfet_a 삭제 [('nfet_c', 0)] != [('nfet_c', 2)] → 10 failed. 필터 없음·모두 보이는 필터(nfet_c order 7 → 2)는 수정 전에도 통과(특성 테스트). _filtered_orders 단위 테스트 9개는 수정 전 ImportError. 변이: ① 늘 order=i → 10 failed ② 보이는 행의 옛 값을 모델 dict 에서 → test_deleting_a_row_after_a_cancelled_conflict_keeps_the_old_order_values 1 failed. 명세의 '취소 뒤 다시 저장(두 호출 order 비교)' 테스트는 남겼지만 이 변이에서도 통과한다(취소된 저장은 보이는 id 행끼리 옛 값을 바꿔 가질 뿐 값 묶음이 같다). 그래서 취소 뒤 행을 지우고 다시 저장하는 테스트를 더함(처음 쓴 nfet_c 삭제판은 옛 코드도 우연히 0 을 보내 통과해서 nfet_a 삭제로 바꿈) ③ 슬롯을 보내지 않는 행까지 → test_an_off_list_row_keeps_its_order_value_to_itself 1 failed ④ 기준을 '필터 있음'으로 → test_a_filter_that_shows_every_row_still_renumbers_every_row 1 failed. 모두 되돌림. Save Skipped 행 처리: 보내는 행(to_save) 기준으로 슬롯 계산(보내지 않아 DB 값이 그대로인 행의 순서값을 다른 행이 받아 겹치지 않게. 정렬 뒤 nfet_c 를 목록 밖 CellType 으로 고치면 nfet_a 는 0 유지, 쓰기 0, 'No changes to save.' + Save Skipped). 새 known-issue: refresh 때 이미 겹친 order 는 숨은 행을 쓰지 않고는 정리 못 함(같은 값의 숨은 행이 있으면 새 행이 그 뒤에 올 수 있다). ruff 통과, 정렬·저장 결과·Virtuoso 목록 33 passed, GUI 408 passed, 전체 773 passed / 10 skipped(DB 붙음, Git Bash)",
+      "completed_at": "2026-10-18T15:39:49+0900"
     }
   ],
   "created_at": "2026-10-18T14:35:07+0900"
