@@ -31,7 +31,8 @@
       "name": "deploy-missing-command",
       "status": "completed",
       "summary": "deploy.sh: 명령 목록 직후 venv/bin/<cmd> 가 없으면 런처를 만들기 전에 exit 1(지난 런처 보존, stderr 에 경로). 자동으로 읽은 명령에도 같은 검사(언제나 통과). 머리 주석 DEPLOY_COMMANDS 설명에 한 줄. RED: test_an_unknown_deploy_command_is_refused (result.returncode != 0 → assert 0 != 0, stdout 'Deployed v1.0.0: genviewer nosuch'), test_a_refused_deploy_keeps_the_previous_launchers (assert ['genviewer', 'nosuch'] == ['genviewer', 'genviewer-init-db'], genviewer-init-db 지워지고 nosuch 생김). 회귀 test_deploy_commands_overrides_discovery·test_one_launcher_per_command·test_a_renamed_command_leaves_no_stale_launcher 그대로 통과. 변이: 검사를 지우면 두 테스트 실패, 런처 정리 뒤로 옮기면 보존 테스트만 실패(assert [] == ['genviewer', 'genviewer-init-db']). check_exec 는 그대로. 셸 테스트 32 passed / 7 skipped(posix_only), 전체 699 passed / 10 skipped / 1 xfailed(DB 붙음). tools/*.sh i/lf w/lf, 100755 유지",
-      "started_at": "2026-10-18T09:33:52+0900"
+      "started_at": "2026-10-18T09:33:52+0900",
+      "completed_at": "2026-10-18T09:46:47+0900"
     }
   ],
   "created_at": "2026-10-18T09:10:42+0900"
