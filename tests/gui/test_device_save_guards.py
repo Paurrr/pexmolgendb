@@ -6,6 +6,9 @@ G15a: save_all 은 CellType 이 delegate_config 목록에 없는 행을 저장�
 
 G15b: 붙여넣기는 바로 저장하고 목록을 다시 읽는다. device 표에 저장 안 한 편집이 있으면
 붙여넣지 않고 "Unsaved Changes" 경고를 낸다.
+
+K38 (phase 10 step 2): 붙여넣은 device 의 탭 쓰기는 그 행의 device 저장이 돌려준 version 에
+대고 쓴다(expected_version). 그 사이 남이 그 device 를 저장했으면 충돌로 묻는다.
 """
 
 import pytest
@@ -13,6 +16,7 @@ from gui_support.helpers import edit_device_cell, edit_tab_cell, select_device_r
 
 from genviewer.config.config import delegate_config
 from genviewer.dialogs.conflict import CANCEL, RELOAD
+from genviewer.service.errors import Conflict, StaleWriteError
 
 EDITED = "edited by tester"
 OFF_LIST = "nmos_rf"  # delegate_config 의 device.celltype.items 에 없다
@@ -215,6 +219,122 @@ def test_pasting_without_unsaved_edits_saves_the_pasted_row(device_tab_ctrl, sto
     assert model_of(ctrl).rowCount() == 3
     assert [d["name"] for d in model_of(ctrl).get_devices()].count("nfet_b") == 2
     assert titled(notes, "Unsaved Changes") == []
+
+
+# -- K38: 붙여넣은 device 의 탭 쓰기는 저장된 version 에 대고 쓴다 ----------------------
+
+
+def new_device_ids(store, before: set[int]) -> list[int]:
+    return sorted(set(store.devices) - before)
+
+
+def spy_saved_versions(monkeypatch, ctrl, after_save=None) -> list[tuple[int, int]]:
+    """붙여넣기의 device 저장(upsert_device)이 돌려준 (id, version) 을 차례로 모은다."""
+    repo = ctrl.device_table.repo
+    save = repo.upsert_device
+    saved_versions: list[tuple[int, int]] = []
+
+    def spy(*args, **kwargs):
+        saved = save(*args, **kwargs)
+        saved_versions.append((saved["id"], saved["version"]))
+        if after_save is not None:
+            after_save(saved)
+        return saved
+
+    monkeypatch.setattr(repo, "upsert_device", spy)
+    return saved_versions
+
+
+def test_a_pasted_row_writes_its_tabs_against_the_saved_version(device_tab_ctrl, store):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    before = set(store.devices)
+    ctrl.device_table.copy_rows([1])
+
+    ctrl.device_table.paste_rows([1])
+
+    [new_id] = new_device_ids(store, before)
+    call = store.calls_of("replace_many_for_device")[-1]
+    assert call["device_id"] == new_id
+    assert call["expected_version"] is not None
+    # 탭 쓰기가 한 번 올렸다
+    assert call["expected_version"] + 1 == store.devices[new_id]["version"]
+
+
+def test_each_pasted_row_writes_its_tabs_against_its_own_saved_version(
+    device_tab_ctrl, store, monkeypatch
+):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    before = set(store.devices)
+    ctrl.device_table.copy_rows([0, 1])
+    saved_versions = spy_saved_versions(monkeypatch, ctrl)
+
+    ctrl.device_table.paste_rows([1])
+
+    new_ids = new_device_ids(store, before)
+    assert [device_id for device_id, _ in saved_versions] == new_ids
+    calls = store.calls_of("replace_many_for_device")
+    assert [(c["device_id"], c["expected_version"]) for c in calls] == saved_versions
+    assert [store.devices[i]["version"] for i in new_ids] == [v + 1 for _, v in saved_versions]
+
+
+def test_another_users_save_between_paste_and_tab_write_is_a_conflict(
+    device_tab_ctrl, store, dialogs, monkeypatch
+):
+    # 내 붙여넣기가 device 행을 저장한 바로 뒤, 탭을 쓰기 전에 bob 이 그 device 를 저장했다.
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    before = set(store.devices)
+    ctrl.device_table.copy_rows([1])
+    spy_saved_versions(
+        monkeypatch,
+        ctrl,
+        after_save=lambda saved: store.touch_device(saved["id"], actor="bob", description="bob"),
+    )
+    dialogs.answer_conflict(CANCEL)
+
+    ctrl.device_table.paste_rows([1])
+
+    [new_id] = new_device_ids(store, before)
+    bob_saved_at = store.devices[new_id]["updated_at"]
+    assert [s for s in dialogs.shown if s[0] == "conflict"] == [
+        ("conflict", "Save Conflict", f"nfet_b: bob 님이 수정 ({bob_saved_at:%Y-%m-%d %H:%M})")
+    ]
+    # 취소했으므로 붙여넣은 탭 행은 쓰이지 않았고 bob 의 저장이 그대로다
+    assert store.rows("inst_terms", new_id) == []
+    assert store.devices[new_id]["updated_by"] == "bob"
+    section = ctrl.parameter_tab.section(TAB)
+    assert section.device_id == new_id
+    assert section.is_dirty()
+
+
+def test_a_stale_tab_write_after_paste_asks_and_cancel_keeps_the_pasted_rows_dirty(
+    device_tab_ctrl, store, dialogs
+):
+    ctrl = device_tab_ctrl
+    open_sf2p(ctrl)
+    before = set(store.devices)
+    ctrl.device_table.copy_rows([1])
+    store.fail_next(
+        "replace_many_for_device",
+        StaleWriteError([Conflict(0, "nfet_b", "stale", "bob", None)]),
+    )
+    dialogs.answer_conflict(CANCEL)
+
+    ctrl.device_table.paste_rows([1])
+
+    [new_id] = new_device_ids(store, before)
+    assert [s for s in dialogs.shown if s[0] == "conflict"] == [
+        ("conflict", "Save Conflict", "nfet_b: bob 님이 수정")
+    ]
+    assert [s for s in dialogs.shown if s[0] == "error"] == []
+    # device 행은 저장됐고 목록을 다시 읽었다. 탭 행은 쓰이지 않고 dirty 로 남았다
+    assert model_of(ctrl).rowCount() == 3
+    assert store.rows("inst_terms", new_id) == []
+    section = ctrl.parameter_tab.section(TAB)
+    assert section.device_id == new_id
+    assert section.is_dirty()
 
 
 # -- DeviceTableModel.is_row_changed ---------------------------------------------

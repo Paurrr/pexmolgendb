@@ -34,7 +34,8 @@ def _describe_save(result: SaveResult) -> str:
 
 
 class DeviceTableController(QObject):
-    pasteRequested = Signal(object, str, dict)
+    # device_id, celltype, 탭 행, 그 행을 저장한 version(탭 쓰기의 expected_version).
+    pasteRequested = Signal(object, str, dict, object)
     notifyRequested = Signal(str, str, str)
     logRequested = Signal(str)
     # device_id, old_version, new_version. 내 저장(save_all)이 실제로 올린 행만 낸다.
@@ -204,7 +205,11 @@ class DeviceTableController(QObject):
             device_id = saved.get("id")
             cell_type = saved.get("celltype", "")
             related_row_dict = copied_row.get("related", {})
-            self.pasteRequested.emit(device_id, cell_type, related_row_dict)
+            # 모델의 행에는 아직 id 도 version 도 없다(refresh_devices 는 반복 뒤에 돈다).
+            # 탭 쓰기가 version 을 확인하도록 이 저장이 돌려준 version 을 같이 보낸다.
+            self.pasteRequested.emit(
+                device_id, cell_type, related_row_dict, saved.get("version")
+            )
 
         self.refresh_devices()
         if pasted:

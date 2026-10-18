@@ -470,12 +470,7 @@ class DeviceTabController(QObject):
         return True
 
     @Slot()
-    def on_paste_requested(self, device_id, device_type, payload: dict):
-        version = None
-        for dev in self.device_table.ui.model_safe().get_devices():
-            if dev.get("id") == device_id:
-                version = dev.get("version")
-                break
+    def on_paste_requested(self, device_id, device_type, payload: dict, version):
         self.parameter_tab.paste_payload(device_id, device_type, payload, version)
 
     def undo_current(self) -> bool:

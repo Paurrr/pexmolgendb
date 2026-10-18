@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "paste-tab-version",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-18T14:54:09+0900",
+      "summary": "K38: DeviceTableController.pasteRequested 가 Signal(object, str, dict, object) 로 (id, celltype, related, version) 을 싣고(version 은 그 행 save_device 가 돌려준 dict 의 'version') on_paste_requested 가 그 version 을 paste_payload 에 넘김(모델 조회 삭제). 순서(행 저장 → 탭 쓰기 → 마지막 refresh_devices)·paste_payload·_write·repo·가짜 repo 그대로, 새 문구 없음, pasteRequested 를 잇는 곳은 device_tab 하나. RED(수정 전, tests/gui/test_device_save_guards.py K38 절): test_a_pasted_row_writes_its_tabs_against_the_saved_version 'assert None is not None', test_each_pasted_row_writes_its_tabs_against_its_own_saved_version '[(4, None), (5, None)] == [(4, 1), (5, 1)]'(upsert_device 스파이가 모은 (id, version) 과 비교), test_another_users_save_between_paste_and_tab_write_is_a_conflict(스파이가 행 저장 직후 bob 이 touch_device) '[] == [(conflict, Save Conflict, nfet_b: bob 님이 수정 (…))]' + 쓰이지 않은 CANCEL 답 teardown 오류. 실제 동작이 서술과 다른 점: fail_next 의 stale 테스트(test_a_stale_tab_write_after_paste_asks_and_cancel_keeps_the_pasted_rows_dirty: 충돌 1회 'nfet_b: bob 님이 수정', error 상자 없음, 행 3개, 새 device 의 inst_terms 비어 있음, 섹션 device_id 새 id·dirty)는 가짜가 version 과 무관하게 예외를 내므로 수정 전에도 통과(특성 테스트). 그래서 stale 경로가 이제 닿는 것은 bob 경합 테스트로 보였다. 변이: ① paste_rows 가 version 자리에 None → 3 failed + 1 error ② on_paste_requested 가 받은 version 대신 None → 3 failed + 1 error. 모두 되돌림. GUI 369 passed, 전체 734 passed / 10 skipped(DB 붙음, Git Bash). 다음 step 3 은 같은 paste_rows 에 탭 dirty 거부를 더한다"
     },
     {
       "step": 3,
