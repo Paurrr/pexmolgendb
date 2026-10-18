@@ -24,7 +24,7 @@ phase는 step 셋으로 진행한다.
 4. 테스트는 실제 Virtuoso에 붙지 않는다. **127.0.0.1에서 테스트가 띄운 로컬 서버(스레드)에는 붙어도 된다.** phase 4 step 6과 CLAUDE.md는 "listen하는 흉내 서버 금지, `FakeVirtuosoClient` 로 대신" 이라고 했다. QTcpSocket은 가짜 클라이언트를 끼울 자리가 없어서 이 phase가 그 관례를 바꾼다. CLAUDE.md는 step 2가 고친다.
 5. 테스트는 **공개 API만** 쓴다. 메서드는 `connect(host, port)`, `disconnect()`, `send(msg)`, `shutdown()` 이다. 속성은 `is_connected`(property)다. 시그널은 `received(str)`, `statusChanged(bool, str)` 다. 이유: step 2가 내부(`_connectWorker`, `_client`, `client_factory` …)를 지우므로, private에 기댄 테스트는 그물이 되지 못한다.
 6. pytest 프로세스 안에서 실행 중인 QThread를 놓치면 프로세스가 통째로 죽는다(qFatal "QThread: Destroyed while thread is still running", Windows 종료 코드 `0xC0000409`). 그 상태를 일부러 만드는 재현(K39·K40)은 **서브프로세스**에서만 돌린다.
-7. 이 파일의 행 번호는 2026-10-17 기준 대략값이다. phase 6~12가 같은 파일을 바꿨을 수 있으니 이름으로 찾아라.
+7. 이 파일의 행 번호는 2026-10-18(phase 12 직후) 기준 대략값이다. 이름으로 찾아라.
 8. PostgreSQL SQL은 바꾸지 않는다. 그래서 하네스 규칙 12(DB 테스트 필수)는 해당하지 않는다. `GENDB_TEST_PG_DSN` 이 있으면 `-rs` 로 전체를 돌리고 summary에 `DB 테스트: <N passed | 안 돎(DSN 없음)>` 을 적는다. DSN이 없어도 `blocked` 가 아니다.
 
 GUI 테스트 관례는 CLAUDE.md "테스트 관례" 와 `tests/gui/conftest.py` 를 따른다.

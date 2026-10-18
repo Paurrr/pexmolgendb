@@ -24,7 +24,7 @@ phase는 step 셋으로 진행한다.
 4. 테스트는 실제 Virtuoso에 붙지 않는다. 127.0.0.1의 테스트 서버(`tests/gui_support/virtuoso_server.py`)에는 붙어도 된다.
 5. 테스트는 **공개 API만** 쓴다. 메서드는 `connect`, `disconnect`, `send`, `shutdown` 이다. 속성은 `is_connected`(property)다. 시그널은 `received`, `statusChanged` 다.
 6. pytest 프로세스 안에서 실행 중인 QThread를 놓치면 프로세스가 통째로 죽는다. 이 step 뒤로 `net/` 에는 QThread가 없다.
-7. 이 파일의 행 번호는 2026-10-17 기준 대략값이다. 이름으로 찾아라.
+7. 이 파일의 행 번호는 2026-10-18(phase 12 직후) 기준 대략값이다. 이름으로 찾아라.
 8. PostgreSQL SQL은 바꾸지 않는다. `GENDB_TEST_PG_DSN` 이 있으면 `-rs` 로 전체를 돌리고 summary에 `DB 테스트: <N passed | 안 돎(DSN 없음)>` 을 적는다. DSN이 없어도 `blocked` 가 아니다.
 
 GUI 테스트 관례는 CLAUDE.md "테스트 관례" 와 `tests/gui/conftest.py` 를 따른다. `waitUntil` 콜백은 bool을 돌려주고, 고정 대기로 "아무 일 없음" 을 단언하지 않는다.
