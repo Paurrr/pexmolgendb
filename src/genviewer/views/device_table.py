@@ -235,6 +235,11 @@ class DeviceTableView(QTableView):
             return
 
         src_from = self._map_to_source_row(proxy_from_first)
+        # 필터가 사이 행을 숨겼으면 source 에서는 떨어져 있다. 연속 구간을 옮기면 숨은 행도 간다
+        src_rows = [self._map_to_source_row(row) for row in sel_rows_proxy]
+        if src_rows != list(range(src_from, src_from + proxy_count)):
+            event.ignore()
+            return
 
         proxy_pos_index = self.indexAt(event.pos())
         drop_pos = self.dropIndicatorPosition()
