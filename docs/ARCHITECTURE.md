@@ -45,13 +45,13 @@ src/genviewer/
   controllers/              # QObject. view 시그널 ↔ repo 호출. main_window, device_tab(접속·폴링), device_table(저장·충돌), parameter_tab, tab_section(device별 모델 캐시), device_tab_toolbar, history_tab, socket_tab
   dialogs/                  # conflict(다시 읽기/덮어쓰기/취소), connection(Connect…), insert, tab_selector
   delegates/combo_box.py    # delegate_config 기반 콤보
-  net/                      # Virtuoso 소켓: client(Client), workers(Connect/Receive/Send QThread), controller(ConnectionController)
+  net/                      # Virtuoso 소켓: controller(ConnectionController: GUI 스레드의 QTcpSocket 하나, 4바이트 길이 + UTF-8 프레임)
   utils/                    # background(run_blocking, Task, is_busy), logs(파일 로그, scrub), reporting(report 데코레이터),
                             # exporter(csv/xlsx), lisp(SKILL 리스트), validators, user(current_user), palette, dialogs, menus …
 tools/                      # initdb.sh(클러스터 생성·기동), deploy.sh(태그 설치·런처)
 tests/                      # pytest. conftest: pg_dsn/db fixture (GENDB_TEST_PG_DSN)
   gui/                      #   pytest-qt GUI 테스트. conftest: offscreen, autouse dialogs(모달 가짜), store/device_tab_ctrl/main_window
-  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository·FakeVirtuosoClient), helpers.py(시드, install_fake_db·install_fake_history, 사용자 동작)
+  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository), helpers.py(시드, install_fake_db·install_fake_history, 사용자 동작), virtuoso_server.py(127.0.0.1 LocalVirtuoso), virtuoso_child.py(서브프로세스 재현)
   fixtures/                 #   Qt 없는 테스트 헬퍼 패키지(pythonpath=tests): imports.py(import 스캐너, test_boundaries.py·test_py39_compat.py 가 쓴다)
 scripts/                    # 하네스 execute.py (+ test_execute.py). 앱 코드가 아니다 (ruff 제외)
 phases/                     # 하네스 step 파일
@@ -125,7 +125,7 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 - `Task` 단독(비동기): 변경 감지 폴링, History 다시 읽기. `done`/`failed` 시그널은 GUI 스레드에서 받는다. 결과·실패는 시그널을 낸 작업(`sender()`)이 지금 작업일 때만 쓰고, 정리(`finished`)는 끝난 그 작업만 지운다. 기다린 뒤 큐에 남은 옛 `finished` 가 돌고 있는 새 작업을 지우면 프로세스가 죽는다.
 - 아직 GUI 스레드에서 동기로 도는 DB 호출이 있다(process 목록·추가·삭제, 탭 로드, 복사·붙여넣기, export). 새 코드는 이 패턴을 따르지 않는다.
 - psycopg 커넥션은 스레드끼리 공유하지 않는다(풀에서 호출마다 꺼낸다).
-- `net/` 은 QThread 워커 셋(Connect/Receive/Send)이 `Client` 소켓 하나를 쓴다. 접속 중의 Connect는 무시하고, 보내기 실패는 받기 오류처럼 `received` 로 간다. 창을 닫으면 `ConnectionController.shutdown()` 이 받기·보내기 워커를 멈춘다(접속 중인 ConnectWorker는 기다리지 않는다, known-issues K39).
+- `net/` 에는 워커 스레드가 없다. GUI 스레드의 QTcpSocket 하나가 시그널(`connected`·`readyRead`·`errorOccurred`·`disconnected`)로 돌고, 대기 메서드(`waitFor*`)는 쓰지 않는다. 접속 중의 Connect는 무시한다. 상대가 끊거나 수신 오류가 나면 Socket 탭에 알리고(`received("ERROR: recv failed - …")`) 상태를 Disconnected로 바꾼다. 창을 닫으면 `ConnectionController.shutdown()` 이 소켓을 abort한다.
 - 워커 스레드에서 샌 예외(`QThread.run`)는 PySide6가 그 스레드에서 `sys.excepthook` 을 부른다. `main.py` 의 hook은 로그를 남기고, 상자는 GUI 스레드일 때만 연다.
 
 ## 배포 구조

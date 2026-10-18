@@ -1,12 +1,15 @@
-"""Virtuoso 접속(ConnectionController)의 지금 동작을 공개 API 로 고정한다 (phase 13 step 0).
+"""Virtuoso 접속(ConnectionController)을 공개 API 로 고정한다 (phase 13).
 
-step 2 가 `net/` 을 QTcpSocket 하나로 다시 쓴다. 이 테스트는 그때도 그대로 통과해야 하는 그물이라
+`net/` 은 step 2 부터 GUI 스레드의 QTcpSocket 하나다. 이 테스트는 다음 구조 변경 때도 그물이 되도록
 공개 API 만 쓴다: `connect(host, port)`, `disconnect()`, `send(msg)`, `shutdown()`, `is_connected`,
 시그널 `received(str)`·`statusChanged(bool, str)`. 상대는 127.0.0.1 에 테스트가 띄운
 `LocalVirtuoso` 이고, 접속 거부는 닫힌 포트(127.0.0.1:1)로 만든다.
 
-알려진 버그(K14·K24·K39·K40)는 strict xfail 로 재현한다. K39·K40 은 실행 중인 QThread 를 놓쳐
-프로세스가 죽으므로 서브프로세스(`gui_support.virtuoso_child`)에서 돌린다.
+step 0 이 strict xfail 로 재현한 버그(K14·K24·K39·K40)는 step 2 가 고쳤다. K39·K40 은 되살아나면
+프로세스가 죽으므로 계속 서브프로세스(`gui_support.virtuoso_child`)에서 돌린다.
+
+늦게 올 수 있는 신호(앞 시도의 접속 결과, 두 번째 상태 신호)가 없다는 것은 고정 대기 대신, 붙은
+채로 한 번 주고받은 뒤(`exchange`) 기록을 보고 단언한다. 그동안 이벤트를 여러 번 돌렸다.
 """
 
 import json
@@ -19,7 +22,7 @@ from pathlib import Path
 
 import pytest
 from gui_support.virtuoso_server import LocalVirtuoso, frame
-from PySide6.QtCore import QCoreApplication, QThread
+from PySide6.QtCore import QEventLoop, QTimer
 
 from genviewer.controllers.main_window import MainWindowController
 from genviewer.net.controller import ConnectionController
@@ -31,10 +34,6 @@ DISCONNECTED = (False, "Disconnected")
 PEER_CLOSED_MESSAGE = "ERROR: recv failed - Server connection closed"
 TESTS_DIR = Path(__file__).resolve().parents[1]
 
-# 정리 때 5초 안에 끝나지 않은 스레드. 참조를 놓으면 실행 중인 QThread 가 지워져 프로세스가 죽는다.
-# 끝까지 쥐고 있고 그 테스트는 실패시킨다(test_socket_workers.py 의 _STUCK 과 같은 이유).
-_STUCK: list[QThread] = []
-
 
 @pytest.fixture
 def server() -> Iterator[LocalVirtuoso]:
@@ -44,28 +43,10 @@ def server() -> Iterator[LocalVirtuoso]:
 
 
 def stop_controllers(server: LocalVirtuoso, made: list[ConnectionController]) -> None:
-    """테스트가 쓴 컨트롤러를 멈춘다. 끝나지 않은 스레드가 있으면 쥐고 테스트를 실패시킨다."""
-    # 1. 서버를 먼저 닫는다. 연결이 닫혀야 막혀 있는 recv 가 풀린다.
+    """테스트가 쓴 컨트롤러를 창을 닫을 때처럼 멈추고 서버를 닫는다."""
+    for ctrl in made:
+        ctrl.shutdown()
     server.close()
-    stuck: list[QThread] = []
-    for ctrl in made:
-        # 2. 창을 닫을 때처럼 멈춘다.
-        ctrl.shutdown()
-        # 3. step 0 한정: shutdown 이 기다리지 않는 접속·끊기 워커를 기다린다(private, 정리용).
-        #    step 2 가 이 줄을 지운다.
-        for name in ("_connectWorker", "_disconnectWorker"):
-            worker = getattr(ctrl, name, None)
-            if worker is not None and not worker.wait(5000):
-                stuck.append(worker)
-    # 끝난 워커의 결과가 아직 큐에 있으면 여기서 배달하고, 그것이 띄운 것까지 다시 멈춘다.
-    QCoreApplication.sendPostedEvents()
-    for ctrl in made:
-        ctrl.shutdown()
-    if stuck:
-        # 4. 놓으면 프로세스가 죽는다. 쥐고 있고 이 테스트는 실패시킨다.
-        _STUCK.extend(stuck)
-        names = [type(t).__name__ for t in stuck]
-        pytest.fail(f"정리 때 끝나지 않은 스레드: {names}", pytrace=False)
 
 
 @pytest.fixture
@@ -86,8 +67,7 @@ def window(main_window, server) -> Iterator[MainWindowController]:
     """`main_window` 이고, 그 `connection_controller` 를 make_controller 와 같은 순서로 정리한다.
 
     pytest-qt 는 fixture 정리보다 먼저 창을 닫는다. 그때 `main_window` 의 before_close_func 가
-    `shutdown()` 을 한 번 부른다(서버를 닫기 전). 여기 테스트에서는 서버가 프레임을 보내지 않아
-    받기 워커가 recv 에 막혀 있지 않으므로 바로 끝난다.
+    `shutdown()` 을 한 번 부르고, 여기서 한 번 더 부른다(여러 번 불러도 된다).
     """
     yield main_window
     stop_controllers(server, [main_window.connection_controller])
@@ -110,6 +90,26 @@ def connect_and_wait(qtbot, ctrl: ConnectionController, server: LocalVirtuoso, n
     ctrl.connect(HOST, server.port)
     qtbot.waitUntil(lambda: ctrl.is_connected)
     qtbot.waitUntil(lambda: server.accepted == n)
+
+
+def exchange(qtbot, ctrl: ConnectionController, server: LocalVirtuoso, received: list[str]) -> None:
+    """붙은 채로 "ping" 을 보내고 "pong" 을 받는다. 늦게 올 신호가 있었다면 그동안 왔다.
+
+    "ping" 이 닿은 연결이 마지막 연결이므로 "pong" 은 지금 연결로 간다(앞 시도의 연결이 서버에
+    늦게 기록됐더라도).
+    """
+    ctrl.send("ping")
+    qtbot.waitUntil(lambda: server.frames()[-1:] == [b"ping"])
+    server.send_frame("pong")
+    qtbot.waitUntil(lambda: received[-1:] == ["pong"])
+
+
+def decode_error_message(data: bytes) -> str:
+    try:
+        data.decode()
+    except UnicodeDecodeError as e:
+        return f"ERROR: recv failed - {e}"
+    raise AssertionError("UTF-8 로 읽히는 바이트다")
 
 
 # -- 접속 ------------------------------------------------------------------------
@@ -150,6 +150,95 @@ def test_connect_while_connected_says_already_connected(qtbot, server, make_cont
     assert server.accepted == 1
 
 
+def test_connect_again_after_a_refused_attempt(qtbot, server, make_controller):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+    ctrl.connect(HOST, CLOSED_PORT)
+    qtbot.waitUntil(lambda: statuses != [], timeout=10000)
+
+    connect_and_wait(qtbot, ctrl, server)
+
+    assert statuses == [(False, "ConnectionRefused"), CONNECTED]
+
+
+@pytest.mark.parametrize("port", [70000, -1])
+def test_connect_to_an_out_of_range_port_reports_an_error(qtbot, server, make_controller, port):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+
+    ctrl.connect(HOST, port)
+    qtbot.waitUntil(lambda: statuses != [])
+
+    # 파이썬 socket 이 내던 문구 그대로다. 접속 중으로 남지 않는다.
+    assert statuses == [(False, "Error: connect(): port must be 0-65535.")]
+    assert not ctrl.is_connected
+    connect_and_wait(qtbot, ctrl, server)
+
+
+def test_connect_while_connecting_is_ignored(qtbot, server, make_controller):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+    received = record_received(ctrl)
+
+    ctrl.connect(HOST, server.port)
+    ctrl.connect(HOST, server.port)  # 결과 전(이벤트를 돌리지 않았다)
+
+    assert statuses == []
+    qtbot.waitUntil(lambda: ctrl.is_connected)
+    exchange(qtbot, ctrl, server, received)
+    assert statuses == [CONNECTED]
+    assert server.accepted == 1
+
+
+def test_disconnect_while_connecting_stops_the_attempt(qtbot, server, make_controller):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+    received = record_received(ctrl)
+
+    ctrl.connect(HOST, server.port)
+    ctrl.disconnect()  # 결과 전
+
+    assert statuses == [DISCONNECTED]
+    assert not ctrl.is_connected
+    # 다시 붙는다. 앞 시도의 결과("Connected")는 주고받는 동안에도 오지 않는다.
+    ctrl.connect(HOST, server.port)
+    qtbot.waitUntil(lambda: ctrl.is_connected)
+    exchange(qtbot, ctrl, server, received)
+    assert statuses == [DISCONNECTED, CONNECTED]
+    assert received == ["pong"]
+
+
+def test_shutdown_while_connecting_is_quiet(qtbot, server, make_controller):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+    received = record_received(ctrl)
+
+    ctrl.connect(HOST, server.port)
+    ctrl.shutdown()  # 결과 전. 창이 닫히는 중이라 알리지 않는다
+
+    assert statuses == []
+    assert not ctrl.is_connected
+    # 앞 시도의 결과가 늦게 오지 않는지 보려고 같은 컨트롤러로 다시 붙어 주고받는다.
+    ctrl.connect(HOST, server.port)
+    qtbot.waitUntil(lambda: ctrl.is_connected)
+    exchange(qtbot, ctrl, server, received)
+    assert statuses == [CONNECTED]
+
+
+def test_send_while_connecting_is_ignored(qtbot, server, make_controller):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+    received = record_received(ctrl)
+
+    ctrl.connect(HOST, server.port)
+    ctrl.send("early")
+
+    assert statuses == [(False, "Not connected (send ignored)")]
+    qtbot.waitUntil(lambda: ctrl.is_connected)
+    exchange(qtbot, ctrl, server, received)
+    assert server.frames() == [b"ping"]  # "early" 는 쓰지 않았다
+
+
 # -- 보내기·받기 -------------------------------------------------------------------
 
 
@@ -182,6 +271,33 @@ def test_received_frames_come_out_in_order(qtbot, server, make_controller):
     qtbot.waitUntil(lambda: len(received) == 5)
 
     assert received == ["hello", "안녕하세요", "one", "two", "나눠 보낸 프레임"]
+
+
+@pytest.mark.parametrize("then_close", [False, True], ids=["stays", "closes"])
+def test_frames_that_arrive_while_a_receiver_waits_still_come_out(
+    qtbot, server, make_controller, then_close
+):
+    # received 를 받은 쪽이 모달을 띄운 동안 온 프레임이다. 예: DeviceList 의 Refresh 질문 중에
+    # 오는 LibraryList(Load Virtuoso 는 두 요청을 잇달아 보낸다).
+    ctrl = make_controller()
+    received = record_received(ctrl)
+    connect_and_wait(qtbot, ctrl, server)
+
+    def wait_like_a_modal(text: str) -> None:
+        if text != "first":
+            return
+        server.send_frame("second")
+        if then_close:
+            server.close_peer()
+        loop = QEventLoop()
+        QTimer.singleShot(300, loop.quit)
+        loop.exec()
+
+    ctrl.received.connect(wait_like_a_modal)
+    server.send_frame("first")
+
+    expected = ["first", "second"] + ([PEER_CLOSED_MESSAGE] if then_close else [])
+    qtbot.waitUntil(lambda: received == expected)
 
 
 # -- 끊기 ------------------------------------------------------------------------
@@ -267,6 +383,69 @@ def test_connect_again_after_disconnecting(qtbot, server, make_controller):
     qtbot.waitUntil(lambda: received == ["back"])
 
 
+def test_reconnecting_after_disconnecting_mid_frame_starts_clean(qtbot, server, make_controller):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+    received = record_received(ctrl)
+    connect_and_wait(qtbot, ctrl, server)
+    # 완전한 프레임 하나와, 100바이트라고 적은 머리 + 10바이트.
+    server.send_raw(frame("first") + (100).to_bytes(4, byteorder="big") + b"x" * 10)
+    qtbot.waitUntil(lambda: received == ["first"])
+
+    ctrl.disconnect()
+    connect_and_wait(qtbot, ctrl, server, n=2)
+    exchange(qtbot, ctrl, server, received)
+
+    assert received == ["first", "pong"]  # 반쯤 받은 프레임은 새 연결로 넘어가지 않는다
+    assert statuses == [CONNECTED, DISCONNECTED, CONNECTED]
+
+
+def test_send_after_the_peer_closed_is_ignored(qtbot, server, make_controller):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+    connect_and_wait(qtbot, ctrl, server)
+    server.close_peer()
+    qtbot.waitUntil(lambda: statuses[-1] == DISCONNECTED)
+
+    ctrl.send("abc")
+
+    assert statuses[-1] == (False, "Not connected (send ignored)")
+    assert server.data() == b""
+
+
+def close_peer(server: LocalVirtuoso) -> str:
+    server.close_peer()
+    return PEER_CLOSED_MESSAGE
+
+
+def close_peer_mid_frame(server: LocalVirtuoso) -> str:
+    server.send_raw((100).to_bytes(4, byteorder="big") + b"x" * 10)
+    server.close_peer()
+    return PEER_CLOSED_MESSAGE  # 반쯤 받은 프레임은 버린다
+
+
+def send_non_utf8(server: LocalVirtuoso) -> str:
+    server.send_frame(b"\xff\xfe")
+    return decode_error_message(b"\xff\xfe")
+
+
+@pytest.mark.parametrize("lose", [close_peer, close_peer_mid_frame, send_non_utf8])
+def test_a_lost_connection_reports_once(qtbot, server, make_controller, lose):
+    ctrl = make_controller()
+    statuses = record(ctrl.statusChanged)
+    received = record_received(ctrl)
+    connect_and_wait(qtbot, ctrl, server)
+
+    message = lose(server)
+    qtbot.waitUntil(lambda: statuses[-1] == DISCONNECTED)
+    # 다시 붙어 주고받는다. 두 번째 알림이나 남은 바이트가 있었다면 그동안 드러난다.
+    connect_and_wait(qtbot, ctrl, server, n=2)
+    exchange(qtbot, ctrl, server, received)
+
+    assert statuses == [CONNECTED, DISCONNECTED, CONNECTED]
+    assert received == [message, "pong"]
+
+
 # -- 창: Load Virtuoso 의 목록 표시 -------------------------------------------------
 # "Device List"·"Filtered List" 는 DB 와 Virtuoso 에 둘 다 붙어 있을 때만 보인다(UI_GUIDE 레이아웃).
 
@@ -309,10 +488,34 @@ def test_load_virtuoso_hides_the_lists_again_after_disconnecting(qtbot, server, 
     assert virtuoso_lists_hidden(window) == (True, True)
 
 
-# -- 버그 재현 (strict xfail) ------------------------------------------------------
+# -- 창: Socket 탭과 툴바 상태 -----------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="K14: 상대가 닫아도 상태가 Connected 로 남는다")
+def test_peer_closing_shows_in_the_socket_tab_and_the_toolbar(qtbot, server, window):
+    connect_and_wait(qtbot, window.connection_controller, server)
+    assert window.ui.status_label.text() == "Connected"
+    assert window.ui.connect_btn.text() == "Disconnect"
+
+    server.close_peer()
+
+    qtbot.waitUntil(lambda: window.ui.status_label.text() == "Disconnected")
+    assert window.socket_tab.ui.recv_msg_te.toPlainText() == PEER_CLOSED_MESSAGE
+    assert window.ui.connect_btn.text() == "Connect"
+
+
+def test_closing_the_window_closes_the_socket(qtbot, server, window):
+    statuses = record(window.connection_controller.statusChanged)
+    connect_and_wait(qtbot, window.connection_controller, server)
+
+    window.shutdown()  # 창을 닫으면 main() 이 부른다. fixture 정리가 한 번 더 부른다
+
+    qtbot.waitUntil(server.peer_closed)
+    assert statuses == [CONNECTED]
+
+
+# -- 버그 재현 (step 0 의 strict xfail 이었다. step 2 가 고쳤다) ---------------------------
+
+
 def test_peer_closing_reports_disconnected(qtbot, server, make_controller):
     ctrl = make_controller()
     statuses = record(ctrl.statusChanged)
@@ -327,7 +530,6 @@ def test_peer_closing_reports_disconnected(qtbot, server, make_controller):
     assert not ctrl.is_connected
 
 
-@pytest.mark.xfail(strict=True, reason="K14: UTF-8 이 아닌 프레임 뒤에도 상태가 Connected 다")
 def test_a_non_utf8_frame_reports_an_error_and_disconnects(qtbot, server, make_controller):
     ctrl = make_controller()
     statuses = record(ctrl.statusChanged)
@@ -344,7 +546,6 @@ def test_a_non_utf8_frame_reports_an_error_and_disconnects(qtbot, server, make_c
     qtbot.waitUntil(server.peer_closed)
 
 
-@pytest.mark.xfail(strict=True, reason="K14: 0바이트 프레임을 끊김으로 보고 수신을 멈춘다")
 def test_an_empty_frame_is_not_a_disconnect(qtbot, server, make_controller):
     ctrl = make_controller()
     statuses = record(ctrl.statusChanged)
@@ -359,7 +560,6 @@ def test_an_empty_frame_is_not_a_disconnect(qtbot, server, make_controller):
     assert statuses == [CONNECTED]
 
 
-@pytest.mark.xfail(strict=True, reason="K24: 프레임 중간에서 상대가 멈추면 끊기가 굳는다")
 def test_disconnect_does_not_wait_for_a_half_received_frame(qtbot, server, make_controller):
     ctrl = make_controller()
     statuses = record(ctrl.statusChanged)
@@ -407,7 +607,6 @@ def describe(proc: subprocess.CompletedProcess) -> str:
     return f"rc={proc.returncode:#x}\nstdout:\n{proc.stdout}\nstderr(끝):\n{tail}"
 
 
-@pytest.mark.xfail(strict=True, reason="K39: 접속하는 동안 창을 닫으면 프로세스가 죽는다")
 def test_closing_the_window_while_connecting_does_not_crash():
     proc = run_child("k39")
 
@@ -415,7 +614,6 @@ def test_closing_the_window_while_connecting_does_not_crash():
     assert proc.stdout.splitlines()[-1:] == ["OK"], describe(proc)
 
 
-@pytest.mark.xfail(strict=True, reason="K40: 결과 전의 두 번째 Connect 가 워커를 덮어써 죽는다")
 def test_a_second_connect_before_the_result_makes_one_connection():
     proc = run_child("k40")
 
