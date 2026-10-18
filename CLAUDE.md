@@ -4,11 +4,9 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 이미 동작하는 코드를 하네스(`phases/`, `scripts/execute.py`)로 유지보수한다. **기능 추가·리팩터가 아니라 에러·버그만 고친다.** 구조 제안은 `docs/notes/architecture-proposal.md`, 고치지 않고 기록만 한 문제는 `docs/notes/known-issues.md` 에 있다.
 
 ## 기술 스택
-- Python 3.13 (uv 관리, `src/` 레이아웃, 패키지 `genviewer`). `requires-python = ">=3.13,<3.14"`
 - GUI: PySide6 **6.9.3 고정**. RHEL 8(glibc 2.28)에 설치되는 마지막 릴리스다(6.10+ 는 manylinux_2_34). 그래서 앱은 RHEL 7에 올라가지 않는다
-- DB: `psycopg[binary,pool]` 3.3 (libpq 번들). 서버는 RHEL 7 + PostgreSQL 15, 최소 지원은 PG 10
-- 그 밖: pandas 3 / openpyxl (CSV·xlsx), typer (CLI, `rich_markup_mode=None`)
-- 테스트: pytest (DB 테스트는 `GENDB_TEST_PG_DSN`), pytest-qt(GUI, `tests/gui/`, dev 그룹만) / 린트: ruff (`ruff format` 은 쓰지 않는다)
+- DB: 서버는 RHEL 7 + PostgreSQL 15, 최소 지원은 PG 10
+- 린트: ruff. `ruff format` 은 쓰지 않는다
 - 형제 저장소가 기준이다: 배포·CLI는 `../Pexorche`, 서비스 계층(config/pool/user)은 fmserver, CSV 컬럼은 `../molgen`, 하네스는 `../pexqa`
 
 ## 아키텍처 규칙
@@ -47,14 +45,7 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 
 ## 명령어
 ```bash
-uv sync                                   # 의존성 설치 (dev 그룹 포함)
-uv run ruff check src tests               # 린트
-uv run pytest -q                          # 전체 테스트 (DB 테스트는 skip)
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest -q   # DB 테스트까지
-uv run pytest tests/gui -q                # GUI 테스트만 (pytest-qt, offscreen)
-uv run genviewer                          # GUI
-uv run genviewer status                   # 접속·스키마 진단
-uv run genviewer-init-db --dry-run        # 실행될 DDL만 본다
 sh -n tools/deploy.sh && sh -n tools/initdb.sh   # 셸 문법 검사 (Windows는 Git Bash sh). 파일마다 따로: `sh -n a b` 는 a 만 본다
 uv run python -X utf8 scripts/execute.py <phase>   # 하네스 phase 실행 (-X utf8: cp949 콘솔 대응)
 ```
