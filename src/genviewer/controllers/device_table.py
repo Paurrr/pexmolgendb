@@ -438,8 +438,10 @@ class DeviceTableController(QObject):
         # 20개 중 1개만 고쳐도 "20개 저장됨" 이 된다. DB 가 실제로 쓴 행 수를
         # 쓴다 (DeviceRepository.SaveResult).
         summary = _describe_save(result)
-        self.notifyRequested.emit("info", "Save Complete", summary)
+        # 알림은 모달이다. 기준점을 먼저 잡지 않으면 상자가 떠 있는 동안의 폴링이 내 저장을
+        # 남의 변경으로 보고 배너를 띄운다(K43).
         self.refresh_devices()
+        self.notifyRequested.emit("info", "Save Complete", summary)
         self.logRequested.emit(f"Device Info: {summary}")
         if skipped_edits:
             self.notifyRequested.emit(
