@@ -1,7 +1,7 @@
 """컨트롤러 테스트 헬퍼: 시드, 가짜 DB 설치, 사용자 동작.
 
-`tests/gui/conftest.py` 의 `store`/`device_tab_ctrl`/`main_window` fixture 가 쓰고, 테스트도
-`from gui_support.helpers import select_process, ...` 로 쓴다.
+`tests/gui/conftest.py` 의 `store`/`device_tab_ctrl`/`main_window`/`history_ctrl` fixture 가 쓰고,
+테스트도 `from gui_support.helpers import select_process, ...` 로 쓴다.
 
 사용자 동작 헬퍼는 동작 하나만 흉내 내고 **기다리지 않는다**. 결과(탭 로드, 저장)는 테스트가
 `qtbot.waitUntil` 로 기다린다. 탭 로드나 첫 접속이 비동기로 옮겨가도 헬퍼는 그대로 쓰기 위해서다.
@@ -11,8 +11,10 @@
 from PySide6.QtCore import Qt
 
 from genviewer.controllers import device_tab as device_tab_module
+from genviewer.controllers import history_tab as history_tab_module
 from genviewer.controllers.device_tab import DeviceTabController
 from gui_support.fakes import (
+    FakeAuditRepository,
     FakeDeviceRepository,
     FakeIORepository,
     FakeParameterRepository,
@@ -46,6 +48,12 @@ FAKE_REPOSITORIES = {
     "IORepository": FakeIORepository,
 }
 
+# History 화면이 `set_db` 에서 이 모듈의 이름으로 만드는 repo.
+FAKE_HISTORY_REPOSITORIES = {
+    "AuditRepository": FakeAuditRepository,
+    "ProcessRepository": FakeProcessRepository,
+}
+
 
 def seeded_store() -> FakeStore:
     """process 둘, device 셋, 탭 InstTerm(inst_terms)·InstSchParam(inst_sch_params) 행을 넣는다."""
@@ -76,6 +84,16 @@ def install_fake_db(monkeypatch, store: FakeStore) -> None:
     )
     for name, fake in FAKE_REPOSITORIES.items():
         monkeypatch.setattr(device_tab_module, name, fake)
+
+
+def install_fake_history(monkeypatch) -> None:
+    """`HistoryTabController.set_db` 가 실제 repo 대신 가짜 repo 를 만들게 한다.
+
+    monkeypatch 가 되돌린다. 가짜 repo 는 받은 DB 의 store 를 쓴다.
+    그래서 `set_db(FakeDatabase(store))` 로 붙인다.
+    """
+    for name, fake in FAKE_HISTORY_REPOSITORIES.items():
+        monkeypatch.setattr(history_tab_module, name, fake)
 
 
 def select_process(ctrl: DeviceTabController, name: str) -> None:

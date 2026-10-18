@@ -6,7 +6,8 @@
 (tests/conftest.py 의 db fixture).
 
 "남의 변경" 은 같은 API 를 다른 actor 로 불러 만든다. 시각은 값이 아니라 datetime 인지와
-바뀌었는지만 본다.
+바뀌었는지만 본다. 이력의 시간 경계는 돌려받은 줄의 at 으로 만든다(실제는 서버 now(), 가짜는
+store 시계라 벽시계로 만들 수 없다).
 """
 
 from datetime import datetime
@@ -14,6 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 from gui_support.fakes import (
+    FakeAuditRepository,
     FakeDatabase,
     FakeDeviceRepository,
     FakeIORepository,
@@ -23,6 +25,8 @@ from gui_support.fakes import (
 )
 
 from genviewer.service.errors import Conflict, StaleWriteError
+from genviewer.service.repo import audit
+from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
@@ -45,24 +49,40 @@ PARAMS = ["reserved_key", "cds_inst_parameter_name"]
 
 @pytest.fixture(params=["fake", "real"])
 def backend(request):
-    """.process .device .parameter .io 를 가진 namespace.
+    """.process .device .parameter .io .audit 와 이력 시드 .log(actor, entry) 를 가진 namespace.
 
     real 은 GENDB_TEST_PG_DSN 이 없으면 이 매개변수만 skip 된다.
     """
     if request.param == "real":
         db = request.getfixturevalue("db")
+        # audit.write 는 모듈 전역 출처를 쓴다. 앞 테스트(cli.main 은 "cli")가 정한 값이 새지 않게.
+        request.getfixturevalue("monkeypatch").setattr(audit, "_source", "")
+
+        def log(actor: str, entry: audit.Entry) -> None:
+            with db.connection() as conn:
+                audit.write(conn.cursor(), actor, [entry])
+
         return SimpleNamespace(
             process=ProcessRepository(db),
             device=DeviceRepository(db),
             parameter=ParameterRepository(db),
             io=IORepository(db),
+            audit=AuditRepository(db),
+            log=log,
         )
-    db = FakeDatabase(FakeStore())
+    store = FakeStore()
+    db = FakeDatabase(store)
+
+    def log(actor: str, entry: audit.Entry) -> None:
+        store.add_audit(actor, entry)
+
     return SimpleNamespace(
         process=FakeProcessRepository(db),
         device=FakeDeviceRepository(db),
         parameter=FakeParameterRepository(db),
         io=FakeIORepository(db),
+        audit=FakeAuditRepository(db),
+        log=log,
     )
 
 
@@ -697,3 +717,121 @@ def test_export_rows_carry_the_values_in_device_info(backend, tmp_path):
     )
 
     assert rows == [["PFET", "화면 process", "화면 이름", "DRN d", "GATE g", "LENGTH 1 2"]]
+
+
+# -- audit.recent ----------------------------------------------------------
+
+AUDIT_KEYS = {c.strip() for c in audit._COLUMNS.split(",")}
+P1, P2, P3 = "process 추가  p1", "process 추가  p2", "process 추가  p3"
+
+
+def _summaries(rows):
+    return [r["summary"] for r in rows]
+
+
+def _log_three(backend):
+    """p1, p2, p3 을 차례로 남기고 그 세 줄을 준다."""
+    for name in ("p1", "p2", "p3"):
+        backend.log("me", audit.process_add(name))
+    rows = backend.audit.recent()
+    assert _summaries(rows) == [P1, P2, P3]
+    return rows
+
+
+def test_recent_gives_the_last_lines_oldest_first(backend):
+    _log_three(backend)
+
+    assert _summaries(backend.audit.recent(limit=2)) == [P2, P3]
+    assert backend.audit.recent(limit=0) == []
+
+
+def test_recent_filters_by_actor_process_and_device(backend):
+    backend.log("kim", audit.process_add("sf2p"))
+    backend.log("lee", audit.device_insert("sf2p", {"id": 7, "name": "nfet_a", "celltype": "NFET"}))
+    backend.log("kim", audit.device_insert("sf4u", {"id": 8, "name": "pfet_a", "celltype": "PFET"}))
+
+    def found(**filters):
+        return [(r["actor"], audit.where_of(r)) for r in backend.audit.recent(**filters)]
+
+    assert found(actor="kim") == [("kim", "sf2p"), ("kim", "sf4u/pfet_a")]
+    assert found(process="sf2p") == [("kim", "sf2p"), ("lee", "sf2p/nfet_a")]
+    assert found(device="nfet_a") == [("lee", "sf2p/nfet_a")]
+    assert found(actor="kim", process="sf4u") == [("kim", "sf4u/pfet_a")]
+    assert found(actor="park") == []
+    # 빈 문자열은 거르지 않는다
+    assert len(found(actor="", process="", device="")) == 3
+
+
+def test_recent_contains_looks_in_summary_and_detail_ignoring_case(backend):
+    backend.log("me", audit.process_add("sf2p"))
+    backend.log(
+        "me",
+        audit.device_insert(
+            "sf2p", {"name": "nfet_a", "celltype": "NFET", "description": "측정용 MagicWord"}
+        ),
+    )  # description 은 summary 에 없고 detail 에만 있다
+    backend.log("me", audit.process_add("abc"))
+
+    def found(text):
+        return _summaries(backend.audit.recent(contains=text))
+
+    assert found("PROCESS 추가") == ["process 추가  sf2p", "process 추가  abc"]
+    assert found("magicword") == ["device 추가  nfet_a (NFET)"]
+    assert found("측정용") == ["device 추가  nfet_a (NFET)"]
+    assert found("없는 글자") == []
+    # 실제 ILIKE 그대로다: 찾을 글자의 `_` 는 아무 한 글자다
+    assert found("a_c") == ["process 추가  abc"]
+
+
+def test_recent_since_is_inclusive_and_until_is_exclusive(backend):
+    first, second, third = _log_three(backend)
+    assert first["at"] < second["at"] < third["at"]  # 경계를 보려면 세 시각이 달라야 한다
+
+    def found(**filters):
+        return _summaries(backend.audit.recent(**filters))
+
+    assert found(since=second["at"]) == [P2, P3]
+    assert found(until=second["at"]) == [P1]
+    assert found(since=first["at"], until=third["at"]) == [P1, P2]
+    # naive 시각은 이 PC 의 로컬 시각으로 본다 (audit._aware)
+    local = second["at"].astimezone().replace(tzinfo=None)
+    assert found(since=local) == [P2, P3]
+    assert found(until=local) == [P1]
+
+
+def test_recent_after_id(backend):
+    first, _, third = _log_three(backend)
+
+    assert _summaries(backend.audit.recent(after_id=first["id"])) == [P2, P3]
+    assert _summaries(backend.audit.recent(after_id=first["id"], limit=1)) == [P3]
+    assert backend.audit.recent(after_id=third["id"]) == []
+
+
+def test_recent_rows_have_the_change_log_columns(backend):
+    backend.log(
+        "kim",
+        audit.device_insert(
+            "sf2p", {"id": 7, "name": "nfet_a", "celltype": "NFET", "description": "", "order": 2}
+        ),
+    )
+    backend.log("kim", audit.process_add("sf4u"))
+
+    first, second = backend.audit.recent()
+
+    assert set(first) == set(second) == AUDIT_KEYS
+    assert isinstance(first["id"], int)
+    assert second["id"] > first["id"]
+    assert isinstance(first["at"], datetime)
+    assert first["at"].tzinfo is not None
+    assert {k: v for k, v in first.items() if k not in ("id", "at")} == {
+        "actor": "kim",
+        "source": "",
+        "action": "insert",
+        "process_name": "sf2p",
+        "device_name": "nfet_a",
+        "device_id": 7,
+        "table_name": "",
+        "summary": "device 추가  nfet_a (NFET)",
+        "detail": {"after": {"name": "nfet_a", "celltype": "NFET", "description": "", "order": 2}},
+    }
+    assert (second["device_name"], second["device_id"], second["detail"]) == ("", None, {})

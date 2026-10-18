@@ -1,18 +1,22 @@
 """가짜 repo 자기 검사. contract test 가 다루지 않는 가짜만의 장치를 본다.
 
-시그니처(컨트롤러는 실제 시그니처로 부른다), calls 기록, fail_next, FakeDatabase, 시드·조작 헬퍼.
+시그니처(컨트롤러는 실제 시그니처로 부른다), calls 기록, fail_next, hold_next, FakeDatabase,
+시드·조작 헬퍼(이력 줄을 넣는 add_audit 포함).
 """
 
 import copy
 import inspect
 import threading
+import time
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from gui_support import fakes
 from gui_support.fakes import (
     CLOCK_START,
     REPO_METHODS,
+    FakeAuditRepository,
     FakeDatabase,
     FakeDeviceRepository,
     FakeIORepository,
@@ -22,6 +26,8 @@ from gui_support.fakes import (
 )
 
 from genviewer.service.errors import DbUnavailableError
+from genviewer.service.repo import audit
+from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
@@ -42,6 +48,7 @@ PAIRS = [
     ),
     (FakeParameterRepository, ParameterRepository, {"fetch_by_device", "replace_many_for_device"}),
     (FakeIORepository, IORepository, {"import_data", "fetch_export_data"}),
+    (FakeAuditRepository, AuditRepository, {"recent"}),
 ]
 
 
@@ -58,6 +65,7 @@ def repos(store):
         device=FakeDeviceRepository(db),
         parameter=FakeParameterRepository(db),
         io=FakeIORepository(db),
+        audit=FakeAuditRepository(db),
     )
 
 
@@ -82,9 +90,9 @@ def test_a_fake_has_exactly_the_methods_the_controllers_call(fake, real, methods
     assert methods <= _public_methods(real)
 
 
-def test_repo_methods_lists_all_fourteen():
+def test_repo_methods_lists_all_fifteen():
     union = set().union(*(methods for _, _, methods in PAIRS))
-    assert len(REPO_METHODS) == len(set(REPO_METHODS)) == 14
+    assert len(REPO_METHODS) == len(set(REPO_METHODS)) == 15
     assert set(REPO_METHODS) == union
 
 
@@ -257,6 +265,103 @@ def test_fail_next_rejects_an_unknown_name(store, name):
         store.fail_next(name, RuntimeError())
 
 
+# -- hold_next -------------------------------------------------------------
+
+
+def _until(condition, timeout: float = 5.0) -> None:
+    deadline = time.monotonic() + timeout
+    while not condition():
+        assert time.monotonic() < deadline, "기다리던 상태가 오지 않았다"
+        time.sleep(0.001)
+
+
+def _in_thread(fn):
+    """fn 을 워커 스레드에서 부른다. (스레드, {"value": 반환값} 또는 {"error": 예외})."""
+    out: dict = {}
+
+    def run():
+        try:
+            out["value"] = fn()
+        except BaseException as exc:
+            out["error"] = exc
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    return thread, out
+
+
+def _taken(store, method: str) -> bool:
+    """잡아 둔 Event 를 호출이 가져갔는가(= 그 호출이 기다리기 시작했다)."""
+    with store.lock:
+        return not store._holds.get(method)
+
+
+def test_a_held_call_waits_without_blocking_other_calls(store, repos):
+    store.add_process("sf2p")
+    release = store.hold_next("list_all")
+
+    worker, out = _in_thread(repos.process.list_all)
+    _until(lambda: _taken(store, "list_all"))
+
+    # 잡힌 호출이 기다리는 동안 이 스레드의 호출은 끝난다. 같은 이름의 다음 호출은 잡히지 않는다.
+    assert repos.process.exists("sf2p") is True
+    assert repos.process.list_all() == ["sf2p"]
+    assert worker.is_alive()
+    assert [name for name, _ in store.calls] == ["exists", "list_all"]
+
+    release.set()
+    worker.join(5)
+    assert out == {"value": ["sf2p"]}
+    assert [name for name, _ in store.calls] == ["exists", "list_all", "list_all"]
+
+
+def test_a_released_call_runs_and_is_recorded(store, repos):
+    release = store.hold_next("add")
+
+    worker, out = _in_thread(lambda: repos.process.add("sf2p", actor="kim"))
+    _until(lambda: _taken(store, "add"))
+    assert store.calls_of("add") == []
+    assert store.processes == {}
+
+    release.set()
+    worker.join(5)
+    assert out == {"value": True}
+    assert store.calls_of("add") == [{"name": "sf2p", "actor": "kim"}]
+    assert list(store.processes.values()) == ["sf2p"]
+
+
+def test_a_held_call_with_fail_next_fails_after_the_release(store, repos):
+    boom = DbUnavailableError("pool closed")
+    release = store.hold_next("recent")
+    store.fail_next("recent", boom)
+
+    worker, out = _in_thread(repos.audit.recent)
+    _until(lambda: _taken(store, "recent"))
+    assert store.calls_of("recent") == []
+
+    release.set()
+    worker.join(5)
+    assert out == {"error": boom}
+    assert len(store.calls_of("recent")) == 1
+    assert repos.audit.recent() == []  # 실패는 그 호출 하나뿐이다
+
+
+def test_an_unreleased_hold_gives_up(store, repos, monkeypatch):
+    monkeypatch.setattr(fakes, "HOLD_TIMEOUT", 0.05)
+    store.hold_next("list_all")
+
+    with pytest.raises(AssertionError, match=r"hold_next\(list_all\) 가 풀리지 않았다"):
+        repos.process.list_all()
+    assert store.calls == []
+    assert repos.process.list_all() == []  # 다음 호출은 잡히지 않는다
+
+
+@pytest.mark.parametrize("name", ["get_id", "db.close", "add_audit"])
+def test_hold_next_rejects_an_unknown_name(store, name):
+    with pytest.raises(ValueError):
+        store.hold_next(name)
+
+
 # -- FakeDatabase / open_database ------------------------------------------
 
 
@@ -332,9 +437,11 @@ def test_open_database_follows_fail_next(store):
 
 
 def test_seed_helpers_are_not_recorded_and_ignore_fail_next(store):
-    for method in ("add", "upsert_device", "replace_many_for_device", "fetch_by_device"):
+    for method in ("add", "upsert_device", "replace_many_for_device", "fetch_by_device", "recent"):
         store.fail_next(method, RuntimeError(method))
+        store.hold_next(method)
 
+    store.add_audit("kim", audit.process_add("sf2p"))
     pid = store.add_process("sf2p")
     dev = store.add_device(pid, "a", "NFET")
     store.set_rows("inst_terms", dev["id"], _terms(("DRN", "d")))
@@ -462,3 +569,70 @@ def test_find_device_set_rows_and_rows(store):
         store.set_rows("inst_terms", 999, [])
     with pytest.raises(KeyError):
         store.rows("no_such_table", first["id"])
+
+
+# -- 이력 (add_audit / recent) ------------------------------------------------
+
+
+def test_add_audit_makes_a_change_log_row_on_the_store_clock(store):
+    store.add_process("sf2p")  # 시계 CLOCK_START
+    entry = audit.tab_change("sf2p", "nfet_a", 7, "inst_terms", [], [{"reserved_key": "DRN"}])
+
+    first = store.add_audit("kim", entry, source="gui")
+    second = store.add_audit("lee", audit.process_add("sf4u"))
+
+    assert first == {
+        "id": 1,
+        "at": CLOCK_START + timedelta(seconds=1),
+        "actor": "kim",
+        "source": "gui",
+        "action": "tab",
+        "process_name": "sf2p",
+        "device_name": "nfet_a",
+        "device_id": 7,
+        "table_name": "inst_terms",
+        "summary": "탭 InstTerm  0행 -> 1행",
+        "detail": {"table": "inst_terms", "before": [], "after": [{"reserved_key": "DRN"}]},
+    }
+    assert (second["id"], second["at"], second["source"]) == (
+        2,
+        CLOCK_START + timedelta(seconds=2),
+        "",
+    )
+    assert (second["device_id"], second["detail"]) == (None, {})
+    assert store.calls == []
+
+
+def test_add_audit_stores_detail_as_json_like_jsonb(store, repos):
+    store.add_audit("kim", audit.Entry(action="x", detail={"pair": (1, 2), 3: "셋"}))
+
+    (row,) = repos.audit.recent()
+    assert row["detail"] == {"pair": [1, 2], "3": "셋"}
+
+
+def test_recent_rows_are_copies_and_fake_writes_leave_no_history(store, repos):
+    store.add_audit("kim", audit.process_add("sf2p"))
+    repos.process.add("sf4u", actor="kim")
+    repos.process.delete("sf4u", actor="kim")
+    before = copy.deepcopy(store.audit)
+
+    rows = repos.audit.recent()
+    assert [r["summary"] for r in rows] == ["process 추가  sf2p"]
+    rows[0]["summary"] = "고침"
+    rows[0]["detail"]["x"] = 1
+    store.add_audit("lee", audit.process_add("sf9x"))["detail"]["y"] = 2
+
+    assert store.audit[:1] == before
+    assert store.audit[1]["detail"] == {}
+    assert store.calls_of("recent") == [
+        {
+            "limit": 50,
+            "since": None,
+            "until": None,
+            "actor": "",
+            "process": "",
+            "device": "",
+            "contains": "",
+            "after_id": None,
+        }
+    ]

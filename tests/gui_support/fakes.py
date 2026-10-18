@@ -1,6 +1,6 @@
 """DB 없이 도는 가짜 repo. GUI 테스트의 "서버" 다.
 
-컨트롤러가 부르는 repo 메서드 14개를 실제(`genviewer.service.repo`)와 같은 시그니처·의미로
+컨트롤러가 부르는 repo 메서드 15개를 실제(`genviewer.service.repo`)와 같은 시그니처·의미로
 흉내 낸다. 의미의 기준은 실제 repo 이고, `tests/gui/test_fake_repo_contract.py` 가 같은
 기대값을 가짜와 실제 PostgreSQL 양쪽에 돌려 고정한다. 실제의 이상한 동작(예: `upsert_device`
 는 version 을 보지 않고 덮어쓴다)도 **고치지 않고 그대로** 흉내 낸다. 뒤 phase 의 RED 테스트가
@@ -12,8 +12,10 @@
 - 끝난 호출(정상 반환이든 예외든)은 `store.calls` 에 `(이름, 인자)` 로 남는다. 인자는 기본값을
   채운 호출 시점의 deep copy 다.
 - 장애는 `store.fail_next(이름, 예외)`, 남의 변경은 `touch_device`/`remove_device` 로 만든다.
-  가짜 repo 메서드에는 실제에 없는 인자를 더하지 않는다.
-- change_log(audit)는 흉내 내지 않는다.
+  `store.hold_next(이름)` 은 다음 호출 하나를 돌려준 Event 가 set 될 때까지 붙잡아 둔다(도는 중인
+  `Task` 를 재현할 때). 가짜 repo 메서드에는 실제에 없는 인자를 더하지 않는다.
+- change_log 는 읽기(`recent`)만 흉내 낸다. 줄은 `store.add_audit` 로 넣는다. 가짜 쓰기 메서드는
+  이력을 남기지 않는다.
 
 SQL 도, psycopg 커넥션도 쓰지 않는다. 실제 모듈에서는 순수한 이름만 가져다 쓴다.
 """
@@ -21,6 +23,7 @@ SQL 도, psycopg 커넥션도 쓰지 않는다. 실제 모듈에서는 순수한
 import copy
 import functools
 import inspect
+import json
 import re
 import threading
 from collections import defaultdict, deque
@@ -33,6 +36,7 @@ import pandas as pd
 from genviewer.config.config import delegate_config, tab_config
 from genviewer.service.config import DbConfig
 from genviewer.service.errors import Conflict, StaleWriteError
+from genviewer.service.repo.audit import Entry, _aware
 from genviewer.service.repo.device import SaveResult
 from genviewer.service.repo.io import split_cell
 from genviewer.service.repo.parameter import _check
@@ -59,9 +63,15 @@ REPO_METHODS: tuple[str, ...] = (
     # FakeIORepository
     "import_data",
     "fetch_export_data",
+    # FakeAuditRepository
+    "recent",
 )
-# fail_next 로 실패시킬 수 있는 이름.
+# fail_next 로 실패시킬 수 있고 hold_next 로 붙잡을 수 있는 이름.
 FAILABLE: tuple[str, ...] = (*REPO_METHODS, "open_database")
+
+# hold_next 로 붙잡은 호출이 이 시간(초) 안에 풀리지 않으면 AssertionError 를 낸다.
+# 테스트가 Event 를 set 하지 않고 끝나도 워커 스레드(와 그것을 wait() 하는 정리)가 멈추지 않게.
+HOLD_TIMEOUT = 10.0
 
 # 쓰기 호출 하나가 시계를 1초씩 진행한다. 첫 쓰기가 이 시각이다.
 CLOCK_START = datetime(2026, 10, 17, 9, 0, 0, tzinfo=UTC)
@@ -85,7 +95,8 @@ def _recorded(
 ):
     """호출을 store.lock 안에서 돌리고, 끝나면 store.calls 에 남긴다.
 
-    failable 이면 fail_next 를 따르고, 예외가 나면 데이터를 호출 전으로 되돌린다.
+    failable 이면 hold_next·fail_next 를 따르고, 예외가 나면 데이터를 호출 전으로 되돌린다.
+    hold_next 의 기다림은 store.lock 을 잡기 전이다.
     functools.wraps 가 __wrapped__ 를 남겨서 inspect.signature 는 원래 함수를 본다.
     """
 
@@ -101,6 +112,8 @@ def _recorded(
             # 호출 시점의 값이다. 메서드가 받은 dict 에 id 를 써 넣어도 기록은 그대로다.
             arguments = copy.deepcopy(arguments)
             store = store_of(self)
+            if failable:
+                store._wait_if_held(method)
             with store.lock:
                 saved = store._snapshot() if failable else None
                 try:
@@ -127,6 +140,7 @@ class FakeStore:
     processes: id -> name
     devices:   id -> device 행 dict (키는 실제 `_SELECT_COLUMNS`)
     tab_rows:  table -> device_id -> 행 목록 (그 테이블의 모든 컬럼, 넣은 순서)
+    audit:     change_log 줄 (키는 실제 `audit._COLUMNS`, id 순)
     calls:     (메서드 이름, 인자 dict). 끝난 호출만
     """
 
@@ -134,12 +148,15 @@ class FakeStore:
         self.processes: dict[int, str] = {}
         self.devices: dict[int, dict] = {}
         self.tab_rows: dict[str, dict[int, list[dict]]] = {t: {} for t in TABLE_COLUMNS}
+        self.audit: list[dict] = []
         self.calls: list[tuple[str, dict]] = []
         self.lock = threading.RLock()
         self._failures: dict[str, deque[BaseException]] = defaultdict(deque)
-        # process 와 device 는 별개의 시퀀스다. 지운 id 는 다시 쓰지 않는다.
+        self._holds: dict[str, deque[threading.Event]] = defaultdict(deque)
+        # process·device·이력은 별개의 시퀀스다. 지운 id 는 다시 쓰지 않는다.
         self._next_process_id = 1
         self._next_device_id = 1
+        self._next_audit_id = 1
         self._ticks = 0
 
     # -- 테스트가 쓰는 것 --------------------------------------------------
@@ -150,6 +167,20 @@ class FakeStore:
             raise ValueError(f"fail_next 로 실패시킬 수 없는 이름: {method!r} (가능: {FAILABLE})")
         with self.lock:
             self._failures[method].append(exc)
+
+    def hold_next(self, method: str) -> threading.Event:
+        """그 이름의 다음 호출 하나를 돌려준 Event 가 set 될 때까지 붙잡는다. 여러 번 부르면 쌓인다.
+
+        잡힌 호출은 store.lock 을 잡기 전에 기다린다. 그동안 다른 호출(GUI 스레드의 것도)은 평소처럼
+        돈다. 풀리면 평소처럼 돌고, fail_next 가 함께 걸려 있으면 그 실패를 낸다. `HOLD_TIMEOUT` 초
+        안에 풀리지 않으면 calls 에 남기지 않고 AssertionError 를 낸다.
+        """
+        if method not in FAILABLE:
+            raise ValueError(f"hold_next 로 붙잡을 수 없는 이름: {method!r} (가능: {FAILABLE})")
+        event = threading.Event()
+        with self.lock:
+            self._holds[method].append(event)
+        return event
 
     def calls_of(self, method: str) -> list[dict]:
         """그 이름 호출들의 인자 dict. 끝난 순서대로."""
@@ -234,11 +265,42 @@ class FakeStore:
         with self.lock:
             return [dict(r) for r in self.tab_rows[table].get(device_id, [])]
 
+    def add_audit(self, actor: str, entry: Entry, *, source: str = "") -> dict:
+        """이력 한 줄을 넣고 그 행의 복사본을 준다. 실제 `audit.write` 가 남기는 행과 같은 모양이다.
+
+        at 은 store 시계다. detail 은 JSONB 처럼 JSON 으로 한 번 돌린다(튜플은 리스트, 키는 문자열).
+        """
+        with self.lock:
+            row = {
+                "id": self._next_audit_id,
+                "at": self._tick(),
+                "actor": actor,
+                "source": source,
+                "action": entry.action,
+                "process_name": entry.process_name,
+                "device_name": entry.device_name,
+                "device_id": entry.device_id,
+                "table_name": entry.table_name,
+                "summary": entry.summary,
+                "detail": json.loads(json.dumps(entry.detail)),
+            }
+            self._next_audit_id += 1
+            self.audit.append(row)
+            return copy.deepcopy(row)
+
     # -- 가짜 repo 가 쓰는 내부 --------------------------------------------
 
     def _take_failure(self, method: str) -> BaseException | None:
         queue = self._failures.get(method)
         return queue.popleft() if queue else None
+
+    def _wait_if_held(self, method: str) -> None:
+        """hold_next 가 걸려 있으면 풀릴 때까지 기다린다. store.lock 을 잡은 채 기다리지 않는다."""
+        with self.lock:
+            queue = self._holds.get(method)
+            event = queue.popleft() if queue else None
+        if event is not None and not event.wait(HOLD_TIMEOUT):
+            raise AssertionError(f"hold_next({method}) 가 풀리지 않았다")
 
     def _snapshot(self) -> tuple:
         return copy.deepcopy((self.processes, self.devices, self.tab_rows))
@@ -729,6 +791,71 @@ class FakeIORepository:
             rows.append(row)
 
         return headers, rows
+
+
+def _ilike(pattern: str) -> re.Pattern:
+    """ILIKE 패턴을 정규식으로. `%` 는 아무 글자열, `_` 는 한 글자, `\\` 는 다음 글자 그대로."""
+    out = []
+    chars = iter(pattern)
+    for c in chars:
+        if c == "\\":
+            out.append(re.escape(next(chars, "")))
+        elif c == "%":
+            out.append(".*")
+        elif c == "_":
+            out.append(".")
+        else:
+            out.append(re.escape(c))
+    return re.compile("".join(out), re.IGNORECASE | re.DOTALL)
+
+
+class FakeAuditRepository:
+    def __init__(self, db: FakeDatabase) -> None:
+        self.db = db
+
+    @_recorded()
+    def recent(
+        self,
+        *,
+        limit: int = 50,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        actor: str = "",
+        process: str = "",
+        device: str = "",
+        contains: str = "",
+        after_id: int | None = None,
+    ) -> list[dict]:
+        """조건에 맞는 줄 중 id 가 큰 쪽에서 limit 개를 id 오름차순으로 준다.
+
+        naive since/until 은 실제처럼 이 PC 의 로컬 시각이다(`audit._aware`). contains 는 실제
+        `summary ILIKE '%…%' OR detail::text ILIKE '%…%'` 다. detail 의 글자는 JSONB 출력처럼
+        한글을 그대로 둔다(키 순서는 JSONB 와 다를 수 있다).
+        """
+        match = _ilike(f"%{contains}%") if contains else None
+        found = []
+        for row in self.db.store.audit:
+            if after_id is not None and not row["id"] > after_id:
+                continue
+            if since is not None and not row["at"] >= _aware(since):
+                continue
+            if until is not None and not row["at"] < _aware(until):
+                continue
+            if actor and row["actor"] != actor:
+                continue
+            if process and row["process_name"] != process:
+                continue
+            if device and row["device_name"] != device:
+                continue
+            if match is not None and not (
+                match.fullmatch(row["summary"])
+                or match.fullmatch(json.dumps(row["detail"], ensure_ascii=False))
+            ):
+                continue
+            found.append(row)
+        # ORDER BY id DESC LIMIT n, 그다음 ORDER BY id
+        newest = sorted(found, key=lambda r: r["id"], reverse=True)[:limit]
+        return copy.deepcopy(sorted(newest, key=lambda r: r["id"]))
 
 
 class FakeVirtuosoClient:

@@ -2,13 +2,48 @@
   "project": "genviewer",
   "phase": "12-gui-async-cleanup",
   "steps": [
-    { "step": 0, "name": "history-test-fixture", "status": "pending" },
-    { "step": 1, "name": "history-error-text", "status": "pending" },
-    { "step": 2, "name": "history-reload-races", "status": "pending" },
-    { "step": 3, "name": "poll-process-binding", "status": "pending" },
-    { "step": 4, "name": "task-cleanup", "status": "pending" },
-    { "step": 5, "name": "tab-section-model-leaks", "status": "pending" },
-    { "step": 6, "name": "parameter-tab-page-leaks", "status": "pending" },
-    { "step": 7, "name": "own-save-banner", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "history-test-fixture",
+      "status": "completed",
+      "started_at": "2026-10-18T18:44:27+0900",
+      "summary": "FakeAuditRepository.recent(실제 시그니처, ILIKE %/_·JSONB 한글 텍스트·naive=로컬 audit._aware 그대로) + store.add_audit(store 시계, detail JSON 왕복, calls·fail_next 밖) + store.hold_next(method)->Event(lock 밖 대기, 10초 안전장치 HOLD_TIMEOUT, fail_next 와 함께면 놓은 뒤 실패) + REPO_METHODS 에 recent(15개) + install_fake_history + history_ctrl fixture(기간을 '전체'로 둔다: 기본 7일은 벽시계라 store 시계 줄이 날짜가 지나면 걸러진다). contract: test_recent_gives_the_last_lines_oldest_first, test_recent_filters_by_actor_process_and_device, test_recent_contains_looks_in_summary_and_detail_ignoring_case, test_recent_since_is_inclusive_and_until_is_exclusive, test_recent_after_id, test_recent_rows_have_the_change_log_columns (real 6 passed, contract real 전체 43 passed). smoke: tests/gui/test_history_smoke.py 2개. 변이: hold 를 lock 안에서 기다리면 hold 테스트 3개 실패, limit 을 오래된 쪽으로·한글 이스케이프·naive=UTC 면 fake contract 실패, fixture 기간 설정을 빼면 smoke 실패. DB 테스트: 839 passed / 10 skipped (DB 없이 Git Bash 691 / 158). src 불변"
+    },
+    {
+      "step": 1,
+      "name": "history-error-text",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "history-reload-races",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "poll-process-binding",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "task-cleanup",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "tab-section-model-leaks",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "parameter-tab-page-leaks",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "name": "own-save-banner",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-10-18T18:44:27+0900"
 }

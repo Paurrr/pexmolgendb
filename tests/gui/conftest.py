@@ -3,6 +3,7 @@
 창은 띄우지 않는다(offscreen). 모달은 autouse `dialogs` 가 대신한다.
 컨트롤러 테스트는 `store`(시드: tests/gui_support/helpers.py) 위에 붙은 `device_tab_ctrl` 또는
 `main_window` 로 쓴다. 사용자 동작은 `gui_support.helpers` 의 select_*/edit_* 로 흉내 낸다.
+History 화면은 `history_ctrl` 로 쓴다(`main_window` 는 History 를 만들지 않는다).
 """
 
 import gc
@@ -15,13 +16,19 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from gui_support.dialogs import FakeDialogs, install_dialogs  # noqa: E402
-from gui_support.fakes import FakeStore  # noqa: E402
-from gui_support.helpers import install_fake_db, seeded_store  # noqa: E402
+from gui_support.fakes import FakeDatabase, FakeStore  # noqa: E402
+from gui_support.helpers import (  # noqa: E402
+    install_fake_db,
+    install_fake_history,
+    seeded_store,
+)
 from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
 
 from genviewer.controllers.device_tab import DeviceTabController  # noqa: E402
+from genviewer.controllers.history_tab import HistoryTabController  # noqa: E402
 from genviewer.controllers.main_window import MainWindowController  # noqa: E402
 from genviewer.views.device_tab import DeviceTab  # noqa: E402
+from genviewer.views.history_tab import HistoryTab  # noqa: E402
 from genviewer.views.main_window import MainWindow  # noqa: E402
 
 
@@ -111,3 +118,22 @@ def main_window(qtbot, monkeypatch, store, dialogs) -> Iterator[MainWindowContro
     yield controller
     controller.shutdown()  # 테스트가 먼저 불렀어도 안전하다
     ui.close()
+
+
+@pytest.fixture
+def history_ctrl(qtbot, monkeypatch, store) -> Iterator[HistoryTabController]:
+    """store 에 붙은 실제 HistoryTabController. `.ui` 가 HistoryTab 이고, 첫 다시 읽기가 끝나 있다.
+
+    기간은 "전체" 로 둔다. 기본값(최근 7일)은 벽시계 기준이라 store 시계(2026-10-17)로 넣은
+    줄이 날짜가 지나면 걸러진다. 이력 줄은 `store.add_audit` 로 넣고 `reload()` 한다.
+    자동 갱신 타이머(10초)는 켜진 채다.
+    """
+    install_fake_history(monkeypatch)
+    view = HistoryTab()
+    qtbot.addWidget(view)
+    view.range_cb.setCurrentIndex(view.range_cb.findData(""))
+    ctrl = HistoryTabController(view)
+    ctrl.set_db(FakeDatabase(store))
+    qtbot.waitUntil(lambda: ctrl._task is None and store.calls_of("recent") != [])
+    yield ctrl
+    ctrl.shutdown()
