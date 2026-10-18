@@ -42,7 +42,8 @@
     },
     {
       "dir": "8-schema-migration",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-10-18T09:04:13+0900"
     },
     {
       "dir": "9-ops-script-fixes",
