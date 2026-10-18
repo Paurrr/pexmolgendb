@@ -1,5 +1,6 @@
 from PySide6.QtCore import QObject, Signal, Slot
 
+from genviewer.service.errors import user_message
 from genviewer.service.repo.process import ProcessRepository
 from genviewer.utils.dialogs import question
 from genviewer.utils.reporting import report, report_error
@@ -158,7 +159,8 @@ class DeviceTabToolBarController(QObject):
         try:
             return self.repo.get_or_create_id(name, actor=current_user())
         except Exception as e:
-            self.notifyRequested.emit("error", "Process Lookup Failed", str(e))
+            # 원문이면 55P03 안내 대신 psycopg 문장이 나오고, conninfo 가 섞이면 비밀번호가 찍힌다.
+            self.notifyRequested.emit("error", "Process Lookup Failed", user_message(e))
             return None
 
     def load_virtuoso(self):

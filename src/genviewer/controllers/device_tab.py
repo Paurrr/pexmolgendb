@@ -249,7 +249,10 @@ class DeviceTabController(QObject):
         self._poll_failures += 1
         if self._poll_failures >= POLL_FAILURE_LIMIT:
             self._poll_timer.stop()
-            self.logRequested.emit(f"변경 감지 폴링을 중단했다: {exc}")
+            # 로그 패널은 scrub 포매터를 지나지 않고(ADR-013) 줄 단위다.
+            # user_message 는 여러 줄일 수 있다.
+            reason = " ".join(user_message(exc).split())
+            self.logRequested.emit(f"변경 감지 폴링을 중단했다: {reason}")
 
     @Slot()
     def _on_refresh_requested(self) -> None:
