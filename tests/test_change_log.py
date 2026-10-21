@@ -9,6 +9,7 @@
   4. 이전 값과 이후 값이 둘 다 남는다. "무엇이 어떻게" 에 답할 수 있어야 한다.
 """
 
+import dataclasses
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -408,8 +409,8 @@ def test_a_failed_import_records_nothing(db, log, tmp_path):
 # 한 번에 많이 (K9)
 # ---------------------------------------------------------------------------
 
-# 한 줄에 바인드 파라미터 9개. 7,282 × 9 = 65,538 로 한 문장의 상한(65,535)을 넘는다.
-_OVER_THE_LIMIT = 7_282
+# 한 줄에 바인드 파라미터 10개. 6,554 × 10 = 65,540 로 한 문장의 상한(65,535)을 넘는다.
+_OVER_THE_LIMIT = 6_554
 
 
 def test_more_lines_than_one_statement_can_bind_are_all_kept(db):
@@ -436,6 +437,24 @@ def test_a_large_write_is_rolled_back_with_the_save(db):
     with db.connection() as conn:
         n = conn.execute("SELECT count(*) AS n FROM change_log").fetchone()["n"]
     assert n == 0
+
+
+def test_each_line_keeps_its_own_release_across_statements(db):
+    """줄마다 넣는 값이 하나 늘어도 나눈 문장마다 자리가 밀리지 않는다."""
+    entries = [
+        audit.process_add(f"p{i}", process_release=f"V{i}" if i % 2 else "")
+        for i in range(_OVER_THE_LIMIT)
+    ]
+    with db.connection() as conn:
+        audit.write(conn.cursor(), "bulk", entries)
+
+    with db.connection() as conn:
+        rows = conn.execute(
+            "SELECT process_name, process_release, summary FROM change_log ORDER BY id"
+        ).fetchall()
+    assert [tuple(r.values()) for r in rows] == [
+        (e.process_name, e.process_release, e.summary) for e in entries
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -556,3 +575,135 @@ def test_the_source_is_recorded(db, log, process_id):
         audit.set_source("")
 
     assert _rows(log, actor="dh991")[-1]["source"] == "테스트"
+
+
+# ---------------------------------------------------------------------------
+# 버전 (process_release)
+# ---------------------------------------------------------------------------
+
+
+def test_process_label_adds_the_release_only_when_there_is_one():
+    assert audit.process_label("sf2p", "") == "sf2p"
+    assert audit.process_label("sf2p", "S00-V1.0.0.0") == "sf2p S00-V1.0.0.0"
+
+
+def _where(process: str, release: str, device: str) -> dict:
+    return {"process_name": process, "process_release": release, "device_name": device}
+
+
+@pytest.mark.parametrize(
+    ("row", "where"),
+    [
+        (_where("sf2p", "V1", "nfet_a"), "sf2p V1/nfet_a"),
+        (_where("sf2p", "V1", ""), "sf2p V1"),
+        # 빈 버전과 process_release 가 없는 옛 dict 는 지금 그대로다
+        (_where("sf2p", "", "nfet_a"), "sf2p/nfet_a"),
+        ({"process_name": "sf2p", "device_name": "nfet_a"}, "sf2p/nfet_a"),
+        ({"process_name": "sf2p", "device_name": ""}, "sf2p"),
+        (_where("", "", "nfet_a"), "-/nfet_a"),
+        (_where("", "", ""), "-"),
+        ({}, "-"),
+    ],
+)
+def test_where_of_puts_the_release_after_the_process_name(row, where):
+    assert audit.where_of(row) == where
+
+
+def test_format_line_shows_the_release_in_the_where_column():
+    row = {
+        "at": datetime(2026, 10, 21, 9, 30, 0),
+        "actor": "kim",
+        "process_name": "sf2p",
+        "process_release": "S00-V1.0.0.0",
+        "device_name": "nfet_a",
+        "summary": "device 추가  nfet_a (NFET)",
+    }
+    assert audit.format_line(row) == (
+        "2026-10-21 09:30:00  kim           sf2p S00-V1.0.0.0/nfet_a      "
+        "device 추가  nfet_a (NFET)"
+    )
+    assert audit.format_line({**row, "process_release": ""}) == (
+        "2026-10-21 09:30:00  kim           sf2p/nfet_a                   "
+        "device 추가  nfet_a (NFET)"
+    )
+
+
+def test_process_lines_name_the_release_in_the_sentence():
+    added = audit.process_add("sf2p", process_release="V1")
+    assert (added.process_name, added.process_release) == ("sf2p", "V1")
+    assert added.summary == "process 추가  sf2p V1"
+
+    gone = audit.process_delete("sf2p", [{"id": 1}], False, process_release="V1")
+    assert (gone.process_name, gone.process_release) == ("sf2p", "V1")
+    assert gone.summary == "process 삭제  sf2p V1  device 1개가 함께 사라짐"
+
+
+def test_process_lines_without_a_release_keep_the_old_sentence():
+    assert audit.process_add("sf2p") == audit.Entry(
+        action=audit.PROCESS_ADD, process_name="sf2p", summary="process 추가  sf2p"
+    )
+    gone = audit.process_delete("sf2p", [], True)
+    assert gone.process_release == ""
+    assert gone.summary == (
+        "process 삭제  sf2p  device 0개가 함께 사라짐"
+        "  (내용이 너무 많아 자식 행은 보관하지 않았다)"
+    )
+
+
+def test_device_and_tab_lines_carry_the_release_but_keep_their_sentence():
+    dev = {"id": 7, "name": "nfet_a", "celltype": "NFET"}
+    entries = [
+        audit.device_insert("sf2p", dev, process_release="V1"),
+        audit.device_update("sf2p", dev, {**dev, "name": "nfet_b"}, process_release="V1"),
+        audit.device_delete("sf2p", dev, {}, process_release="V1"),
+        audit.tab_change(
+            "sf2p", "nfet_a", 7, "inst_terms", [], [{"reserved_key": "DRN"}],
+            process_release="V1",
+        ),
+    ]
+    assert [(e.process_name, e.process_release) for e in entries] == [("sf2p", "V1")] * 4
+    assert [e.summary for e in entries] == [
+        "device 추가  nfet_a (NFET)",
+        'device 수정  name "nfet_a" -> "nfet_b"',
+        "device 삭제  nfet_a (NFET)",
+        "탭 InstTerm  0행 -> 1행",
+    ]
+    # 빈 버전이 기본값이다
+    assert audit.device_insert("sf2p", dev).process_release == ""
+
+
+def test_the_release_is_the_last_entry_field():
+    """위치 인자로 Entry 를 만드는 곳이 깨지지 않게 새 필드는 맨 뒤다."""
+    names = [f.name for f in dataclasses.fields(audit.Entry)]
+    assert names == [
+        "action",
+        "process_name",
+        "device_name",
+        "device_id",
+        "table_name",
+        "summary",
+        "detail",
+        "process_release",
+    ]
+
+
+def test_the_release_is_written_and_read_back(db, log):
+    with db.connection() as conn:
+        audit.write(
+            conn.cursor(),
+            "kim",
+            [
+                audit.process_add("sf2p", process_release="S00-V1.0.0.0"),
+                audit.process_add("sf2p"),
+            ],
+        )
+
+    with db.connection() as conn:
+        stored = conn.execute(
+            "SELECT process_name, process_release FROM change_log ORDER BY id"
+        ).fetchall()
+    assert [tuple(r.values()) for r in stored] == [
+        ("sf2p", "S00-V1.0.0.0"),
+        ("sf2p", ""),
+    ]
+    assert [r["process_release"] for r in _rows(log)] == ["S00-V1.0.0.0", ""]

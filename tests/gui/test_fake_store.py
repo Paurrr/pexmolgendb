@@ -593,6 +593,7 @@ def test_add_audit_makes_a_change_log_row_on_the_store_clock(store):
         "table_name": "inst_terms",
         "summary": "탭 InstTerm  0행 -> 1행",
         "detail": {"table": "inst_terms", "before": [], "after": [{"reserved_key": "DRN"}]},
+        "process_release": "",
     }
     assert (second["id"], second["at"], second["source"]) == (
         2,
@@ -634,5 +635,6 @@ def test_recent_rows_are_copies_and_fake_writes_leave_no_history(store, repos):
             "device": "",
             "contains": "",
             "after_id": None,
+            "release": None,
         }
     ]

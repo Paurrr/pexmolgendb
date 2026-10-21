@@ -908,5 +908,35 @@ def test_recent_rows_have_the_change_log_columns(backend):
         "table_name": "",
         "summary": "device 추가  nfet_a (NFET)",
         "detail": {"after": {"name": "nfet_a", "celltype": "NFET", "description": "", "order": 2}},
+        "process_release": "",
     }
     assert (second["device_name"], second["device_id"], second["detail"]) == ("", None, {})
+
+
+def test_recent_filters_by_release_only_when_one_is_given(backend):
+    backend.log("kim", audit.process_add("sf2p", process_release="V1"))
+    backend.log("kim", audit.process_add("sf2p"))
+    backend.log(
+        "lee",
+        audit.device_insert(
+            "sf2p", {"id": 7, "name": "nfet_a", "celltype": "NFET"}, process_release="V1"
+        ),
+    )
+
+    def found(**filters):
+        return [
+            (r["process_release"], audit.where_of(r)) for r in backend.audit.recent(**filters)
+        ]
+
+    assert found(release="V1") == [("V1", "sf2p V1"), ("V1", "sf2p V1/nfet_a")]
+    # 빈 문자열은 "버전 없는 것만" 이다 (다른 필터의 빈 문자열과 다르다)
+    assert found(release="") == [("", "sf2p")]
+    assert found() == found(release=None) == [
+        ("V1", "sf2p V1"),
+        ("", "sf2p"),
+        ("V1", "sf2p V1/nfet_a"),
+    ]
+    assert found(release="V2") == []
+    # process 필터는 이름만 본다 (모든 버전)
+    assert len(found(process="sf2p")) == 3
+    assert found(process="sf2p", release="V1", actor="lee") == [("V1", "sf2p V1/nfet_a")]

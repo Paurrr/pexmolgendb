@@ -50,6 +50,7 @@ def test_the_who_filter_goes_to_recent_as_actor(qtbot, history_ctrl, store):
         "device": "",
         "contains": "",
         "after_id": None,
+        "release": None,
     }
     assert [r["summary"] for r in history_ctrl.model.get_data()] == ["process 추가  sf9x"]
     assert history_ctrl.ui.count_label.text() == "1줄"

@@ -66,12 +66,14 @@ class Entry:
     table_name: str = ""
     summary: str = ""
     detail: dict = field(default_factory=dict)
+    # process 의 버전. 빈 문자열은 "버전 없음" 이다. 위치 인자로 만드는 곳이 깨지지 않게 맨 뒤다.
+    process_release: str = ""
 
 
 # 행마다 VALUES 를 늘리는 문장 하나에 담는 행 수. libpq 는 한 문장의 바인드
 # 파라미터를 65,535개까지만 보낸다(넘으면 "number of parameters must be between
-# 0 and 65535" 로 저장 전체가 실패한다). 행 하나에 이력은 9개, device UPDATE 는
-# 6개라 1,000행이면 많아야 9,000개로 넉넉하다. 나눈 문장은 모두 호출자의 커서로
+# 0 and 65535" 로 저장 전체가 실패한다). 행 하나에 이력은 10개, device UPDATE 는
+# 6개라 1,000행이면 많아야 10,000개로 넉넉하다. 나눈 문장은 모두 호출자의 커서로
 # 차례로 돈다 - 같은 트랜잭션이라 하나라도 실패하면 전부 롤백된다.
 BATCH_ROWS = 1_000
 
@@ -83,13 +85,13 @@ def write(cur, actor: str, entries: list[Entry]) -> None:
     """
     if not entries:
         return
-    row = sql.SQL("(%s, %s, %s, %s, %s, %s, %s, %s, %s)")
+    row = sql.SQL("(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
     for start in range(0, len(entries), BATCH_ROWS):
         batch = entries[start : start + BATCH_ROWS]
         stmt = sql.SQL(
             "INSERT INTO change_log "
             "  (actor, source, action, process_name, device_name, device_id, "
-            "   table_name, summary, detail) "
+            "   table_name, summary, detail, process_release) "
             "VALUES {rows}"
         ).format(rows=sql.SQL(", ").join([row] * len(batch)))
 
@@ -105,6 +107,7 @@ def write(cur, actor: str, entries: list[Entry]) -> None:
                 e.table_name,
                 e.summary,
                 Jsonb(e.detail),
+                e.process_release,
             ]
         cur.execute(stmt, params)
 
@@ -170,7 +173,7 @@ def _row(device: dict) -> dict:
     return {c: _norm(device.get(c)) for c in DEVICE_COLUMNS}
 
 
-def device_insert(process_name: str, device: dict) -> Entry:
+def device_insert(process_name: str, device: dict, *, process_release: str = "") -> Entry:
     name = str(_norm(device.get("name")))
     celltype = _norm(device.get("celltype"))
     return Entry(
@@ -180,10 +183,13 @@ def device_insert(process_name: str, device: dict) -> Entry:
         device_id=device.get("id"),
         summary=f"device 추가  {name} ({celltype})",
         detail={"after": _row(device)},
+        process_release=process_release,
     )
 
 
-def device_update(process_name: str, before: dict, after: dict) -> Entry | None:
+def device_update(
+    process_name: str, before: dict, after: dict, *, process_release: str = ""
+) -> Entry | None:
     """값이 실제로 달라진 컬럼만 담는다. 하나도 없으면 None - 로그를 안 쓴다."""
     changed = {}
     for col in DEVICE_COLUMNS:
@@ -206,6 +212,7 @@ def device_update(process_name: str, before: dict, after: dict) -> Entry | None:
             "before": {c: o for c, (o, _) in changed.items()},
             "after": {c: n for c, (_, n) in changed.items()},
         },
+        process_release=process_release,
     )
 
 
@@ -213,7 +220,9 @@ def _quoted(value) -> str:
     return chr(34) + _short(value) + chr(34)
 
 
-def device_delete(process_name: str, before: dict, children: dict) -> Entry:
+def device_delete(
+    process_name: str, before: dict, children: dict, *, process_release: str = ""
+) -> Entry:
     """children: {자식 테이블: [행, ...]}. 지워진 내용을 통째로 보관한다."""
     total = sum(len(rows) for rows in children.values())
     name = str(_norm(before.get("name")))
@@ -226,6 +235,7 @@ def device_delete(process_name: str, before: dict, children: dict) -> Entry:
         device_id=before.get("id"),
         summary=f"device 삭제  {name} ({celltype}){tail}",
         detail={"before": _row(before), "children": children},
+        process_release=process_release,
     )
 
 
@@ -236,6 +246,8 @@ def tab_change(
     table: str,
     before: list[dict],
     after: list[dict],
+    *,
+    process_release: str = "",
 ) -> Entry | None:
     """탭 하나의 변화. 내용이 같으면 None 이다.
 
@@ -260,6 +272,7 @@ def tab_change(
         table_name=table,
         summary=summary,
         detail={"table": table, "before": before, "after": after},
+        process_release=process_release,
     )
 
 
@@ -275,22 +288,27 @@ def csv_import(path: str, created: int, per_process: dict[str, int]) -> Entry:
     )
 
 
-def process_add(name: str) -> Entry:
+def process_add(name: str, *, process_release: str = "") -> Entry:
     return Entry(
         action=PROCESS_ADD,
         process_name=name,
-        summary=f"process 추가  {name}",
+        summary=f"process 추가  {process_label(name, process_release)}",
+        process_release=process_release,
     )
 
 
-def process_delete(name: str, devices: list[dict], truncated: bool) -> Entry:
+def process_delete(
+    name: str, devices: list[dict], truncated: bool, *, process_release: str = ""
+) -> Entry:
     """devices 의 각 항목은 자기 자식 행을 children 키에 달고 있다."""
     tail = "  (내용이 너무 많아 자식 행은 보관하지 않았다)" if truncated else ""
+    label = process_label(name, process_release)
     return Entry(
         action=PROCESS_DELETE,
         process_name=name,
-        summary=f"process 삭제  {name}  device {len(devices)}개가 함께 사라짐{tail}",
+        summary=f"process 삭제  {label}  device {len(devices)}개가 함께 사라짐{tail}",
         detail={"devices": devices, "truncated": truncated},
+        process_release=process_release,
     )
 
 
@@ -299,9 +317,15 @@ def process_delete(name: str, devices: list[dict], truncated: bool) -> Entry:
 # ---------------------------------------------------------------------------
 
 
+def process_label(name: str, release: str) -> str:
+    """사람이 읽는 process 이름. 버전이 비면 이름만, 있으면 "이름 버전" 이다."""
+    return f"{name} {release}" if release else name
+
+
 def where_of(row: dict) -> str:
     """process 와 device 를 한 칸에. 둘 다 없으면 붙임표 하나."""
-    place = row.get("process_name") or "-"
+    name = row.get("process_name")
+    place = process_label(name, row.get("process_release", "")) if name else "-"
     device = row.get("device_name")
     return f"{place}/{device}" if device else place
 
@@ -337,7 +361,7 @@ def format_detail(row: dict, indent: str = "      ") -> list[str]:
 
 _COLUMNS = (
     "id, at, actor, source, action, process_name, device_name, device_id, "
-    "table_name, summary, detail"
+    "table_name, summary, detail, process_release"
 )
 
 
@@ -367,11 +391,15 @@ class AuditRepository:
         device: str = "",
         contains: str = "",
         after_id: int | None = None,
+        release: str | None = None,
     ) -> list[dict]:
         """조건에 맞는 마지막 limit 줄을 오래된 것부터 돌려준다.
 
         안쪽에서 id 역순으로 자르고 바깥에서 다시 뒤집는다. 그냥 ORDER BY id
         LIMIT 로 하면 "가장 오래된 50줄" 이 나온다 - 보고 싶은 것은 최근이다.
+
+        다른 필터는 빈 문자열이 "거르지 않음" 이지만 release 는 None 이 그것이다.
+        빈 문자열은 "버전 없는 것만" 을 고른다.
         """
         where: list[str] = []
         params: list = []
@@ -393,6 +421,9 @@ class AuditRepository:
         if device:
             where.append("device_name = %s")
             params.append(device)
+        if release is not None:
+            where.append("process_release = %s")
+            params.append(release)
         if contains:
             # detail 까지 뒤진다. 값 하나로 "그게 언제 바뀌었지" 를 찾을 수 있다.
             where.append("(summary ILIKE %s OR detail::text ILIKE %s)")

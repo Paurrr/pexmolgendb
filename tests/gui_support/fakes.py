@@ -283,6 +283,7 @@ class FakeStore:
                 "table_name": entry.table_name,
                 "summary": entry.summary,
                 "detail": json.loads(json.dumps(entry.detail)),
+                "process_release": entry.process_release,
             }
             self._next_audit_id += 1
             self.audit.append(row)
@@ -830,12 +831,14 @@ class FakeAuditRepository:
         device: str = "",
         contains: str = "",
         after_id: int | None = None,
+        release: str | None = None,
     ) -> list[dict]:
         """조건에 맞는 줄 중 id 가 큰 쪽에서 limit 개를 id 오름차순으로 준다.
 
         naive since/until 은 실제처럼 이 PC 의 로컬 시각이다(`audit._aware`). contains 는 실제
         `summary ILIKE '%…%' OR detail::text ILIKE '%…%'` 다. detail 의 글자는 JSONB 출력처럼
-        한글을 그대로 둔다(키 순서는 JSONB 와 다를 수 있다).
+        한글을 그대로 둔다(키 순서는 JSONB 와 다를 수 있다). release 는 None 이면 거르지 않고,
+        빈 문자열이면 버전 없는 줄만 고른다.
         """
         match = _ilike(f"%{contains}%") if contains else None
         found = []
@@ -851,6 +854,8 @@ class FakeAuditRepository:
             if process and row["process_name"] != process:
                 continue
             if device and row["device_name"] != device:
+                continue
+            if release is not None and row["process_release"] != release:
                 continue
             if match is not None and not (
                 match.fullmatch(row["summary"])
