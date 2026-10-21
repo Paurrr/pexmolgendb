@@ -288,11 +288,29 @@ def csv_import(path: str, created: int, per_process: dict[str, int]) -> Entry:
     )
 
 
-def process_add(name: str, *, process_release: str = "") -> Entry:
+def process_add(
+    name: str,
+    *,
+    process_release: str = "",
+    source: tuple[str, str] | None = None,
+    devices: int = 0,
+) -> Entry:
+    """source 는 복제 원본 (이름, 버전), devices 는 복사한 device 수.
+
+    source 가 없으면 devices 는 보지 않고 예전 줄 그대로다. 복제는 device 마다 줄을 쓰지 않고
+    이 한 줄만 남긴다. 무엇을 복사했는지는 원본과 개수로 충분하다.
+    """
+    summary = f"process 추가  {process_label(name, process_release)}"
+    detail: dict = {}
+    if source is not None:
+        src_name, src_release = source
+        summary += f"  ({process_label(src_name, src_release)} 에서 device {devices}개 복사)"
+        detail = {"source": {"name": src_name, "release": src_release}, "devices": devices}
     return Entry(
         action=PROCESS_ADD,
         process_name=name,
-        summary=f"process 추가  {process_label(name, process_release)}",
+        summary=summary,
+        detail=detail,
         process_release=process_release,
     )
 

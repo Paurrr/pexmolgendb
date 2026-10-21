@@ -1,6 +1,6 @@
 """DB 없이 도는 가짜 repo. GUI 테스트의 "서버" 다.
 
-컨트롤러가 부르는 repo 메서드 16개를 실제(`genviewer.service.repo`)와 같은 시그니처·의미로
+컨트롤러가 부르는 repo 메서드 17개를 실제(`genviewer.service.repo`)와 같은 시그니처·의미로
 흉내 낸다. 의미의 기준은 실제 repo 이고, `tests/gui/test_fake_repo_contract.py` 가 같은
 기대값을 가짜와 실제 PostgreSQL 양쪽에 돌려 고정한다. 실제의 이상한 동작(예: `upsert_device`
 는 version 을 보지 않고 덮어쓴다)도 **고치지 않고 그대로** 흉내 낸다. 뒤 phase 의 RED 테스트가
@@ -36,7 +36,7 @@ import pandas as pd
 from genviewer.config.config import delegate_config, tab_config
 from genviewer.service.config import DbConfig
 from genviewer.service.errors import Conflict, StaleWriteError
-from genviewer.service.repo.audit import Entry, _aware
+from genviewer.service.repo.audit import Entry, _aware, process_label
 from genviewer.service.repo.device import SaveResult
 from genviewer.service.repo.io import split_cell
 from genviewer.service.repo.parameter import _check
@@ -53,6 +53,7 @@ REPO_METHODS: tuple[str, ...] = (
     "list_pairs",
     "count_devices",
     "get_or_create_id",
+    "clone",
     # FakeDeviceRepository
     "fetch_devices_by_process",
     "etag",
@@ -485,6 +486,33 @@ class FakeProcessRepository:
         store._tick()
         process_id = store._process_id(name, release)
         return process_id if process_id is not None else store._insert_process(name, release)
+
+    @_recorded()
+    def clone(
+        self, src_name: str, src_release: str, name: str, release: str, *, actor: str = ""
+    ) -> int | None:
+        """원본 쌍의 device(ORDER BY "order", id 순서로 새 id)와 탭 행을 새 쌍으로 복사한다.
+
+        원본이 없으면 LookupError(대상 확인보다 먼저), 대상이 있으면 None. 실제처럼 이력 한 줄을
+        쓰지만 가짜는 이력을 남기지 않는다.
+        """
+        store = self.db.store
+        src = store._process_id(src_name, src_release)
+        if src is None:
+            raise LookupError(f"원본 process 가 없다: {process_label(src_name, src_release)}")
+        if store._process_id(name, release) is not None:
+            return None
+        now = store._tick()
+        process_id = store._insert_process(name, release)
+        devices = store._devices_of(src)
+        for d in devices:
+            row = store._insert_device(
+                process_id, d["name"], d["celltype"], d["description"], d["order"], actor, now
+            )
+            for by_device in store.tab_rows.values():
+                if d["id"] in by_device:
+                    by_device[row["id"]] = [dict(r) for r in by_device[d["id"]]]
+        return len(devices)
 
 
 class FakeDeviceRepository:

@@ -47,6 +47,7 @@ PAIRS = [
             "list_pairs",
             "count_devices",
             "get_or_create_id",
+            "clone",
         },
     ),
     (
@@ -98,9 +99,9 @@ def test_a_fake_has_exactly_the_methods_the_controllers_call(fake, real, methods
     assert methods <= _public_methods(real)
 
 
-def test_repo_methods_lists_all_sixteen():
+def test_repo_methods_lists_all_seventeen():
     union = set().union(*(methods for _, _, methods in PAIRS))
-    assert len(REPO_METHODS) == len(set(REPO_METHODS)) == 16
+    assert len(REPO_METHODS) == len(set(REPO_METHODS)) == 17
     assert set(REPO_METHODS) == union
 
 

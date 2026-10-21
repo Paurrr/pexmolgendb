@@ -1,10 +1,40 @@
 import psycopg
+from psycopg import sql
 
+from genviewer.service import schema
 from genviewer.service.pool import Database
 from genviewer.service.repo import audit
 
 # 지워질 device 에서 이력에 보관할 컬럼. id 는 무엇이 있었는지 짚어보는 용도다.
 _DEVICE_COLUMNS = 'id, name, celltype, description, "order"'
+
+
+def _copy_tab_rows(cur, new_ids: dict[int, int]) -> None:
+    """탭 테이블마다 옛 device 들의 행을 id 순으로 읽어 새 device 로 넣는다. 호출자의 트랜잭션.
+
+    id 순으로 넣으므로 device 하나 안의 행 순서(화면·내보내기가 읽는 ORDER BY id)가 원본과
+    같다. 행 하나가 문장 하나(executemany)라 행이 많아도 바인드 파라미터 상한(65,535)에 닿지 않는다.
+    """
+    old_ids = list(new_ids)
+    for table, columns in schema.TABLE_COLUMNS.items():
+        tbl = sql.Identifier(table)
+        cols = sql.SQL(", ").join(map(sql.Identifier, columns))
+        rows = cur.execute(
+            sql.SQL(
+                "SELECT device_id, {cols} FROM {tbl} WHERE device_id = ANY(%s) ORDER BY id"
+            ).format(cols=cols, tbl=tbl),
+            (old_ids,),
+        ).fetchall()
+        if not rows:
+            continue
+        cur.executemany(
+            sql.SQL("INSERT INTO {tbl} (device_id, {cols}) VALUES ({vals})").format(
+                tbl=tbl,
+                cols=cols,
+                vals=sql.SQL(", ").join(sql.Placeholder() * (len(columns) + 1)),
+            ),
+            [(new_ids[r["device_id"]], *(r[c] for c in columns)) for r in rows],
+        )
 
 
 def find_or_create(cur, name: str, release: str = "") -> tuple[int, bool]:
@@ -144,6 +174,76 @@ class ProcessRepository:
                 (name, release),
             ).fetchone()
         return row["n"] if row else 0
+
+    def clone(
+        self, src_name: str, src_release: str, name: str, release: str, *, actor: str = ""
+    ) -> int | None:
+        """새 (name, release) 를 만들고 원본 (src_name, src_release) 의 device 와 탭 행을 복사한다.
+
+        반환: 복사한 device 수(원본이 비었으면 0). 대상이 이미 있으면 아무것도 만들지 않고 None
+        (add 의 "이미 있음" 과 같다). 원본이 없으면 LookupError. 전부 한 트랜잭션이다.
+
+        REPEATABLE READ 라야 device 와 탭 행이 같은 시점의 원본이다. READ COMMITTED 면 device 를
+        복사한 뒤 남이 원본 탭을 저장해 커밋했을 때 복사본의 탭만 그 뒤 시점이 된다. 원본 행은
+        잠그지 않는다. 잠그면 복제하는 동안 원본을 저장하는 사람이 lock_timeout 뒤 55P03 으로
+        실패한다(find_or_create 와 같은 이유). 새 process 는 아직 아무도 고를 수 없어서 advisory
+        lock 도 필요 없다.
+        """
+        try:
+            with self.db.connection() as conn:
+                cur = conn.cursor()
+                # 트랜잭션의 첫 문장이어야 한다. 풀은 트랜잭션 밖의 커넥션을 준다.
+                cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+                src = cur.execute(
+                    "SELECT id FROM process WHERE name = %s AND release = %s",
+                    (src_name, src_release),
+                ).fetchone()
+                if src is None:
+                    raise LookupError(
+                        f"원본 process 가 없다: {audit.process_label(src_name, src_release)}"
+                    )
+                # ON CONFLICT 를 쓰지 않는다. REPEATABLE READ 에서 동시 생성과 부딪히면 40001 이
+                # 날 수 있다. 평범한 INSERT 의 UniqueViolation 은 add 와 같은 길이다.
+                process_id = cur.execute(
+                    "INSERT INTO process (name, release) VALUES (%s, %s) RETURNING id",
+                    (name, release),
+                ).fetchone()["id"]
+
+                # 같은 order 의 device 끼리는 id 순서다. 그 순서로 하나씩 넣어야 새 id 도 같은
+                # 순서가 된다. 옛 id -> 새 id 는 문장마다 받은 id 로 잇는다. INSERT … SELECT …
+                # RETURNING 이 돌려주는 행의 순서는 보장되지 않는다.
+                devices = cur.execute(
+                    f"SELECT {_DEVICE_COLUMNS} FROM device "
+                    'WHERE process_id = %s ORDER BY "order", id',
+                    (src["id"],),
+                ).fetchall()
+                new_ids: dict[int, int] = {}
+                for d in devices:
+                    new_ids[d["id"]] = cur.execute(
+                        'INSERT INTO device (process_id, name, celltype, description, "order", '
+                        "updated_by) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                        (process_id, d["name"], d["celltype"], d["description"], d["order"], actor),
+                    ).fetchone()["id"]
+
+                if new_ids:
+                    _copy_tab_rows(cur, new_ids)
+
+                audit.write(
+                    cur,
+                    actor,
+                    [
+                        audit.process_add(
+                            name,
+                            process_release=release,
+                            source=(src_name, src_release),
+                            devices=len(devices),
+                        )
+                    ],
+                )
+            return len(devices)
+        except psycopg.errors.UniqueViolation:
+            # 이미 존재
+            return None
 
     def get_or_create_id(self, name: str, *, release: str = "", actor: str = "") -> int | None:
         """(이름, 버전) 쌍의 id 조회, 없으면 생성 후 반환."""

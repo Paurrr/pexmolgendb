@@ -31,6 +31,7 @@ from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.service.repo.process import ProcessRepository
+from genviewer.service.schema import TABLE_COLUMNS
 from genviewer.utils.exporter import write_csv
 
 DEVICE_KEYS = {
@@ -246,6 +247,147 @@ def test_list_pairs_orders_by_name_then_release_code_points(backend):
         ("sf2p", "S00-V1.0"),
         ("sf2p", "S00V1"),
         ("sf4u", ""),
+    ]
+
+
+# -- clone (다른 (이름, 버전)으로 복제) --------------------------------------
+
+# device 행에서 복제가 그대로 옮기는 값.
+CLONED = ("name", "celltype", "description", "order")
+
+
+def _tab_rows(backend, device_id):
+    """그 device 의 탭 행 전부. {테이블: 행 목록}, 행이 없는 테이블은 뺀다."""
+    found = {}
+    for table, columns in TABLE_COLUMNS.items():
+        rows = backend.parameter.fetch_by_device(table, columns, device_id)
+        if rows:
+            found[table] = rows
+    return found
+
+
+def _seed_clone_source(backend):
+    """원본 sf2p V1: device 셋과 탭 행. 원본 process id 를 준다.
+
+    order 1 이 둘(pfet_c 가 nfet_a 보다 먼저 만들어졌다)이라 id 순서도 지켜야 같은 목록이 된다.
+    nfet_a 의 InstTerm 세 행은 넣은 순서(GATE, DRN, SRC)가 값의 정렬 순서와 다르다.
+    """
+    pid = backend.process.get_or_create_id("sf2p", release="V1")
+    made = {}
+    for name, celltype, description, order in [
+        ("pfet_c", "PFET", "", 1),
+        ("nfet_a", "NFET", "입력단 NMOS", 1),
+        ("nfet_b", "NFET", "", 0),
+    ]:
+        made[name] = backend.device.upsert_device(
+            pid, _device(name, celltype, description=description, order=order), actor="kim"
+        )
+    backend.parameter.replace_many_for_device(
+        made["nfet_a"]["id"],
+        {
+            "inst_terms": (TERMS, _terms(("GATE", "g"), ("DRN", "d"), ("SRC", "s"))),
+            "inst_sch_params": (
+                PARAMS,
+                [{"reserved_key": "LENGTH", "cds_inst_parameter_name": "l"}],
+            ),
+        },
+        actor="kim",
+    )
+    backend.parameter.replace_many_for_device(
+        made["nfet_b"]["id"], {"inst_terms": (TERMS, _terms(("BULK", "b")))}, actor="kim"
+    )
+    return pid
+
+
+def test_clone_copies_every_device_and_its_tab_rows_in_order(backend):
+    src_pid = _seed_clone_source(backend)
+    src = backend.device.fetch_devices_by_process(src_pid)
+    src_rows = {d["id"]: _tab_rows(backend, d["id"]) for d in src}
+
+    assert backend.process.clone("sf2p", "V1", "sf2p", "V2", actor="tester") == 3
+
+    assert backend.process.list_pairs() == [("sf2p", "V1"), ("sf2p", "V2")]
+    dst_pid = backend.process.get_or_create_id("sf2p", release="V2")
+    copies = backend.device.fetch_devices_by_process(dst_pid)
+    assert [tuple(d[k] for k in CLONED) for d in copies] == [
+        ("nfet_b", "NFET", "", 0),
+        ("pfet_c", "PFET", "", 1),
+        ("nfet_a", "NFET", "입력단 NMOS", 1),
+    ]
+    assert [tuple(d[k] for k in CLONED) for d in copies] == [
+        tuple(d[k] for k in CLONED) for d in src
+    ]
+    assert not {d["id"] for d in copies} & {d["id"] for d in src}
+    assert [(d["process_id"], d["version"], d["updated_by"]) for d in copies] == [
+        (dst_pid, 1, "tester")
+    ] * 3
+    assert all(isinstance(d["updated_at"], datetime) for d in copies)
+
+    # 각 복사본의 탭 행이 그 원본 device 의 행과 순서까지 같다.
+    assert [_tab_rows(backend, d["id"]) for d in copies] == [src_rows[d["id"]] for d in src]
+    assert backend.parameter.fetch_by_device("inst_terms", TERMS, copies[2]["id"]) == _terms(
+        ("GATE", "g"), ("DRN", "d"), ("SRC", "s")
+    )
+
+    # 원본은 그대로다(version·updated_at 포함).
+    assert backend.device.fetch_devices_by_process(src_pid) == src
+    assert {d["id"]: _tab_rows(backend, d["id"]) for d in src} == src_rows
+
+
+def test_clone_onto_an_existing_pair_gives_none_and_changes_nothing(backend):
+    src_pid = _seed_clone_source(backend)
+    dst_pid = backend.process.get_or_create_id("sf2p", release="V2")
+    backend.device.upsert_device(dst_pid, _device("mine"))
+    src = backend.device.fetch_devices_by_process(src_pid)
+
+    assert backend.process.clone("sf2p", "V1", "sf2p", "V2", actor="tester") is None
+    # 자기 자신으로 복제해도 이미 있는 쌍이다.
+    assert backend.process.clone("sf2p", "V1", "sf2p", "V1", actor="tester") is None
+
+    assert backend.process.list_pairs() == [("sf2p", "V1"), ("sf2p", "V2")]
+    assert _names(backend, dst_pid) == ["mine"]
+    assert backend.device.fetch_devices_by_process(src_pid) == src
+
+
+def test_clone_of_an_empty_process_makes_the_pair_with_no_devices(backend):
+    backend.process.add("sf2p", release="V1")
+
+    assert backend.process.clone("sf2p", "V1", "sf2p", "V2") == 0
+
+    assert backend.process.list_pairs() == [("sf2p", "V1"), ("sf2p", "V2")]
+    assert backend.process.count_devices("sf2p", release="V2") == 0
+
+
+@pytest.mark.parametrize(
+    "src_release,message",
+    [("V1", "원본 process 가 없다: sf2p V1"), ("", "원본 process 가 없다: sf2p")],
+    ids=["V1", "no-release"],
+)
+def test_clone_of_a_missing_source_raises_and_makes_nothing(backend, src_release, message):
+    # 이름은 있지만 그 버전은 없다.
+    backend.process.add("sf2p", release="V0")
+
+    with pytest.raises(LookupError) as raised:
+        backend.process.clone("sf2p", src_release, "sf2p", "V2", actor="tester")
+
+    assert raised.value.args == (message,)
+    assert backend.process.list_pairs() == [("sf2p", "V0")]
+
+
+def test_clone_into_another_name(backend):
+    src_pid = _seed_clone_source(backend)
+    src = backend.device.fetch_devices_by_process(src_pid)
+
+    assert backend.process.clone("sf2p", "V1", "sf9x", "", actor="tester") == 3
+
+    assert backend.process.list_pairs() == [("sf2p", "V1"), ("sf9x", "")]
+    dst_pid = backend.process.get_or_create_id("sf9x")
+    copies = backend.device.fetch_devices_by_process(dst_pid)
+    assert [tuple(d[k] for k in CLONED) for d in copies] == [
+        tuple(d[k] for k in CLONED) for d in src
+    ]
+    assert [_tab_rows(backend, d["id"]) for d in copies] == [
+        _tab_rows(backend, d["id"]) for d in src
     ]
 
 

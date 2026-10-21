@@ -672,12 +672,29 @@ def test_process_lines_without_a_release_keep_the_old_sentence():
     assert audit.process_add("sf2p") == audit.Entry(
         action=audit.PROCESS_ADD, process_name="sf2p", summary="process 추가  sf2p"
     )
+    # source 가 없으면 devices 를 주어도 예전 줄 그대로다.
+    assert audit.process_add("sf2p", source=None, devices=3) == audit.process_add("sf2p")
     gone = audit.process_delete("sf2p", [], True)
     assert gone.process_release == ""
     assert gone.summary == (
         "process 삭제  sf2p  device 0개가 함께 사라짐"
         "  (내용이 너무 많아 자식 행은 보관하지 않았다)"
     )
+
+
+def test_a_cloned_process_line_names_its_source_and_the_device_count():
+    assert audit.process_add(
+        "sf2p", process_release="V2", source=("sf2p", "V1"), devices=3
+    ) == audit.Entry(
+        action=audit.PROCESS_ADD,
+        process_name="sf2p",
+        summary="process 추가  sf2p V2  (sf2p V1 에서 device 3개 복사)",
+        detail={"source": {"name": "sf2p", "release": "V1"}, "devices": 3},
+        process_release="V2",
+    )
+    blank = audit.process_add("sf9x", source=("sf2p", ""), devices=0)
+    assert blank.summary == "process 추가  sf9x  (sf2p 에서 device 0개 복사)"
+    assert blank.detail == {"source": {"name": "sf2p", "release": ""}, "devices": 0}
 
 
 def test_device_and_tab_lines_carry_the_release_but_keep_their_sentence():
