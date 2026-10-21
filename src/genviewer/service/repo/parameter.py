@@ -71,7 +71,7 @@ class ParameterRepository:
             # 사람들이 서로를 기다리게 된다.
             row = cur.execute(
                 "SELECT d.name, d.version, d.updated_by, d.updated_at, "
-                "       p.name AS process_name "
+                "       p.name AS process_name, p.release AS process_release "
                 "FROM device d JOIN process p ON p.id = d.process_id "
                 "WHERE d.id = %s FOR UPDATE OF d",
                 (device_id,),
@@ -117,7 +117,13 @@ class ParameterRepository:
                 ]
                 after = [{c: r.get(c) or "" for c in columns} for r in rows]
                 entry = audit.tab_change(
-                    row["process_name"], row["name"], device_id, table, before, after
+                    row["process_name"],
+                    row["name"],
+                    device_id,
+                    table,
+                    before,
+                    after,
+                    process_release=row["process_release"],
                 )
                 if entry is not None:
                     entries.append(entry)

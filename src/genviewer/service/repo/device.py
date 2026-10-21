@@ -37,12 +37,12 @@ class SaveResult:
         return self.updated + self.inserted + self.deleted
 
 
-def _process_name(cur, process_id: int) -> str:
-    """이력에 박을 process 이름. id 는 process 가 지워지면 읽을 수 없게 된다."""
+def _process_ident(cur, process_id: int) -> tuple[str, str]:
+    """이력에 박을 process (이름, 버전). id 는 process 가 지워지면 읽을 수 없게 된다."""
     row = cur.execute(
-        "SELECT name FROM process WHERE id = %s", (process_id,)
+        "SELECT name, release FROM process WHERE id = %s", (process_id,)
     ).fetchone()
-    return row["name"] if row else ""
+    return (row["name"], row["release"]) if row else ("", "")
 
 
 def etag_key(etag: dict | None) -> tuple | None:
@@ -142,14 +142,16 @@ class DeviceRepository:
 
             cur = conn.cursor()
             if inserting:
-                entry = audit.device_insert(_process_name(cur, process_id), device)
+                name, release = _process_ident(cur, process_id)
+                entry = audit.device_insert(name, device, process_release=release)
             elif before is None:
                 # id 는 들고 있는데 행이 없다 - 남이 먼저 지웠다. UPDATE 도 아무
                 # 행을 못 맞췄으므로 일어난 일이 없다. 남길 것도 없다.
                 entry = None
             else:
+                name, release = _process_ident(cur, process_id)
                 entry = audit.device_update(
-                    _process_name(cur, process_id), before, device
+                    name, before, device, process_release=release
                 )
             audit.write(cur, actor, [entry] if entry is not None else [])
         return device
@@ -257,17 +259,23 @@ class DeviceRepository:
         if not (gone or changed or added):
             return
 
-        name = _process_name(cur, process_id)
+        name, release = _process_ident(cur, process_id)
         payload = {d["id"]: d for d in devices if d.get("id") is not None}
         entries = [
-            audit.device_delete(name, row, children.get(row["id"], {}))
+            audit.device_delete(
+                name, row, children.get(row["id"], {}), process_release=release
+            )
             for row in gone
         ]
         for device_id in changed:
-            entry = audit.device_update(name, db_now[device_id], payload[device_id])
+            entry = audit.device_update(
+                name, db_now[device_id], payload[device_id], process_release=release
+            )
             if entry is not None:
                 entries.append(entry)
-        entries += [audit.device_insert(name, d) for d in added]
+        entries += [
+            audit.device_insert(name, d, process_release=release) for d in added
+        ]
         audit.write(cur, actor, entries)
 
     @staticmethod

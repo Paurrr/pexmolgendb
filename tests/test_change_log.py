@@ -737,3 +737,68 @@ def test_the_release_is_written_and_read_back(db, log):
         ("sf2p", ""),
     ]
     assert [r["process_release"] for r in _rows(log)] == ["S00-V1.0.0.0", ""]
+
+
+def _save_every_way(db, process_id, actor):
+    """device 이력이 생기는 길을 한 번씩 지난다(이력 줄 여섯 개).
+
+    목록 저장의 추가·수정·삭제, 탭 저장, 붙여넣기 경로(upsert_device)의 추가·수정.
+    """
+    devices = DeviceRepository(db)
+    (dev,) = devices.upsert_devices(process_id, [_device()], actor=actor).devices
+    version = ParameterRepository(db).replace_many_for_device(
+        dev["id"],
+        {"inst_terms": (TERM_COLUMNS, _terms([("DRN", "d"), ("GATE", "g")]))},
+        expected_version=dev["version"],
+        actor=actor,
+    )
+    (dev,) = devices.upsert_devices(
+        process_id, [{**dev, "version": version, "description": "고침"}], actor=actor
+    ).devices
+    pasted = devices.upsert_device(process_id, _device("pfet_a", "PFET"), actor=actor)
+    devices.upsert_device(process_id, {**pasted, "description": "붙임"}, actor=actor)
+    devices.upsert_devices(
+        process_id, [], deleted={dev["id"]: dev["version"]}, actor=actor
+    )
+
+
+@pytest.mark.parametrize(
+    ("release", "place"), [("", "sf2p"), ("V1", "sf2p V1")], ids=["no-release", "V1"]
+)
+def test_device_and_tab_saves_record_the_release_of_their_process(db, log, release, place):
+    pid = ProcessRepository(db).get_or_create_id("sf2p", release=release, actor="관리자")
+
+    _save_every_way(db, pid, "dh991")
+
+    rows = _rows(log, actor="dh991")
+    assert [(r["action"], r["process_name"], r["process_release"]) for r in rows] == [
+        (audit.INSERT, "sf2p", release),
+        (audit.TAB, "sf2p", release),
+        (audit.UPDATE, "sf2p", release),
+        (audit.INSERT, "sf2p", release),
+        (audit.UPDATE, "sf2p", release),
+        (audit.DELETE, "sf2p", release),
+    ]
+    assert [audit.where_of(r) for r in rows] == [
+        f"{place}/nfet_b",
+        f"{place}/nfet_b",
+        f"{place}/nfet_b",
+        f"{place}/pfet_a",
+        f"{place}/pfet_a",
+        f"{place}/nfet_b",
+    ]
+
+
+def test_a_release_changes_nothing_else_in_the_lines(db, log):
+    """버전은 where 칸에만 보인다. 문장·내용은 같은 이름의 빈 버전과 같다."""
+    procs = ProcessRepository(db)
+    _save_every_way(db, procs.get_or_create_id("sf2p", actor="관리자"), "plain")
+    _save_every_way(
+        db, procs.get_or_create_id("sf2p", release="V1", actor="관리자"), "v1"
+    )
+
+    keep = ("action", "process_name", "device_name", "table_name", "summary", "detail")
+    plain = [{k: r[k] for k in keep} for r in _rows(log, actor="plain")]
+    v1 = [{k: r[k] for k in keep} for r in _rows(log, actor="v1")]
+    assert len(plain) == 6
+    assert v1 == plain

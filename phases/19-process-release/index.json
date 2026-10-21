@@ -29,7 +29,9 @@
     {
       "step": 3,
       "name": "audit-sources",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-22T01:05:59+0900",
+      "summary": "device.py _process_name → _process_ident(cur, pid) → (name, release)(SELECT name, release FROM process WHERE id = %s, 없으면 ('', '')). 부르는 곳(upsert_device 의 추가·수정, _log)이 그대로 같은 cur·같은 트랜잭션에서 device_insert·device_update·device_delete 에 process_release=release 를 넘김(쿼리 수 그대로, 행 없는 수정은 지금처럼 읽지 않음). parameter.py replace_many_for_device 는 기존 SELECT 에 p.release AS process_release 를 더해 tab_change(..., process_release=row['process_release']), FOR UPDATE OF d 그대로. 잠금·version 가드·DELETE process_id 가드·저장 결과·summary 문장 그대로. 가짜 device·탭 repo 는 이력을 쓰지 않아(store.add_audit 만) 안 바꿈. 새 테스트(tests/test_change_log.py): 헬퍼 _save_every_way(목록 추가 → replace_many_for_device 탭 → 목록 수정 → upsert_device 추가·수정(붙여넣기 경로) → 목록 삭제, 이력 6줄). RED(수정 전 1 failed): test_device_and_tab_saves_record_the_release_of_their_process[V1](get_or_create_id('sf2p', release='V1') 의 이력 (action, process_name, process_release) 가 INSERT·TAB·UPDATE·INSERT·UPDATE·DELETE 모두 'V1', where_of 가 'sf2p V1/nfet_b'·'sf2p V1/pfet_a'; 수정 전 index 0 ('insert','sf2p','') != ('insert','sf2p','V1')). 수정 전에도 통과하는 가드: [no-release](모두 '', where 'sf2p/nfet_b'), test_a_release_changes_nothing_else_in_the_lines(같은 이름의 빈 버전·V1 에 같은 저장을 하면 action·process_name·device_name·table_name·summary·detail 6줄이 같음). 변이(Python 으로 바꾸고 되돌림): parameter.py 에서 process_release 안 넘김 → index 1 ('tab','sf2p','') 실패 / _log 삭제 줄에서 뺌 → index 5 ('delete') 실패 / upsert_device 수정 줄에서 뺌 → index 4 ('update') 실패 / _process_ident 가 버전 대신 '' → index 0 실패. AC 의 tests/test_device_save_guards.py 는 없는 파일이라 뺌. DB 테스트: AC 파일(test_change_log·test_concurrency·gui/test_fake_repo_contract) 176 passed(skip 없음), 전체 1008 passed / 10 skipped(Windows 권한 테스트만), ruff 통과."
     },
     {
       "step": 4,
