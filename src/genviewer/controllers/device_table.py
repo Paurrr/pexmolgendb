@@ -71,7 +71,9 @@ class DeviceTableController(QObject):
         self.ui = ui
         self.repo = repo
         self.table_name = "device"
+        # 이름 그대로다(CSV CdsLibName, Virtuoso payload). 버전은 current_release 에 따로 둔다.
         self.current_process = ""
+        self.current_release = ""
         self.current_process_id: int | None = None
         self.device_state_data: dict[str, dict] | None = None
         self._prev_proxy_index = QModelIndex()
@@ -556,6 +558,9 @@ class DeviceTableController(QObject):
 
     def set_current_process(self, process: str):
         self.current_process = process
+
+    def set_current_release(self, release: str):
+        self.current_release = release
 
     def set_current_process_id(self, process_id: int):
         self.current_process_id = process_id

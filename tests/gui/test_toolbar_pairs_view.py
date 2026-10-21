@@ -2,8 +2,9 @@
 
 process 행 하나가 (이름, 버전) 쌍이다. view 는 두 콤보를 묶어 쌍을 다루고, 사용자 동작 한 번이나
 실제로 바뀐 선택 한 번에 `selectionChanged(이름, 버전)` 을 정확히 한 번 낸다. 빈 버전은
-`(없음)` 으로 보이지만 값은 `""` 이다. 컨트롤러는 아직 옛 API(`set_processes`,
-`process_selector.currentTextChanged`)를 쓰므로 그것도 지금처럼 돌아야 한다.
+`(없음)` 으로 보이지만 값은 `""` 이다. 컨트롤러가 쌍으로 옮긴 뒤(step 8) 옛 이름 API
+(`set_processes`, `select_process`, `select_process_silently`)는 없다. Remove 는 지금 쌍을
+묻고 낸다.
 """
 
 import pytest
@@ -269,30 +270,31 @@ def test_the_version_combo_sits_between_the_process_combo_and_its_buttons(view):
     )
 
 
-def test_the_old_process_api_still_drives_only_the_process_combo(view):
-    """컨트롤러가 아직 쓰는 옛 API. Version 콤보는 비어 있고 새 시그널은 나지 않는다."""
-    texts: list[str] = []
-    view.process_selector.currentTextChanged.connect(texts.append)
-    got = record(view)
+def test_the_old_process_api_is_gone(view):
+    for name in ("set_processes", "select_process", "select_process_silently"):
+        assert not hasattr(view, name), name
 
-    view.set_processes(["a", "b"])
 
-    assert texts == ["a"]
-    assert items(view.process_selector) == ["a", "b"]
-    assert view.process_selector.currentText() == "a"
+def test_remove_asks_about_the_current_pair_and_gives_it(view, dialogs):
+    got: list[tuple[str, str]] = []
+    view.removeProcessRequested.connect(lambda name, release: got.append((name, release)))
+    view.set_pairs(PAIRS)
+    view.select_pair("sf2p", "V1")
+    dialogs.answer_question(True)
 
-    view.set_processes(["a", "b"])
+    view.open_remove_process_dialog()
 
-    assert texts == ["a"]
-    assert view.select_process_silently("b") is True
-    assert view.select_process_silently("z") is False
-    assert texts == ["a"]
-    assert view.process_selector.currentText() == "b"
+    assert dialogs.shown == [
+        ("question", "Confirm Delete", "Are you sure you want to delete the process:\n'sf2p V1'?")
+    ]
+    assert got == [("sf2p", "V1")]
 
-    view.select_process("a")
-    view.process_selector.setCurrentIndex(1)
 
-    assert texts == ["a", "a", "b"]
-    assert items(view.release_selector) == []
-    assert view.current_pair() == ("", "")
+def test_remove_without_a_pair_does_nothing(view, dialogs):
+    got: list[tuple[str, str]] = []
+    view.removeProcessRequested.connect(lambda name, release: got.append((name, release)))
+
+    view.open_remove_process_dialog()
+
+    assert dialogs.shown == []
     assert got == []

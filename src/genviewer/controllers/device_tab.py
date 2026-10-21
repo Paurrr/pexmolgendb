@@ -10,6 +10,7 @@ from genviewer.controllers.parameter_tab import ParameterTabController
 from genviewer.service.config import load_config
 from genviewer.service.errors import user_message
 from genviewer.service.pool import Database
+from genviewer.service.repo.audit import process_label
 from genviewer.service.repo.device import DeviceRepository, etag_key
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
@@ -476,16 +477,16 @@ class DeviceTabController(QObject):
         self.device_table.refresh_devices()
         self.parameter_tab._clear_tabs()
 
-    @Slot()
+    @Slot(str, str)
     @report("Process Change Failed")
-    def on_process_changed(self, process_name: str):
+    def on_process_changed(self, process_name: str, release: str):
         if process_name and not self._save_before_process_change():
             # 저장이 취소되거나 실패해 편집이 남아 있다. 새 process 를 읽으면 그 편집이
-            # 말없이 버려진다. 콤보만 이전 process 로 되돌린다(processChanged 를 내지 않는다).
-            # 목록에 없으면(지워짐) 넘어간다. 지워진 process 에는 되돌릴 곳도, 편집을 저장할
-            # 곳도 없다.
+            # 말없이 버려진다. 두 콤보만 이전 (이름, 버전)으로 되돌린다(processChanged 를 내지
+            # 않는다). 목록에 없으면(지워짐) 넘어간다. 지워진 process 에는 되돌릴 곳도, 편집을
+            # 저장할 곳도 없다.
             if self.device_tab_toolbar.select_process_silently(
-                self.device_table.current_process
+                self.device_table.current_process, self.device_table.current_release
             ):
                 return
         self.clear()
@@ -494,22 +495,26 @@ class DeviceTabController(QObject):
         self.ui.hide_refresh_banner()
         if not process_name:
             self.device_table.set_current_process("")
+            self.device_table.set_current_release("")
             self.device_table.set_current_process_id(None)
             self.parameter_tab._clear_tabs()
             return
-        self.logRequested.emit(f"Selected process: {process_name}.")
+        self.logRequested.emit(f"Selected process: {process_label(process_name, release)}.")
 
-        process_id = self.device_tab_toolbar.get_process_id(process_name)
+        process_id = self.device_tab_toolbar.get_process_id(process_name, release)
         self.device_table.set_current_process(process_name)
+        self.device_table.set_current_release(release)
         self.device_table.set_current_process_id(process_id)
         self.device_table.refresh_devices()
         self.parameter_tab._clear_tabs()
 
-    @Slot(str)
-    def _on_process_removed(self, process_name: str) -> None:
+    @Slot(str, str)
+    def _on_process_removed(self, process_name: str, release: str) -> None:
         # 사용자가 process 삭제를 확인했다. 그 편집은 저장할 곳이 없어 물으면 반드시 deleted
         # 충돌이 난다(K42). 탭은 다시 읽지 않고 비운다(지워진 device 라 읽을 행이 없다).
-        if process_name != self.device_table.current_process:
+        # 쌍으로 비교한다. 이름만 보면 같은 이름의 다른 버전을 지울 때 지금 편집을 버린다.
+        dt = self.device_table
+        if (process_name, release) != (dt.current_process, dt.current_release):
             return
         self.device_table.set_dirty(False)
         self.parameter_tab._clear_tabs()

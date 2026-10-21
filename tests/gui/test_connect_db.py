@@ -174,7 +174,7 @@ def test_a_failed_start_connect_shows_in_the_log_panel(start_window, store, dial
 
 
 def test_a_failed_first_query_at_start_is_shown(start_window, store, dialogs, qtbot):
-    store.fail_next("list_all", DbUnavailableError("down"))
+    store.fail_next("list_pairs", DbUnavailableError("down"))
 
     controller = start_window(store)
     qtbot.waitUntil(lambda: controller.device_tab.connected is not None)

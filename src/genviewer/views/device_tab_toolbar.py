@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from genviewer.service.repo.audit import process_label
 from genviewer.utils.dialogs import question
 
 # 빈 버전 "" 의 표시 글자. 값이 아니다. 버전은 글자가 아니라 index 로 _releases 에서 읽는다.
@@ -19,7 +20,8 @@ class DeviceTabToolBar(QWidget):
     # (이름, 버전). 사용자 동작 한 번 또는 실제로 바뀐 선택 한 번에 정확히 한 번 낸다.
     selectionChanged = Signal(str, str)
     addProcessRequested = Signal(str)
-    removeProcessRequested = Signal(str)
+    # (이름, 버전). 지울 쌍이다.
+    removeProcessRequested = Signal(str, str)
     addLibraryRequested = Signal(str)
 
     def __init__(self, parent=None):
@@ -157,17 +159,15 @@ class DeviceTabToolBar(QWidget):
 
     @Slot()
     def open_remove_process_dialog(self):
-        name = self.process_selector.currentText()
+        name, release = self.current_pair()
         if not name:
-            return
-        if self.process_selector.findText(name) == -1:
             return
         if question(
             self,
             "Confirm Delete",
-            f"Are you sure you want to delete the process:\n'{name}'?",
+            f"Are you sure you want to delete the process:\n'{process_label(name, release)}'?",
         ):
-            self.removeProcessRequested.emit(name)
+            self.removeProcessRequested.emit(name, release)
 
     @Slot()
     def open_add_library_dialog(self):
@@ -178,35 +178,6 @@ class DeviceTabToolBar(QWidget):
         if not name:
             return
         self.addLibraryRequested.emit(name)
-
-    @Slot()
-    def set_processes(self, items: list[str]):
-        # clear() 와 addItems() 는 "" 와 첫 항목으로 currentTextChanged 를 두 번 낸다. 그 사이
-        # 지금 process 의 편집이 묻지도 않고 버려진다. 막고 다시 채운 뒤, 지금 process 가
-        # 목록에서 사라져 바뀐 경우에만 최종 이름으로 한 번 낸다.
-        current = self.process_selector.currentText()
-        self.process_selector.blockSignals(True)
-        self.process_selector.clear()
-        self.process_selector.addItems(items)
-        if current in items:
-            self.process_selector.setCurrentText(current)
-        self.process_selector.blockSignals(False)
-        selected = self.process_selector.currentText()
-        if selected != current:
-            self.process_selector.currentTextChanged.emit(selected)
-
-    @Slot()
-    def select_process(self, name: str):
-        self.process_selector.setCurrentText(name)
-
-    def select_process_silently(self, name: str) -> bool:
-        index = self.process_selector.findText(name)
-        if index == -1:
-            return False
-        self.process_selector.blockSignals(True)
-        self.process_selector.setCurrentIndex(index)
-        self.process_selector.blockSignals(False)
-        return True
 
     def pairs(self) -> list[tuple[str, str]]:
         return list(self._pairs)
@@ -290,7 +261,7 @@ class DeviceTabToolBar(QWidget):
 
     @Slot(int)
     def _on_process_index_changed(self, index: int):
-        # 시그널을 막지 않은 채 이름이 바뀌었다(사용자, 옛 select_process). 지금 버전이 그
+        # 시그널을 막지 않은 채 이름이 바뀌었다(사용자). 지금 버전이 그
         # 이름에도 있으면 그것, 없으면 첫 버전. version 콤보를 채우는 동안 중간 쌍을 알리지 않는다.
         selected = self.release_selector.currentIndex()
         release = self._releases[selected] if 0 <= selected < len(self._releases) else None

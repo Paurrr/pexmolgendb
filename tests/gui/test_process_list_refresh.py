@@ -39,9 +39,11 @@ def created_since(store, since: int) -> list[str]:
     return [args["name"] for name, args in store.calls[since:] if name == "get_or_create_id"]
 
 
-def record_process_changes(ctrl) -> list[str]:
-    changes: list[str] = []
-    ctrl.device_tab_toolbar.processChanged.connect(changes.append)
+def record_process_changes(ctrl) -> list[tuple[str, str]]:
+    changes: list[tuple[str, str]] = []
+    ctrl.device_tab_toolbar.processChanged.connect(
+        lambda name, release: changes.append((name, release))
+    )
     return changes
 
 
@@ -115,7 +117,7 @@ def test_reconnecting_keeps_the_current_process(device_tab_ctrl, store, qtbot):
 
     assert ctrl.connect_db("") is True
 
-    qtbot.waitUntil(lambda: "list_all" in [name for name, _ in store.calls[since:]])
+    qtbot.waitUntil(lambda: "list_pairs" in [name for name, _ in store.calls[since:]])
     assert combo(ctrl).currentText() == "sf4u"
     assert ctrl.device_table.current_process == "sf4u"
     assert ctrl.device_table.current_process_id == process_id(store, "sf4u")
@@ -144,7 +146,7 @@ def test_when_another_user_deletes_the_current_process_the_first_one_is_selected
     qtbot.waitUntil(lambda: ctrl.device_table.current_process == "sf2p")
     assert combo_items(ctrl) == ["sf2p"]
     assert combo(ctrl).currentText() == "sf2p"
-    assert changes == ["sf2p"]
+    assert changes == [("sf2p", "")]
     assert created_since(store, since) == ["sf2p"]
 
 

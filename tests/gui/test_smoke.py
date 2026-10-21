@@ -49,7 +49,7 @@ def test_connecting_fills_the_process_list(device_tab_ctrl, store):
     assert device_names(ctrl) == ["nfet_a", "nfet_b"]
 
     names = call_names(store)
-    assert "list_all" in names
+    assert "list_pairs" in names
     assert "fetch_devices_by_process" in names
     assert isinstance(ctrl.db, FakeDatabase)
     assert not ctrl.db.closed
@@ -123,7 +123,7 @@ def test_another_users_save_shows_the_banner(device_tab_ctrl, store, qtbot):
 
 def test_a_failing_call_is_reported(device_tab_ctrl, store, dialogs):
     ctrl = device_tab_ctrl
-    store.fail_next("list_all", RuntimeError("boom"))
+    store.fail_next("list_pairs", RuntimeError("boom"))
 
     ctrl.device_tab_toolbar.refresh_processes()
 

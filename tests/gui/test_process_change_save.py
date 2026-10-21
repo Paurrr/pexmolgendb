@@ -39,9 +39,11 @@ def device_id(store, name: str) -> int:
     return store.find_device(name)["id"]
 
 
-def record_process_changes(ctrl) -> list[str]:
-    changes: list[str] = []
-    ctrl.device_tab_toolbar.processChanged.connect(changes.append)
+def record_process_changes(ctrl) -> list[tuple[str, str]]:
+    changes: list[tuple[str, str]] = []
+    ctrl.device_tab_toolbar.processChanged.connect(
+        lambda name, release: changes.append((name, release))
+    )
     return changes
 
 
@@ -104,13 +106,15 @@ def assert_moved_to_sf4u(ctrl, qtbot) -> None:
     assert ctrl.device_table.ui.model_safe().get_devices()[0]["name"] == "pfet_a"
 
 
-def assert_stayed_on_sf2p(ctrl, store, changes: list[str], since: int) -> None:
+def assert_stayed_on_sf2p(
+    ctrl, store, changes: list[tuple[str, str]], since: int
+) -> None:
     """콤보·device 표가 sf2p 그대로이고, sf2p 를 다시 읽거나 새 process 를 찾지 않았다."""
     assert combo(ctrl).currentText() == "sf2p"
     assert ctrl.device_table.current_process == "sf2p"
     assert ctrl.device_table.current_process_id == store.find_device("nfet_a")["process_id"]
     # 되돌리는 동안 새 신호가 없다(select_process_silently).
-    assert changes == ["sf4u"]
+    assert changes == [("sf4u", "")]
     assert created_since(store, since) == []
     assert "fetch_devices_by_process" not in call_names(store, since)
 
@@ -333,7 +337,7 @@ def test_adding_a_process_after_cancelling_a_tab_conflict_keeps_the_tab_edits(
     assert "new_p" in combo_items(ctrl)
     assert combo(ctrl).currentText() == "sf2p"
     assert ctrl.device_table.current_process == "sf2p"
-    assert changes == ["new_p"]
+    assert changes == [("new_p", "")]
     assert created_since(store, since) == []
     assert_tab_edit_kept(ctrl, store)
     assert dialogs.shown.count(SAVE_CHANGES) == 1

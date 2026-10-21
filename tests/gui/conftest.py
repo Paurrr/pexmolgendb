@@ -84,7 +84,7 @@ def store() -> FakeStore:
 def device_tab_ctrl(qtbot, monkeypatch, store, dialogs) -> Iterator[DeviceTabController]:
     """store 에 붙은 실제 DeviceTabController (MainWindow 없이).
 
-    접속 직후에는 첫 process(sf2p)가 골라져 있다(콤보의 addItems 가 currentTextChanged 를 낸다).
+    접속 직후에는 첫 쌍 ("sf2p", "")이 골라져 있다(view 의 set_pairs 가 selectionChanged 를 낸다).
     알림은 MainWindow 대신 `dialogs.shown` 에 남는다. 생성 **뒤에** 잇는 것은
     MainWindowController 와 같은 순서다. 첫 접속은 생성자가 예약만 하므로 그 알림도 여기 닿는다.
     """

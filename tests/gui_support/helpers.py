@@ -96,12 +96,20 @@ def install_fake_history(monkeypatch) -> None:
         monkeypatch.setattr(history_tab_module, name, fake)
 
 
-def select_process(ctrl: DeviceTabController, name: str) -> None:
-    """process 콤보에서 name 을 고른다. 이미 골라져 있으면 콤보가 시그널을 내지 않는다."""
-    combo = ctrl.device_tab_toolbar.ui.process_selector
-    items = [combo.itemText(i) for i in range(combo.count())]
-    assert name in items, f"process 콤보에 {name!r} 가 없다: {items}"
-    combo.setCurrentText(name)
+def select_process(ctrl: DeviceTabController, name: str, release: str = "") -> None:
+    """process·version 콤보에서 (name, release) 를 사용자처럼 고른다.
+
+    이름이 다르면 process 콤보를 바꾸고(view 가 버전을 고른다), 그 뒤 버전이 다르면 version 콤보를
+    바꾼다(사용자 동작 두 번 = 전환 두 번). 첫 전환이 되돌려졌으면(저장 취소) 거기서 멈춘다.
+    이미 골라져 있으면 콤보가 시그널을 내지 않는다. 한 번에 옮기려면 `ui.select_pair` 를 쓴다.
+    """
+    ui = ctrl.device_tab_toolbar.ui
+    pairs = ui.pairs()
+    assert (name, release) in pairs, f"process 목록에 {(name, release)!r} 가 없다: {pairs}"
+    if ui.process_selector.currentText() != name:
+        ui.process_selector.setCurrentIndex(ui.process_selector.findText(name))
+    if ui.process_selector.currentText() == name and ui.current_pair() != (name, release):
+        ui.release_selector.setCurrentIndex(ui.releases_of(name).index(release))
 
 
 def select_device_row(ctrl: DeviceTabController, row: int) -> None:

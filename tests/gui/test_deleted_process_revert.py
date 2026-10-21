@@ -38,9 +38,11 @@ def process_id(store, name: str) -> int:
     return found
 
 
-def record_process_changes(ctrl) -> list[str]:
-    changes: list[str] = []
-    ctrl.device_tab_toolbar.processChanged.connect(changes.append)
+def record_process_changes(ctrl) -> list[tuple[str, str]]:
+    changes: list[tuple[str, str]] = []
+    ctrl.device_tab_toolbar.processChanged.connect(
+        lambda name, release: changes.append((name, release))
+    )
     return changes
 
 
@@ -109,7 +111,7 @@ def test_cancelling_after_another_user_deleted_the_process_moves_to_the_first_pr
     qtbot.waitUntil(lambda: len(store.calls_of("upsert_devices")) == 1)
     assert_moved_to_sf2p(ctrl, store)
     assert combo_items(ctrl) == ["sf2p"]
-    assert changes == ["sf2p"]
+    assert changes == [("sf2p", "")]
     assert dialogs.shown.count(SAVE_CHANGES) == 1
     assert len(conflicts(dialogs)) == 1
     assert errors(dialogs) == []
@@ -130,7 +132,7 @@ def test_a_save_error_after_another_user_deleted_the_process_moves_to_the_first_
     qtbot.waitUntil(lambda: len(store.calls_of("upsert_devices")) == 1)
     assert errors(dialogs) == ["Save Devices Failed"]
     assert_moved_to_sf2p(ctrl, store)
-    assert changes == ["sf2p"]
+    assert changes == [("sf2p", "")]
     assert conflicts(dialogs) == []
 
 
@@ -150,7 +152,7 @@ def test_cancelling_a_tab_save_after_another_user_deleted_the_process_moves_on(
     qtbot.waitUntil(lambda: len(store.calls_of("replace_many_for_device")) == 1)
     assert_moved_to_sf2p(ctrl, store)
     assert ctrl.parameter_tab.is_dirty() is False
-    assert changes == ["sf2p"]
+    assert changes == [("sf2p", "")]
     assert store.calls_of("upsert_devices") == []
     assert len(conflicts(dialogs)) == 1
     assert errors(dialogs) == []
@@ -169,7 +171,7 @@ def test_answering_no_after_another_user_deleted_the_process_moves_on(
 
     qtbot.waitUntil(lambda: ctrl.device_table.current_process == "sf2p")
     assert_moved_to_sf2p(ctrl, store)
-    assert changes == ["sf2p"]
+    assert changes == [("sf2p", "")]
     assert store.calls_of("upsert_devices") == []
     assert dialogs.shown.count(SAVE_CHANGES) == 1
 
@@ -217,7 +219,7 @@ def test_removing_the_process_drops_its_edits_without_asking(
     assert_moved_to_sf2p(ctrl, store)
     assert "sf4u" not in combo_items(ctrl)
     assert "sf4u" not in ctrl.device_tab_toolbar.repo.list_all()
-    assert changes == ["sf2p"]
+    assert changes == [("sf2p", "")]
     assert store.calls_of("upsert_devices") == []
     assert SAVE_CHANGES not in dialogs.shown
     assert conflicts(dialogs) == []
@@ -242,7 +244,7 @@ def test_removing_the_process_drops_its_tab_edits_without_asking(
     assert_moved_to_sf2p(ctrl, store)
     assert ctrl.parameter_tab.is_dirty() is False
     assert ctrl.parameter_tab.section(TAB).device_id is None
-    assert changes == ["sf2p"]
+    assert changes == [("sf2p", "")]
     assert store.calls_of("replace_many_for_device") == []
     # 지워진 device 의 탭을 서버에서 다시 읽지 않는다(읽을 행이 없다).
     assert [
@@ -267,7 +269,7 @@ def test_removing_the_process_drops_its_device_and_tab_edits_without_asking(
     qtbot.waitUntil(lambda: ctrl.device_table.current_process == "sf2p")
     assert_moved_to_sf2p(ctrl, store)
     assert ctrl.parameter_tab.is_dirty() is False
-    assert changes == ["sf2p"]
+    assert changes == [("sf2p", "")]
     assert store.calls_of("upsert_devices") == []
     assert store.calls_of("replace_many_for_device") == []
     assert SAVE_CHANGES not in dialogs.shown
@@ -319,7 +321,9 @@ def test_a_remove_that_deletes_nothing_keeps_the_edits(
     # 실제·가짜 repo 모두 지금은 늘 True 를 돌려준다. False 분기는 아무것도 하지 않는다.
     ctrl = device_tab_ctrl
     edit_pfet_a_tab_and_description(ctrl, store, qtbot)
-    monkeypatch.setattr(ctrl.device_tab_toolbar.repo, "delete", lambda name, *, actor="": False)
+    monkeypatch.setattr(
+        ctrl.device_tab_toolbar.repo, "delete", lambda name, *, release="", actor="": False
+    )
     changes = record_process_changes(ctrl)
     dialogs.answer_question(True)
 
@@ -370,14 +374,14 @@ def test_a_failed_list_refresh_after_removing_still_drops_the_edits(
 ):
     ctrl = device_tab_ctrl
     edit_pfet_a_tab_and_description(ctrl, store, qtbot)
-    listed = len(store.calls_of("list_all"))
-    store.fail_next("list_all", RuntimeError("boom"))
+    listed = len(store.calls_of("list_pairs"))
+    store.fail_next("list_pairs", RuntimeError("boom"))
     changes = record_process_changes(ctrl)
     dialogs.answer_question(True)
 
     ctrl.device_tab_toolbar.remove_process("sf4u")
 
-    qtbot.waitUntil(lambda: len(store.calls_of("list_all")) > listed)
+    qtbot.waitUntil(lambda: len(store.calls_of("list_pairs")) > listed)
     assert errors(dialogs) == ["Process List Failed"]
     assert REMOVED in dialogs.shown
     # 그 process 는 지워졌으니 편집은 이미 버렸다. 콤보는 지운 이름에 머문다(목록을 못 읽었다).
@@ -409,8 +413,8 @@ def test_select_process_silently_reports_whether_it_found_the_name(device_tab_ct
     assert combo(ctrl).currentText() == "sf4u"
     assert combo_items(ctrl) == ["sf2p", "sf4u"]
     # view 도 같은 값을 돌려준다.
-    assert ctrl.device_tab_toolbar.ui.select_process_silently("sf2p") is True
-    assert ctrl.device_tab_toolbar.ui.select_process_silently("nope") is False
+    assert ctrl.device_tab_toolbar.ui.select_silently("sf2p", "") is True
+    assert ctrl.device_tab_toolbar.ui.select_silently("nope", "") is False
     assert combo(ctrl).currentText() == "sf2p"
     assert changes == []
     assert ctrl.device_table.current_process == "sf2p"
