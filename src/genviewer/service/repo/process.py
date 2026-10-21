@@ -151,19 +151,19 @@ class ProcessRepository:
             ).fetchall()
         return [(r["name"], r["release"]) for r in rows]
 
-    def list_with_counts(self) -> list[tuple[str, int]]:
-        """process 이름과 그 안의 device 수. 이름 순.
+    def list_with_counts(self) -> list[tuple[str, str, int]]:
+        """(이름, 버전) 쌍마다 그 안의 device 수. 순서는 list_pairs 와 같다.
 
-        list_all + count_devices 로 하면 process 마다 쿼리가 하나씩 더 나간다.
-        LEFT JOIN 이라 device 가 없는 process 도 0 으로 나온다.
+        list_pairs + count_devices 로 하면 쌍마다 쿼리가 하나씩 더 나간다.
+        LEFT JOIN 이라 device 가 없는 쌍도 0 으로 나온다.
         """
         with self.db.connection() as conn:
             rows = conn.execute(
-                "SELECT p.name, count(d.id) AS n FROM process p "
+                "SELECT p.name, p.release, count(d.id) AS n FROM process p "
                 "LEFT JOIN device d ON d.process_id = p.id "
-                "GROUP BY p.name ORDER BY p.name"
+                'GROUP BY p.id, p.name, p.release ORDER BY p.name, p.release COLLATE "C"'
             ).fetchall()
-        return [(r["name"], r["n"]) for r in rows]
+        return [(r["name"], r["release"], r["n"]) for r in rows]
 
     def count_devices(self, name: str, *, release: str = "") -> int:
         """이 (이름, 버전) 쌍을 지우면 cascade 로 함께 사라질 device 수."""

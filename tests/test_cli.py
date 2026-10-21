@@ -41,6 +41,13 @@ ROWS = [
     ["NFET", "sf4u", "nfet_c", "grLayer RX"],
 ]
 
+# sf2p 만 든 CSV. 버전을 주고 불러오는 쪽이다(CSV 에는 버전 컬럼이 없다).
+V1_ROWS = [
+    ["NFET", "sf2p", "nfet_v1a", "grLayer RX"],
+    ["NFET", "sf2p", "nfet_v1b", "grLayer RX"],
+    ["PFET", "sf2p", "pfet_v1c", "grLayer NW"],
+]
+
 
 def _csv(path, rows=ROWS):
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -48,6 +55,18 @@ def _csv(path, rows=ROWS):
         w.writerow(HEADERS)
         w.writerows(rows)
     return str(path)
+
+
+def _load(pg_dsn, path, *extra):
+    """load 를 돌리고 성공했는지 본다. extra 는 --version 같은 옵션."""
+    result = runner.invoke(app, ["load", path, "--dsn", pg_dsn, *extra])
+    assert result.exit_code == 0, result.output
+    return result
+
+
+def _read_csv(path):
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.reader(f))
 
 
 @pytest.fixture
@@ -353,8 +372,30 @@ def test_processes_lists_names_and_counts(db, pg_dsn, tmp_path):
 
     result = runner.invoke(app, ["processes", "--dsn", pg_dsn])
     assert result.exit_code == 0, result.output
-    assert "sf2p" in result.output and "sf4u" in result.output
-    assert "process 2개, device 3개" in result.output
+    # 버전이 없어도 VERSION 칸이 있다. 빈 버전은 '-' 다. '(없음)' 은 한글이라
+    # 터미널에서 두 칸씩 먹어 칸이 어긋난다.
+    assert result.output.splitlines() == [
+        "NAME  VERSION  DEVICE",
+        "sf2p  -             2",
+        "sf4u  -             1",
+        "process 2개, device 3개",
+    ]
+
+
+def test_processes_shows_each_release_of_a_name_on_its_own_line(db, pg_dsn, tmp_path):
+    """(이름, 버전) 쌍마다 한 줄. VERSION 칸은 가장 긴 버전에 맞춘다."""
+    _load(pg_dsn, _csv(tmp_path / "in.csv"))
+    _load(pg_dsn, _csv(tmp_path / "sf2p.csv", V1_ROWS), "--version", "S00-V1.0.0.0")
+
+    result = runner.invoke(app, ["processes", "--dsn", pg_dsn])
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == [
+        "NAME  VERSION       DEVICE",
+        "sf2p  -                  2",
+        "sf2p  S00-V1.0.0.0       3",
+        "sf4u  -                  1",
+        "process 3개, device 6개",
+    ]
 
 
 def test_processes_without_any_process_says_so(db, pg_dsn):
@@ -363,11 +404,54 @@ def test_processes_without_any_process_says_so(db, pg_dsn):
     assert "process 가 없다" in result.output
 
 
+def test_list_with_counts_is_one_row_per_pair_in_list_pairs_order(db, pg_dsn, tmp_path):
+    """쌍마다 device 수. 순서는 list_pairs 와 같고, device 없는 쌍도 0 으로 나온다."""
+    repo = ProcessRepository(db)
+    repo.add("sf2p", release="S00-V1.0")
+    _load(pg_dsn, _csv(tmp_path / "in.csv"))
+    _load(pg_dsn, _csv(tmp_path / "sf2p.csv", V1_ROWS), "--version", "S00V1")
+
+    rows = repo.list_with_counts()
+
+    assert rows == [
+        ("sf2p", "", 2),
+        ("sf2p", "S00-V1.0", 0),
+        ("sf2p", "S00V1", 3),
+        ("sf4u", "", 1),
+    ]
+    assert [(name, release) for name, release, _ in rows] == repo.list_pairs()
+
+
 def test_load_adds_devices_and_says_how_many(db, pg_dsn, tmp_path):
     result = runner.invoke(app, ["load", _csv(tmp_path / "in.csv"), "--dsn", pg_dsn])
     assert result.exit_code == 0, result.output
     assert "device 3개를 새로 추가했다" in result.output
-    assert dict(ProcessRepository(db).list_with_counts()) == {"sf2p": 2, "sf4u": 1}
+    assert ProcessRepository(db).list_with_counts() == [("sf2p", "", 2), ("sf4u", "", 1)]
+
+
+@pytest.mark.parametrize(
+    "extra", [[], ["--version", ""], ["--version", "   "]], ids=["none", "empty", "blank"]
+)
+def test_load_without_a_release_keeps_its_old_output(db, pg_dsn, tmp_path, extra):
+    result = _load(pg_dsn, _csv(tmp_path / "in.csv"), *extra)
+
+    assert result.output.splitlines() == [
+        "device 3개를 새로 추가했다.",
+        "CSV 는 불러올 때마다 새로 쌓인다 - 같은 파일을 다시 넣으면 중복된다.",
+    ]
+    assert ProcessRepository(db).list_pairs() == [("sf2p", ""), ("sf4u", "")]
+
+
+@pytest.mark.parametrize("given", ["V1", "  V1  "], ids=["plain", "padded"])
+def test_load_into_a_release_says_which_release(db, pg_dsn, tmp_path, given):
+    """앞뒤 공백은 다듬는다. 둘째 줄(중복 경고)은 그대로다."""
+    result = _load(pg_dsn, _csv(tmp_path / "sf2p.csv", V1_ROWS), "--version", given)
+
+    assert result.output.splitlines() == [
+        "device 3개를 새로 추가했다 (version V1).",
+        "CSV 는 불러올 때마다 새로 쌓인다 - 같은 파일을 다시 넣으면 중복된다.",
+    ]
+    assert ProcessRepository(db).list_with_counts() == [("sf2p", "V1", 3)]
 
 
 def test_loading_the_same_file_twice_adds_again(db, pg_dsn, tmp_path):
@@ -375,7 +459,7 @@ def test_loading_the_same_file_twice_adds_again(db, pg_dsn, tmp_path):
     path = _csv(tmp_path / "in.csv")
     runner.invoke(app, ["load", path, "--dsn", pg_dsn])
     runner.invoke(app, ["load", path, "--dsn", pg_dsn])
-    assert dict(ProcessRepository(db).list_with_counts()) == {"sf2p": 4, "sf4u": 2}
+    assert ProcessRepository(db).list_with_counts() == [("sf2p", "", 4), ("sf4u", "", 2)]
 
 
 def test_export_writes_every_device_of_the_process(db, pg_dsn, tmp_path):
@@ -400,7 +484,7 @@ def test_an_exported_file_loads_back(db, pg_dsn, tmp_path):
 
     result = runner.invoke(app, ["load", str(out), "--dsn", pg_dsn])
     assert result.exit_code == 0, result.output
-    assert dict(ProcessRepository(db).list_with_counts())["sf2p"] == 4
+    assert ProcessRepository(db).count_devices("sf2p") == 4
 
 
 def test_export_writes_the_saved_description_and_load_brings_it_back(db, pg_dsn, tmp_path):
@@ -434,6 +518,7 @@ def test_export_refuses_an_unknown_process(db, pg_dsn, tmp_path):
     out = tmp_path / "nope.csv"
     result = runner.invoke(app, ["export", "no_such_process", str(out), "--dsn", pg_dsn])
     assert result.exit_code == 1
+    assert result.stderr.splitlines() == ["그런 process 가 없다: no_such_process"]
     assert not out.exists(), "빈 파일을 만들면 나중에 왜 비었는지를 묻게 된다"
 
 
@@ -443,6 +528,99 @@ def test_export_refuses_a_process_with_no_devices(db, pg_dsn, tmp_path):
 
     result = runner.invoke(app, ["export", "empty_one", str(out), "--dsn", pg_dsn])
     assert result.exit_code == 1
+    assert not out.exists()
+
+
+@pytest.fixture
+def two_releases(db, pg_dsn, tmp_path):
+    """sf2p 빈 버전(nfet_b, pfet_b)·V1(nfet_v1a, nfet_v1b, pfet_v1c), sf4u 빈 버전(nfet_c)."""
+    _load(pg_dsn, _csv(tmp_path / "in.csv"))
+    _load(pg_dsn, _csv(tmp_path / "sf2p.csv", V1_ROWS), "--version", "V1")
+
+
+def _export(pg_dsn, out, process, *extra):
+    return runner.invoke(app, ["export", process, str(out), "--dsn", pg_dsn, *extra])
+
+
+@pytest.mark.parametrize("given", ["V1", "  V1  "], ids=["plain", "padded"])
+def test_export_writes_only_the_release_it_is_given(two_releases, pg_dsn, tmp_path, given):
+    """CSV 모양은 그대로다. CdsLibName 은 이름이고 버전 컬럼은 없다."""
+    plain, released = tmp_path / "plain.csv", tmp_path / "v1.csv"
+    assert _export(pg_dsn, plain, "sf2p").exit_code == 0
+
+    result = _export(pg_dsn, released, "sf2p", "--version", given)
+
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == [f"device 3개를 {released} 에 썼다."]
+    rows = _read_csv(released)
+    assert rows[0] == _read_csv(plain)[0]
+    assert [r[1:3] for r in rows[1:]] == [
+        ["sf2p", "nfet_v1a"],
+        ["sf2p", "nfet_v1b"],
+        ["sf2p", "pfet_v1c"],
+    ]
+
+
+def test_export_without_a_release_writes_only_the_devices_without_one(
+    two_releases, pg_dsn, tmp_path
+):
+    out = tmp_path / "out.csv"
+
+    result = _export(pg_dsn, out, "sf2p")
+
+    assert result.exit_code == 0, result.output
+    assert [r[1:3] for r in _read_csv(out)[1:]] == [["sf2p", "nfet_b"], ["sf2p", "pfet_b"]]
+
+
+def test_export_of_a_name_with_only_other_releases_names_them(db, pg_dsn, tmp_path):
+    _load(pg_dsn, _csv(tmp_path / "sf9x.csv", [["NFET", "sf9x", "nfet_x", "grLayer RX"]]),
+          "--version", "V1")
+    out = tmp_path / "out.csv"
+
+    result = _export(pg_dsn, out, "sf9x")
+
+    assert result.exit_code == 1
+    assert result.stderr.splitlines() == ["그런 process 가 없다: sf9x", "있는 버전: V1"]
+    assert not out.exists()
+
+
+def test_export_of_a_missing_release_names_the_releases_there_are(
+    two_releases, pg_dsn, tmp_path
+):
+    """빈 버전은 '-' 로, 순서는 list_pairs 와 같다."""
+    out = tmp_path / "out.csv"
+
+    result = _export(pg_dsn, out, "sf2p", "--version", "V9")
+
+    assert result.exit_code == 1
+    assert result.stderr.splitlines() == ["그런 process 가 없다: sf2p V9", "있는 버전: -, V1"]
+    assert not out.exists()
+
+
+def test_export_of_an_unknown_name_lists_no_releases(two_releases, pg_dsn, tmp_path):
+    """다른 이름의 버전은 늘어놓지 않는다. 같은 이름이 없으면 지금 문구 한 줄이다."""
+    out = tmp_path / "out.csv"
+
+    result = _export(pg_dsn, out, "sf9q", "--version", "V1")
+
+    assert result.exit_code == 1
+    assert result.stderr.splitlines() == ["그런 process 가 없다: sf9q V1"]
+    assert not out.exists()
+
+
+@pytest.mark.parametrize(
+    ("release", "label"), [("", "empty_one"), ("V1", "empty_one V1")], ids=["none", "V1"]
+)
+def test_export_of_a_pair_without_devices_names_the_pair(
+    db, pg_dsn, tmp_path, release, label
+):
+    ProcessRepository(db).add("empty_one", release=release)
+    out = tmp_path / "empty.csv"
+
+    result = _export(pg_dsn, out, "empty_one", *(["--version", release] if release else []))
+
+    assert result.exit_code == 1
+    assert result.stderr.splitlines() == [f"process {label} 에 device 가 없다."]
     assert not out.exists()
 
 
@@ -756,6 +934,69 @@ def test_log_can_write_a_csv(db, pg_dsn, tmp_path):
     assert any("sf9z" in cell for cell in rows[1])
 
 
+def _add_three_pairs(db):
+    repo = ProcessRepository(db)
+    repo.add("sf9z", actor="관리자")
+    repo.add("sf9z", release="V1", actor="관리자")
+    repo.add("sf8x", release="V2", actor="관리자")
+
+
+@pytest.mark.parametrize(
+    ("extra", "summaries"),
+    [
+        ([], ["process 추가  sf9z", "process 추가  sf9z V1", "process 추가  sf8x V2"]),
+        (["--version", "V1"], ["process 추가  sf9z V1"]),
+        (["--version", "  V1 "], ["process 추가  sf9z V1"]),
+        (["--version", ""], ["process 추가  sf9z"]),
+    ],
+    ids=["all", "V1", "padded", "no-release"],
+)
+def test_log_filters_by_release_only_when_asked(db, pg_dsn, extra, summaries):
+    """옵션이 없으면 모든 버전, "" 이면 버전 없는 줄만."""
+    _add_three_pairs(db)
+
+    result = runner.invoke(app, ["log", *extra, "--dsn", pg_dsn])
+
+    assert result.exit_code == 0, result.output
+    lines = result.output.splitlines()
+    assert len(lines) == len(summaries), result.output
+    for line, summary in zip(lines, summaries, strict=True):
+        assert line.endswith(summary), line
+
+
+def test_log_csv_puts_the_release_after_the_process(db, pg_dsn, tmp_path):
+    ProcessRepository(db).add("sf9z", release="V1", actor="관리자")
+    out = tmp_path / "history.csv"
+
+    result = runner.invoke(app, ["log", "--out", str(out), "--dsn", pg_dsn])
+
+    assert result.exit_code == 0, result.output
+    rows = _read_csv(out)
+    assert rows[0] == [
+        "시각", "사람", "출처", "동작", "process", "version", "device", "테이블", "내용", "상세",
+    ]
+    assert rows[1][3:8] == ["process_add", "sf9z", "V1", "", ""]
+
+
+@pytest.mark.parametrize(
+    ("extra", "release", "seen"),
+    [([], None, ["", "V1", "V2"]), (["--version", "V1"], "V1", ["V1"])],
+    ids=["all", "V1"],
+)
+def test_log_follow_gets_the_release_filter(db, pg_dsn, monkeypatch, extra, release, seen):
+    """--follow 도 같은 버전 필터로 이어 찍는다."""
+    _add_three_pairs(db)
+    calls = []
+    monkeypatch.setattr(cli, "_follow", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    result = runner.invoke(app, ["log", "--follow", *extra, "--dsn", pg_dsn])
+
+    assert result.exit_code == 0, result.output
+    ((args, kwargs),) = calls
+    assert [row["process_release"] for row in args[1]] == seen
+    assert kwargs == {"release": release}
+
+
 def test_purge_needs_a_confirmation_and_then_empties_the_range(db, pg_dsn):
     ProcessRepository(db).add("sf9z", actor="관리자")
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -790,8 +1031,11 @@ class _StopFollow(Exception):
     """_follow 의 무한 루프를 끝내는 테스트 전용 예외."""
 
 
-def _run_follow(monkeypatch, db, steps, seen=(), who=""):
-    """_follow 를 돌린다. sleep 을 n 번째 부를 때 steps[n] 을 하고, 다 쓰면 멈춘다."""
+def _run_follow(monkeypatch, db, steps, seen=(), who="", release=None):
+    """_follow 를 돌린다. sleep 을 n 번째 부를 때 steps[n] 을 하고, 다 쓰면 멈춘다.
+
+    release 를 주지 않으면 log 가 예전에 부르던 대로 위치 인자 7개로만 부른다.
+    """
     pending = list(steps)
 
     def fake_sleep(seconds):
@@ -800,14 +1044,17 @@ def _run_follow(monkeypatch, db, steps, seen=(), who=""):
         pending.pop(0)()
 
     monkeypatch.setattr(cli.time, "sleep", fake_sleep)
+    extra = {} if release is None else {"release": release}
     with pytest.raises(_StopFollow):
-        cli._follow(AuditRepository(db), list(seen), False, who, "", "", "")
+        cli._follow(AuditRepository(db), list(seen), False, who, "", "", "", **extra)
 
 
-def _commit(pg_dsn, actor, *names):
+def _commit(pg_dsn, actor, *names, release=""):
     """다른 사람이 process 추가 이력을 쓰고 바로 커밋한 것처럼."""
     with psycopg.connect(pg_dsn) as conn, conn.cursor() as cur:
-        audit.write(cur, actor, [audit.process_add(name) for name in names])
+        audit.write(
+            cur, actor, [audit.process_add(name, process_release=release) for name in names]
+        )
 
 
 def _printed(out, name):
@@ -886,3 +1133,22 @@ def test_follow_keeps_the_filters(db, pg_dsn, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert _printed(out, "mine") == 1
     assert _printed(out, "theirs") == 0
+
+
+def test_follow_keeps_the_release_filter(db, pg_dsn, monkeypatch, capsys):
+    _run_follow(
+        monkeypatch,
+        db,
+        [
+            lambda: _commit(pg_dsn, "a", "plain_one"),
+            lambda: _commit(pg_dsn, "a", "released_one", release="V1"),
+            lambda: _commit(pg_dsn, "a", "other_one", release="V2"),
+            _nothing,
+        ],
+        release="V1",
+    )
+
+    out = capsys.readouterr().out
+    assert _printed(out, "released_one") == 1
+    assert _printed(out, "plain_one") == 0
+    assert _printed(out, "other_one") == 0

@@ -228,21 +228,28 @@ def processes(ctx: typer.Context, dsn: DsnOpt = "") -> None:
         return
 
     # 헤더는 ASCII 로 둔다. 한글은 터미널에서 두 칸을 먹는데 len() 은 한 칸으로
-    # 세기 때문에, 섞어 쓰면 칸이 어긋난다.
-    width = max(len("NAME"), *(len(name) for name, _ in rows))
-    typer.echo(f"{'NAME':<{width}}  DEVICE")
-    for name, count in rows:
-        typer.echo(f"{name:<{width}}  {count:>6}")
-    typer.echo(f"process {len(rows)}개, device {sum(n for _, n in rows)}개")
+    # 세기 때문에, 섞어 쓰면 칸이 어긋난다. 빈 버전을 '(없음)' 이 아니라 '-' 로
+    # 찍는 것도 같은 이유다.
+    rows = [(name, release or "-", count) for name, release, count in rows]
+    width = max(len("NAME"), *(len(name) for name, _, _ in rows))
+    rwidth = max(len("VERSION"), *(len(release) for _, release, _ in rows))
+    typer.echo(f"{'NAME':<{width}}  {'VERSION':<{rwidth}}  DEVICE")
+    for name, release, count in rows:
+        typer.echo(f"{name:<{width}}  {release:<{rwidth}}  {count:>6}")
+    typer.echo(f"process {len(rows)}개, device {sum(n for _, _, n in rows)}개")
 
 
 @app.command()
 def load(
     ctx: typer.Context,
     csv_path: Annotated[Path, typer.Argument(metavar="CSV", help="불러올 CSV 파일")],
+    release: Annotated[
+        str, typer.Option("--version", help="이 버전으로 불러온다. 비우면 버전 없음.")
+    ] = "",
     dsn: DsnOpt = "",
 ) -> None:
     """CSV 를 불러온다. 행 하나가 device 하나다."""
+    release = release.strip()
     # 붙기 전에 본다. 파일 이름을 잘못 친 사람에게 접속 에러를 보여주지 않는다.
     if not csv_path.is_file():
         typer.echo(f"CSV 파일이 없다: {csv_path}", err=True)
@@ -253,11 +260,16 @@ def load(
     # 그 뜻을 따른다.
     db = _open(ctx, dsn, statement_timeout_ms=0)
     try:
-        created = IORepository(db).import_data(str(csv_path), actor=current_user())
+        created = IORepository(db).import_data(
+            str(csv_path), release=release, actor=current_user()
+        )
     finally:
         db.close()
 
-    typer.echo(f"device {created}개를 새로 추가했다.")
+    if release:
+        typer.echo(f"device {created}개를 새로 추가했다 (version {release}).")
+    else:
+        typer.echo(f"device {created}개를 새로 추가했다.")
     typer.echo("CSV 는 불러올 때마다 새로 쌓인다 - 같은 파일을 다시 넣으면 중복된다.")
 
 
@@ -268,19 +280,30 @@ def export(
     out_path: Annotated[
         Path, typer.Argument(metavar="파일", help="쓸 파일. 확장자가 .xlsx 면 엑셀로 쓴다.")
     ],
+    release: Annotated[
+        str, typer.Option("--version", help="이 버전을 내보낸다. 비우면 버전 없음.")
+    ] = "",
     dsn: DsnOpt = "",
 ) -> None:
     """process 하나를 통째로 파일로 낸다."""
+    # 불러오기(import_data)가 버전의 앞뒤 공백을 다듬어 넣으므로 찾을 때도 다듬는다.
+    release = release.strip()
+    label = audit.process_label(process, release)
     db = _open(ctx, dsn)
     try:
-        process_id = ProcessRepository(db).get_id(process)
+        repo = ProcessRepository(db)
+        process_id = repo.get_id(process, release=release)
         if process_id is None:
-            typer.echo(f"그런 process 가 없다: {process}", err=True)
+            typer.echo(f"그런 process 가 없다: {label}", err=True)
+            # 버전만 틀렸을 때 무엇을 쳐야 하는지 보인다.
+            others = [r or "-" for name, r in repo.list_pairs() if name == process]
+            if others:
+                typer.echo(f"있는 버전: {', '.join(others)}", err=True)
             raise typer.Exit(1)
 
         devices = DeviceRepository(db).fetch_devices_by_process(process_id)
         if not devices:
-            typer.echo(f"process {process} 에 device 가 없다.", err=True)
+            typer.echo(f"process {label} 에 device 가 없다.", err=True)
             raise typer.Exit(1)
 
         # process_name 을 손으로 넣어야 한다. fetch_export_data 는 이 값이 빈
@@ -357,6 +380,10 @@ def log(
     ] = "",
     who: Annotated[str, typer.Option("--who", help="이 사람이 한 것만.")] = "",
     process: Annotated[str, typer.Option("--process", help="이 process 것만.")] = "",
+    release: Annotated[
+        str | None,
+        typer.Option("--version", help="이 버전 것만. \"\" 이면 버전 없는 것만."),
+    ] = None,
     device: Annotated[str, typer.Option("--device", help="이 device 것만.")] = "",
     find: Annotated[
         str, typer.Option("--find", help="이 글자가 든 줄만. 바뀐 값까지 뒤진다.")
@@ -377,6 +404,9 @@ def log(
     dsn: DsnOpt = "",
 ) -> None:
     """누가 언제 어떤 데이터를 바꿨는지 본다."""
+    # 옵션이 없으면(None) 거르지 않는다. 빈 문자열은 "버전 없는 것만" 이다.
+    if release is not None:
+        release = release.strip()
     db = _open(ctx, dsn)
     try:
         repo = AuditRepository(db)
@@ -392,6 +422,7 @@ def log(
             process=process,
             device=device,
             contains=find,
+            release=release,
         )
 
         if out:
@@ -404,7 +435,7 @@ def log(
 
         _emit(rows, detail)
         if follow:
-            _follow(repo, rows, detail, who, process, device, find)
+            _follow(repo, rows, detail, who, process, device, find, release=release)
     finally:
         db.close()
 
@@ -417,8 +448,15 @@ def _follow(
     process: str,
     device: str,
     find: str,
+    release: str | None = None,
 ) -> None:
-    filters = {"actor": who, "process": process, "device": device, "contains": find}
+    filters = {
+        "actor": who,
+        "process": process,
+        "device": device,
+        "contains": find,
+        "release": release,
+    }
     # 시작할 때 이미 커밋돼 있던 줄은 찍은 것으로 친다. log 가 -n·--since 로 일부러
     # 뺀 줄을 구간을 다시 읽다가 뒤늦게 쏟아내면 안 된다. 이것을 latest_id 보다 먼저
     # 읽어야 그 사이에 커밋된 줄이 여기에 묻히지 않는다. log 가 처음 목록을 읽은 뒤
@@ -447,6 +485,7 @@ def _write_log_csv(out: str, rows: list[dict]) -> None:
         "출처",
         "동작",
         "process",
+        "version",
         "device",
         "테이블",
         "내용",
@@ -459,6 +498,7 @@ def _write_log_csv(out: str, rows: list[dict]) -> None:
             row["source"],
             row["action"],
             row["process_name"],
+            row["process_release"],
             row["device_name"],
             row["table_name"],
             row["summary"],
