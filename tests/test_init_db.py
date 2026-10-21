@@ -10,6 +10,7 @@
 """
 
 import os
+import re
 
 import pytest
 
@@ -76,6 +77,42 @@ def test_add_column_steps_sit_between_their_create_table_and_the_grants():
         assert table in steps[add].label
         labels.append(steps[add].label)
     assert len(set(labels)) == len(labels), labels
+
+
+def _sql_text(step) -> str:
+    return step.sql if isinstance(step.sql, str) else step.sql.as_string()
+
+
+def test_process_and_change_log_moves_have_their_own_labels():
+    """phase 19 의 옮기기 두 단계가 --dry-run 에서 서로·다른 단계와 구별된다.
+
+    process 옮기기는 process 가 생긴 바로 뒤(device 앞), change_log 컬럼 더하기는
+    change_log 가 생긴 뒤 그 인덱스 앞이다.
+    """
+    steps = build_plan("", "", "")
+    labels = _labels(steps)
+    process_alter = re.compile(r'ALTER TABLE "?process"? ADD COLUMN')
+    log_alter = re.compile(r'ALTER TABLE "?change_log"? ADD COLUMN')
+    moves = [i for i, s in enumerate(steps) if process_alter.search(_sql_text(s))]
+    adds = [i for i, s in enumerate(steps) if log_alter.search(_sql_text(s))]
+    assert len(moves) == 1, labels
+    assert len(adds) == 1, labels
+    (move,), (add,) = moves, adds
+
+    assert labels.count(labels[move]) == 1, labels
+    assert labels.count(labels[add]) == 1, labels
+    assert "process" in labels[move] and "release" in labels[move]
+    assert "change_log" in labels[add]
+    assert (
+        _first(steps, "CREATE TABLE IF NOT EXISTS process")
+        < move
+        < _first(steps, "CREATE TABLE IF NOT EXISTS device")
+    )
+    assert (
+        _first(steps, "CREATE TABLE IF NOT EXISTS change_log")
+        < add
+        < _first(steps, "idx_change_log")
+    )
 
 
 def test_default_privileges_are_granted():

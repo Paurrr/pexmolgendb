@@ -22,7 +22,7 @@ def find_or_create(cur, name: str) -> tuple[int, bool]:
             return row["id"], False
         row = cur.execute(
             "INSERT INTO process (name) VALUES (%s) "
-            "ON CONFLICT (name) DO NOTHING RETURNING id",
+            "ON CONFLICT (name, release) DO NOTHING RETURNING id",
             (name,),
         ).fetchone()
         if row:

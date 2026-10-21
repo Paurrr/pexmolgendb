@@ -581,6 +581,80 @@ def test_probe_lists_a_missing_column_and_the_schema_is_not_ready(db):
     assert not info.schema_ready
 
 
+def _schema_without(dsn, *columns):
+    """dsn 에 지금 스키마를 만든 뒤 (테이블, 컬럼) 을 지운다. init_db 를 안 돌린 DB.
+
+    세션 DB 가 아니라 scratch_dsn 에서 한다. process.release 를 지우면 그 컬럼에
+    걸린 UNIQUE (name, release) 도 같이 떨어지는데, 되살리지 못하면 뒤의 DB
+    테스트가 줄줄이 깨진다.
+    """
+    with psycopg.connect(dsn) as conn:
+        for stmt in schema.postgres_all_ddl():
+            conn.execute(stmt)
+        for table, column in columns:
+            conn.execute(
+                sql.SQL("ALTER TABLE {} DROP COLUMN IF EXISTS {}").format(
+                    sql.Identifier(table), sql.Identifier(column)
+                )
+            )
+
+
+def _probe(dsn):
+    from genviewer.service.config import load_config
+    from genviewer.service.pool import Database
+
+    database = Database(load_config(dsn))
+    database.open()
+    try:
+        return diagnostics.probe(database)
+    finally:
+        database.close()
+
+
+def test_probe_lists_a_missing_process_release_and_the_schema_is_not_ready(scratch_dsn):
+    """phase 19 의 DDL 을 안 돌린 DB. 저장·불러오기가 42703·42P10 으로 죽는다."""
+    _schema_without(scratch_dsn, ("process", "release"))
+
+    info = _probe(scratch_dsn)
+
+    assert info.reachable, info.message
+    assert info.missing_tables == []
+    assert info.missing_columns == ["process.release"]
+    assert not info.schema_ready
+
+
+def test_probe_lists_fixed_table_columns_before_tab_columns(scratch_dsn):
+    """고정 테이블(process, change_log) 먼저, 그다음 탭 테이블을 tab_config 순서로."""
+    column = schema.child_tables()["inst_terms"][-1]
+    _schema_without(
+        scratch_dsn,
+        ("inst_terms", column),
+        ("change_log", "process_release"),
+        ("process", "release"),
+    )
+
+    info = _probe(scratch_dsn)
+
+    assert info.missing_columns == [
+        "process.release",
+        "change_log.process_release",
+        f"inst_terms.{column}",
+    ]
+
+
+def test_status_names_a_missing_process_release_and_points_at_init_db(
+    scratch_dsn, isolated
+):
+    _schema_without(scratch_dsn, ("process", "release"))
+
+    result = runner.invoke(app, ["status", "--dsn", scratch_dsn])
+
+    assert result.exit_code == 1, result.output
+    assert "스키마: 컬럼 1개가 없다 (process.release)" in result.output
+    assert "genviewer-init-db 를 다시 실행할 것." in result.output
+    assert "모두 있음" not in result.output
+
+
 def test_probe_does_not_count_the_columns_of_a_missing_table(db):
     """없는 테이블은 missing_tables 로 한 번만 센다. 그 컬럼까지 "빠진 컬럼" 이 아니다."""
     with db.connection() as conn:

@@ -5,6 +5,7 @@
 
 import re
 
+import pytest
 from psycopg import sql
 
 from genviewer.config.config import tab_config
@@ -219,7 +220,7 @@ def test_ddl_restores_a_missing_column_on_an_existing_table(db):
 
 def test_ddl_twice_leaves_the_same_columns(db):
     """init_db 는 여러 번 돌려도 된다. 두 번째 실행이 컬럼을 바꾸면 안 된다."""
-    tables = list(schema.child_tables())
+    tables = [schema.PROCESS_TABLE, schema.CHANGE_LOG_TABLE, *schema.child_tables()]
     with db.connection() as conn:
         _run_all_ddl(conn)
     with db.connection() as conn:
@@ -243,13 +244,238 @@ def test_ddl_takes_no_table_lock_when_no_column_is_missing(db, pg_dsn):
 
     reader = psycopg.connect(pg_dsn)
     try:
-        # 트랜잭션을 열어 둔 채로 AccessShareLock 을 쥐고 있는다.
-        reader.execute(
-            sql.SQL("SELECT 1 FROM {} LIMIT 1").format(sql.Identifier(_TABLE))
-        )
+        # 트랜잭션을 열어 둔 채로 AccessShareLock 을 쥐고 있는다. process·change_log
+        # 도 이미 옮긴 DB 에서는 ALTER 를 실행하지 않아야 한다(phase 19).
+        for table in (_TABLE, schema.PROCESS_TABLE, schema.CHANGE_LOG_TABLE):
+            reader.execute(
+                sql.SQL("SELECT 1 FROM {} LIMIT 1").format(sql.Identifier(table))
+            )
         with db.connection() as conn:
             conn.execute("SET LOCAL lock_timeout = '500ms'")
             _run_all_ddl(conn)
     finally:
         reader.rollback()
         reader.close()
+
+
+# --------------------------------------------------------------------------
+# process 는 (이름, 버전) 쌍이다 (phase 19)
+# --------------------------------------------------------------------------
+#
+# process 행 하나가 (name, release) 쌍이고 빈 버전 '' 이 옛 동작이다. 운영 중인 DB
+# 는 init_db 재실행이 옮긴다. CREATE TABLE IF NOT EXISTS 는 있는 테이블을 손대지
+# 않으므로 카탈로그를 보고 빠진 것만 고친다.
+
+# 테이블 제약 줄의 첫 낱말. _pg_tables 는 본문의 줄마다 첫 낱말을 뽑으므로 이것을
+# 빼야 컬럼만 남는다.
+_TABLE_CONSTRAINT = ("UNIQUE", "CONSTRAINT", "PRIMARY", "FOREIGN", "CHECK")
+
+
+def _pg_columns(table: str) -> list[str]:
+    return [c for c in _pg_tables()[table] if c not in _TABLE_CONSTRAINT]
+
+
+def _create_statement(table: str) -> str:
+    return next(
+        s
+        for s in _pg_statements()
+        if (m := _CREATE_TABLE.search(s)) and m.group(1) == table
+    )
+
+
+def test_process_ddl_is_a_name_release_pair():
+    """새 DB 의 process 는 (name, release) 로 UNIQUE 다. name 하나로는 겹쳐도 된다."""
+    ddl = _create_statement("process")
+    (name_line,) = [
+        line for line in ddl.splitlines() if line.strip().startswith("name ")
+    ]
+
+    assert _pg_columns("process") == ["id", "name", "release"]
+    assert "UNIQUE" not in name_line.upper()
+    assert "release TEXT NOT NULL DEFAULT ''" in ddl
+    assert "UNIQUE (name, release)" in ddl
+
+
+def test_change_log_ddl_ends_with_process_release():
+    """옮긴 DB 는 ADD COLUMN 이 끝에 붙인다. 새 DB 도 같은 자리여야 모양이 같다."""
+    assert _pg_columns("change_log")[-1] == "process_release"
+    assert "process_release TEXT NOT NULL DEFAULT ''" in _create_statement("change_log")
+
+
+def _unique_column_sets(conn, table: str) -> list[list[str]]:
+    """table 의 UNIQUE 제약마다 컬럼 이름(정렬)."""
+    rows = conn.execute(
+        "SELECT (SELECT array_agg(a.attname::text ORDER BY a.attname::text) "
+        "        FROM pg_attribute a "
+        "        WHERE a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)) AS cols "
+        "FROM pg_constraint c "
+        "WHERE c.conrelid = %s::regclass AND c.contype = 'u'",
+        (table,),
+    ).fetchall()
+    return sorted(r["cols"] for r in rows)
+
+
+def _constraints(conn, table: str) -> list[tuple]:
+    """table 의 모든 제약 (이름, 종류, 컬럼). 같은 제약이 두 번 붙으면 늘어난다."""
+    rows = conn.execute(
+        "SELECT c.conname::text AS conname, c.contype::text AS kind, "
+        "       (SELECT array_agg(a.attname::text ORDER BY a.attname::text) "
+        "        FROM pg_attribute a "
+        "        WHERE a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)) AS cols "
+        "FROM pg_constraint c WHERE c.conrelid = %s::regclass",
+        (table,),
+    ).fetchall()
+    return sorted((r["conname"], r["kind"], tuple(r["cols"] or ())) for r in rows)
+
+
+def _shape(conn) -> dict:
+    """process·change_log 의 컬럼(순서·타입·NULL·기본값)과 UNIQUE 제약의 컬럼."""
+    return {
+        table: (_columns(conn, table), _unique_column_sets(conn, table))
+        for table in (schema.PROCESS_TABLE, schema.CHANGE_LOG_TABLE)
+    }
+
+
+def test_new_db_process_has_release_and_one_pair_unique(db):
+    with db.connection() as conn:
+        process = {c["column_name"]: c for c in _columns(conn, "process")}
+        uniques = _unique_column_sets(conn, "process")
+        log = _columns(conn, "change_log")
+
+    assert list(process) == ["id", "name", "release"]
+    release = process["release"]
+    assert (
+        release["data_type"],
+        release["is_nullable"],
+        release["column_default"],
+    ) == ("text", "NO", "''::text")
+    assert uniques == [["name", "release"]]
+    assert (
+        log[-1]["column_name"],
+        log[-1]["data_type"],
+        log[-1]["is_nullable"],
+        log[-1]["column_default"],
+    ) == ("process_release", "text", "NO", "''::text")
+
+
+# phase 18 까지의 모양. 손으로 만든 DB 처럼 process 의 UNIQUE (name) 에 기본값이
+# 아닌 이름을 붙인다. 이름이 아니라 컬럼으로 찾아 떼는지가 요점이다(ADR-006).
+_PHASE18_DDL = [
+    """
+    CREATE TABLE process (
+        id   BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        name TEXT NOT NULL,
+        CONSTRAINT process_legacy_uq UNIQUE (name)
+    )
+    """,
+    """
+    CREATE TABLE device (
+        id          BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        process_id  BIGINT NOT NULL REFERENCES process(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        celltype    TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        "order"     INTEGER NOT NULL DEFAULT 0,
+        version     INTEGER NOT NULL DEFAULT 1,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_by  TEXT NOT NULL DEFAULT ''
+    )
+    """,
+    """
+    CREATE TABLE change_log (
+        id           BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+        actor        TEXT NOT NULL DEFAULT '',
+        source       TEXT NOT NULL DEFAULT '',
+        action       TEXT NOT NULL,
+        process_name TEXT NOT NULL DEFAULT '',
+        device_name  TEXT NOT NULL DEFAULT '',
+        device_id    BIGINT,
+        table_name   TEXT NOT NULL DEFAULT '',
+        summary      TEXT NOT NULL DEFAULT '',
+        detail       JSONB NOT NULL DEFAULT '{}'::jsonb
+    )
+    """,
+]
+
+
+def _connect(dsn):
+    import psycopg
+    from psycopg.rows import dict_row
+
+    return psycopg.connect(dsn, row_factory=dict_row)
+
+
+def _make_phase18_db(dsn) -> int:
+    """phase 18 모양에 process sf2p, device 하나, 이력 한 줄. process id 를 준다."""
+    with _connect(dsn) as conn:
+        for stmt in _PHASE18_DDL:
+            conn.execute(stmt)
+        pid = conn.execute(
+            "INSERT INTO process (name) VALUES ('sf2p') RETURNING id"
+        ).fetchone()["id"]
+        conn.execute(
+            "INSERT INTO device (process_id, name, celltype) "
+            "VALUES (%s, 'nfet_a', 'NFET')",
+            (pid,),
+        )
+        conn.execute(
+            "INSERT INTO change_log (action, process_name, device_name) "
+            "VALUES ('device_add', 'sf2p', 'nfet_a')"
+        )
+    return pid
+
+
+def test_ddl_moves_a_phase18_db_to_name_release_pairs(db, scratch_dsn):
+    """init_db 재실행이 운영 DB 를 옮긴다. 행은 그대로이고 빈 버전 '' 이 된다.
+
+    옮긴 모양은 새 DB(세션 DB) 와 같아야 한다(컬럼 순서·타입, UNIQUE 의 컬럼).
+    """
+    import psycopg
+
+    pid = _make_phase18_db(scratch_dsn)
+
+    with _connect(scratch_dsn) as conn:
+        _run_all_ddl(conn)
+
+    with db.connection() as conn:
+        fresh = _shape(conn)
+    with _connect(scratch_dsn) as conn:
+        moved = _shape(conn)
+    assert moved == fresh
+
+    with _connect(scratch_dsn) as conn:
+        processes = conn.execute("SELECT id, name, release FROM process").fetchall()
+        devices = conn.execute("SELECT process_id, name FROM device").fetchall()
+        log = conn.execute(
+            "SELECT process_name, process_release FROM change_log"
+        ).fetchall()
+    assert processes == [{"id": pid, "name": "sf2p", "release": ""}]
+    assert devices == [{"process_id": pid, "name": "nfet_a"}]
+    assert log == [{"process_name": "sf2p", "process_release": ""}]
+
+    with _connect(scratch_dsn) as conn:
+        conn.execute("INSERT INTO process (name, release) VALUES ('sf2p', 'V1')")
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        with _connect(scratch_dsn) as conn:
+            conn.execute("INSERT INTO process (name, release) VALUES ('sf2p', '')")
+
+    with _connect(scratch_dsn) as conn:
+        assert ["name"] not in _unique_column_sets(conn, "process")
+
+
+def test_ddl_twice_on_a_phase18_db_leaves_the_same_shape(scratch_dsn):
+    """옮긴 뒤 다시 돌려도 컬럼·제약이 그대로다(제약이 두 번 붙지 않는다)."""
+    _make_phase18_db(scratch_dsn)
+    tables = (schema.PROCESS_TABLE, schema.CHANGE_LOG_TABLE)
+
+    with _connect(scratch_dsn) as conn:
+        _run_all_ddl(conn)
+    with _connect(scratch_dsn) as conn:
+        first = {t: (_columns(conn, t), _constraints(conn, t)) for t in tables}
+    with _connect(scratch_dsn) as conn:
+        _run_all_ddl(conn)
+    with _connect(scratch_dsn) as conn:
+        second = {t: (_columns(conn, t), _constraints(conn, t)) for t in tables}
+
+    assert second == first

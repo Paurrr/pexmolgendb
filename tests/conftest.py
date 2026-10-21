@@ -55,6 +55,34 @@ def pg_dsn():
 
 
 @pytest.fixture
+def scratch_dsn(pg_dsn):
+    """빈 데이터베이스 하나를 만들고 DSN 을 준다. 테스트가 끝나면 지운다.
+
+    스키마를 옛 모양으로 손으로 만들어 보는 테스트가 쓴다. 세션 DB 에서 하면
+    DDL 이 그 모양을 되돌리지 못했을 때 뒤의 DB 테스트가 줄줄이 깨진다.
+    """
+    import psycopg
+
+    info = psycopg.conninfo.conninfo_to_dict(pg_dsn)
+    dbname = f"{info['dbname']}_scratch"
+    with psycopg.connect(pg_dsn, autocommit=True) as con:
+        con.execute(f'DROP DATABASE IF EXISTS "{dbname}"')
+        con.execute(f'CREATE DATABASE "{dbname}"')
+    info["dbname"] = dbname
+
+    try:
+        yield psycopg.conninfo.make_conninfo(**info)
+    finally:
+        with psycopg.connect(pg_dsn, autocommit=True) as con:
+            con.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                "WHERE datname = %s AND pid <> pg_backend_pid()",
+                (dbname,),
+            )
+            con.execute(f'DROP DATABASE IF EXISTS "{dbname}"')
+
+
+@pytest.fixture
 def db(pg_dsn):
     """스키마가 적용된 빈 Database. 테스트마다 모든 행을 지운다."""
     from genviewer.service.config import load_config

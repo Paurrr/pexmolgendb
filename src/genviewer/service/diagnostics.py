@@ -21,6 +21,7 @@ from genviewer.service.pool import Database
 from genviewer.service.schema import (
     CHANGE_LOG_TABLE,
     DEVICE_TABLE,
+    FIXED_ADDED_COLUMNS,
     PROCESS_TABLE,
     child_tables,
 )
@@ -148,7 +149,8 @@ class ServerInfo:
     database: str = ""
     user: str = ""
     missing_tables: list[str] = field(default_factory=list)
-    # 있는 탭 테이블에 없는 tab_config 컬럼. "<테이블>.<컬럼>", tab_config 순서.
+    # 있는 테이블에 없는 컬럼. "<테이블>.<컬럼>". 고정 테이블에 나중에 더한 컬럼
+    # (schema.FIXED_ADDED_COLUMNS) 먼저, 그다음 탭 테이블의 tab_config 컬럼을 그 순서로.
     missing_columns: list[str] = field(default_factory=list)
     processes: int = 0
     devices: int = 0
@@ -183,9 +185,10 @@ def probe(db: Database) -> ServerInfo:
             }
             missing = [t for t in expected_tables() if t not in here]
 
-            # 탭 테이블의 컬럼. information_schema.columns 는 권한이 없는 컬럼을
-            # 숨기므로 카탈로그를 본다. 이름은 위와 같은 이유로 다 받아서 판다.
-            # 없는 테이블은 위에서 이미 셌으므로 그 컬럼은 세지 않는다.
+            # 고정 테이블에 나중에 더한 컬럼과 탭 테이블의 컬럼. information_schema
+            # .columns 는 권한이 없는 컬럼을 숨기므로 카탈로그를 본다. 이름은 위와
+            # 같은 이유로 다 받아서 판다. 없는 테이블은 위에서 이미 셌으므로 그
+            # 컬럼은 세지 않는다.
             columns: dict[str, set[str]] = {}
             for r in conn.execute(
                 "SELECT c.relname AS tbl, a.attname AS col FROM pg_attribute a "
@@ -195,9 +198,10 @@ def probe(db: Database) -> ServerInfo:
                 "AND a.attnum > 0 AND NOT a.attisdropped"
             ):
                 columns.setdefault(r["tbl"], set()).add(r["col"])
+            wanted_columns = [*FIXED_ADDED_COLUMNS.items(), *child_tables().items()]
             missing_columns = [
                 f"{table}.{column}"
-                for table, wanted in child_tables().items()
+                for table, wanted in wanted_columns
                 if table in here
                 for column in wanted
                 if column not in columns.get(table, set())
