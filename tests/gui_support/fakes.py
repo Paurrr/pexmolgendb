@@ -1,6 +1,6 @@
 """DB 없이 도는 가짜 repo. GUI 테스트의 "서버" 다.
 
-컨트롤러가 부르는 repo 메서드 15개를 실제(`genviewer.service.repo`)와 같은 시그니처·의미로
+컨트롤러가 부르는 repo 메서드 16개를 실제(`genviewer.service.repo`)와 같은 시그니처·의미로
 흉내 낸다. 의미의 기준은 실제 repo 이고, `tests/gui/test_fake_repo_contract.py` 가 같은
 기대값을 가짜와 실제 PostgreSQL 양쪽에 돌려 고정한다. 실제의 이상한 동작(예: `upsert_device`
 는 version 을 보지 않고 덮어쓴다)도 **고치지 않고 그대로** 흉내 낸다. 뒤 phase 의 RED 테스트가
@@ -50,6 +50,7 @@ REPO_METHODS: tuple[str, ...] = (
     "delete",
     "exists",
     "list_all",
+    "list_pairs",
     "count_devices",
     "get_or_create_id",
     # FakeDeviceRepository
@@ -138,6 +139,7 @@ class FakeStore:
     """가짜 repo 들이 함께 쓰는 "서버" 상태.
 
     processes: id -> name
+    releases:  id -> release (processes 와 나란하다. 빈 버전은 "")
     devices:   id -> device 행 dict (키는 실제 `_SELECT_COLUMNS`)
     tab_rows:  table -> device_id -> 행 목록 (그 테이블의 모든 컬럼, 넣은 순서)
     audit:     change_log 줄 (키는 실제 `audit._COLUMNS`, id 순)
@@ -146,6 +148,7 @@ class FakeStore:
 
     def __init__(self) -> None:
         self.processes: dict[int, str] = {}
+        self.releases: dict[int, str] = {}
         self.devices: dict[int, dict] = {}
         self.tab_rows: dict[str, dict[int, list[dict]]] = {t: {} for t in TABLE_COLUMNS}
         self.audit: list[dict] = []
@@ -196,12 +199,12 @@ class FakeStore:
 
     # -- 시드·조작 (calls 에 남지 않고 fail_next 를 따르지 않는다) ------------
 
-    def add_process(self, name: str) -> int:
+    def add_process(self, name: str, release: str = "") -> int:
         with self.lock:
-            if self._process_id(name) is not None:
-                raise ValueError(f"이미 있는 process: {name!r}")
+            if self._process_id(name, release) is not None:
+                raise ValueError(f"이미 있는 process: {name!r} {release!r}")
             self._tick()
-            return self._insert_process(name)
+            return self._insert_process(name, release)
 
     def add_device(
         self,
@@ -304,11 +307,11 @@ class FakeStore:
             raise AssertionError(f"hold_next({method}) 가 풀리지 않았다")
 
     def _snapshot(self) -> tuple:
-        return copy.deepcopy((self.processes, self.devices, self.tab_rows))
+        return copy.deepcopy((self.processes, self.releases, self.devices, self.tab_rows))
 
     def _restore(self, saved: tuple) -> None:
         # 테스트가 store.devices 등을 잡고 있어도 같은 객체가 되돌아가도록 제자리에서 바꾼다.
-        current_state = (self.processes, self.devices, self.tab_rows)
+        current_state = (self.processes, self.releases, self.devices, self.tab_rows)
         for current, before in zip(current_state, saved, strict=True):
             current.clear()
             current.update(before)
@@ -319,9 +322,9 @@ class FakeStore:
         self._ticks += 1
         return now
 
-    def _process_id(self, name: str) -> int | None:
+    def _process_id(self, name: str, release: str = "") -> int | None:
         for process_id, process_name in self.processes.items():
-            if process_name == name:
+            if process_name == name and self.releases[process_id] == release:
                 return process_id
         return None
 
@@ -335,10 +338,11 @@ class FakeStore:
             raise KeyError(f"device 가 없다: id={device_id}")
         return row
 
-    def _insert_process(self, name: str) -> int:
+    def _insert_process(self, name: str, release: str = "") -> int:
         process_id = self._next_process_id
         self._next_process_id += 1
         self.processes[process_id] = name
+        self.releases[process_id] = release
         return process_id
 
     def _insert_device(self, process_id, name, celltype, description, order, actor, now) -> dict:
@@ -368,6 +372,7 @@ class FakeStore:
         for device_id in [i for i, d in self.devices.items() if d["process_id"] == process_id]:
             self._drop_device(device_id)
         del self.processes[process_id]
+        del self.releases[process_id]
 
     def _devices_of(self, process_id: int) -> list[dict]:
         """ORDER BY "order", id."""
@@ -430,18 +435,19 @@ class FakeProcessRepository:
         self.db = db
 
     @_recorded()
-    def add(self, name: str, *, actor: str = "") -> bool:
+    def add(self, name: str, *, release: str = "", actor: str = "") -> bool:
         store = self.db.store
-        if store._process_id(name) is not None:
+        if store._process_id(name, release) is not None:
             return False  # 실제는 UniqueViolation 을 잡는다
         store._tick()
-        store._insert_process(name)
+        store._insert_process(name, release)
         return True
 
     @_recorded()
-    def delete(self, name: str, *, actor: str = "") -> bool:
+    def delete(self, name: str, *, release: str = "", actor: str = "") -> bool:
+        """그 (이름, 버전) 쌍 하나만. 같은 이름의 다른 버전은 그대로다."""
         store = self.db.store
-        process_id = store._process_id(name)
+        process_id = store._process_id(name, release)
         if process_id is None:
             return True  # 예전 계약: 없는 것을 지워도 참이다
         store._tick()
@@ -449,29 +455,36 @@ class FakeProcessRepository:
         return True
 
     @_recorded()
-    def exists(self, name: str) -> bool:
-        return self.db.store._process_id(name) is not None
+    def exists(self, name: str, *, release: str = "") -> bool:
+        return self.db.store._process_id(name, release) is not None
 
     @_recorded()
     def list_all(self) -> list[str]:
-        return sorted(self.db.store.processes.values())
+        """서로 다른 이름. 버전이 여럿이어도 한 번."""
+        return sorted(set(self.db.store.processes.values()))
 
     @_recorded()
-    def count_devices(self, name: str) -> int:
+    def list_pairs(self) -> list[tuple[str, str]]:
+        """(이름, 버전) 정렬. Python 정렬은 코드포인트 순이라 실제의 release COLLATE "C" 와 같다."""
         store = self.db.store
-        process_id = store._process_id(name)
+        return sorted((name, store.releases[pid]) for pid, name in store.processes.items())
+
+    @_recorded()
+    def count_devices(self, name: str, *, release: str = "") -> int:
+        store = self.db.store
+        process_id = store._process_id(name, release)
         if process_id is None:
             return 0
         return len(store._devices_of(process_id))
 
     @_recorded()
-    def get_or_create_id(self, name: str, *, actor: str = "") -> int | None:
+    def get_or_create_id(self, name: str, *, release: str = "", actor: str = "") -> int | None:
         if not name:
             return None
         store = self.db.store
         store._tick()
-        process_id = store._process_id(name)
-        return process_id if process_id is not None else store._insert_process(name)
+        process_id = store._process_id(name, release)
+        return process_id if process_id is not None else store._insert_process(name, release)
 
 
 class FakeDeviceRepository:

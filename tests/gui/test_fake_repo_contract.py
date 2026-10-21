@@ -165,6 +165,90 @@ def test_delete_takes_the_devices_and_tab_rows_with_it(backend):
     assert backend.process.delete("sf9x") is True
 
 
+# -- process 버전 (이름, 버전) 쌍 --------------------------------------------
+
+
+def test_add_makes_each_release_of_a_name_once(backend):
+    assert backend.process.add("sf2p") is True
+    assert backend.process.add("sf2p", release="V1") is True
+    assert backend.process.add("sf2p", release="V1") is False
+    assert backend.process.list_pairs() == [("sf2p", ""), ("sf2p", "V1")]
+
+
+def test_get_or_create_id_is_one_id_per_release(backend):
+    plain = backend.process.get_or_create_id("sf2p")
+    v1 = backend.process.get_or_create_id("sf2p", release="V1")
+
+    assert isinstance(v1, int)
+    assert v1 != plain
+    assert backend.process.get_or_create_id("sf2p") == plain
+    assert backend.process.get_or_create_id("sf2p", release="V1") == v1
+    assert backend.process.get_or_create_id("", release="V1") is None
+
+
+def test_exists_and_count_devices_are_per_release(backend):
+    plain = backend.process.get_or_create_id("sf2p")
+    v1 = backend.process.get_or_create_id("sf2p", release="V1")
+    backend.process.get_or_create_id("sf4u", release="V1")
+    backend.device.upsert_device(plain, _device("a"))
+    for name in ("b", "c"):
+        backend.device.upsert_device(v1, _device(name))
+
+    assert backend.process.exists("sf2p", release="V1") is True
+    assert backend.process.exists("sf2p", release="V2") is False
+    assert backend.process.exists("sf4u", release="V1") is True
+    assert backend.process.exists("sf4u") is False  # V1 만 있다
+    assert backend.process.count_devices("sf2p", release="V1") == 2
+    assert backend.process.count_devices("sf2p") == 1
+    assert backend.process.count_devices("sf2p", release="V2") == 0
+
+
+@pytest.mark.parametrize("gone_release,kept_release", [("V1", ""), ("", "V1")])
+def test_delete_takes_only_that_release(backend, gone_release, kept_release):
+    kept_pid = backend.process.get_or_create_id("sf2p", release=kept_release)
+    gone_pid = backend.process.get_or_create_id("sf2p", release=gone_release)
+    kept = backend.device.upsert_device(kept_pid, _device("a"))
+    gone = backend.device.upsert_device(gone_pid, _device("b"))
+    backend.parameter.replace_many_for_device(
+        kept["id"], {"inst_terms": (TERMS, _terms(("GATE", "g")))}
+    )
+    backend.parameter.replace_many_for_device(
+        gone["id"], {"inst_terms": (TERMS, _terms(("DRN", "d")))}
+    )
+
+    assert backend.process.delete("sf2p", release=gone_release, actor="kim") is True
+    assert backend.process.list_pairs() == [("sf2p", kept_release)]
+    assert _names(backend, kept_pid) == ["a"]
+    assert backend.parameter.fetch_by_device("inst_terms", TERMS, kept["id"]) == _terms(
+        ("GATE", "g")
+    )
+    assert backend.device.fetch_devices_by_process(gone_pid) == []
+    assert backend.parameter.fetch_by_device("inst_terms", TERMS, gone["id"]) == []
+    # 없는 쌍을 지워도 참이고, 남은 쌍은 그대로다
+    assert backend.process.delete("sf2p", release=gone_release) is True
+    assert backend.process.list_pairs() == [("sf2p", kept_release)]
+
+
+def test_list_all_names_each_process_once_whatever_its_releases(backend):
+    pairs = [("sf4u", ""), ("sf2p", "V2"), ("sf2p", ""), ("sf2p", "V1"), ("sf9x", "V1")]
+    for name, release in pairs:
+        backend.process.add(name, release=release)
+    assert backend.process.list_all() == ["sf2p", "sf4u", "sf9x"]
+
+
+def test_list_pairs_orders_by_name_then_release_code_points(backend):
+    # 기본 collation(예 en_US)은 '-'·'.' 를 첫 단계에서 무시해 S00V1 을 앞에 둔다.
+    # 코드포인트로는 '-' 가 'V' 보다 앞이다.
+    for name, release in [("sf4u", ""), ("sf2p", "S00V1"), ("sf2p", "S00-V1.0"), ("sf2p", "")]:
+        backend.process.add(name, release=release)
+    assert backend.process.list_pairs() == [
+        ("sf2p", ""),
+        ("sf2p", "S00-V1.0"),
+        ("sf2p", "S00V1"),
+        ("sf4u", ""),
+    ]
+
+
 # -- upsert_device / fetch_devices_by_process ------------------------------
 
 

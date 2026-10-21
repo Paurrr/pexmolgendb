@@ -39,7 +39,15 @@ PAIRS = [
     (
         FakeProcessRepository,
         ProcessRepository,
-        {"add", "delete", "exists", "list_all", "count_devices", "get_or_create_id"},
+        {
+            "add",
+            "delete",
+            "exists",
+            "list_all",
+            "list_pairs",
+            "count_devices",
+            "get_or_create_id",
+        },
     ),
     (
         FakeDeviceRepository,
@@ -90,9 +98,9 @@ def test_a_fake_has_exactly_the_methods_the_controllers_call(fake, real, methods
     assert methods <= _public_methods(real)
 
 
-def test_repo_methods_lists_all_fifteen():
+def test_repo_methods_lists_all_sixteen():
     union = set().union(*(methods for _, _, methods in PAIRS))
-    assert len(REPO_METHODS) == len(set(REPO_METHODS)) == 15
+    assert len(REPO_METHODS) == len(set(REPO_METHODS)) == 16
     assert set(REPO_METHODS) == union
 
 
@@ -125,9 +133,9 @@ def test_calls_record_the_bound_arguments_with_defaults(store, repos):
             "fetch_by_device",
             {"table_name": "inst_terms", "columns": ["reserved_key"], "device_id": 7},
         ),
-        ("add", {"name": "sf4u", "actor": "kim"}),
+        ("add", {"name": "sf4u", "release": "", "actor": "kim"}),
     ]
-    assert store.calls_of("add") == [{"name": "sf4u", "actor": "kim"}]
+    assert store.calls_of("add") == [{"name": "sf4u", "release": "", "actor": "kim"}]
     assert store.calls_of("delete") == []
 
 
@@ -213,7 +221,7 @@ def test_fail_next_fails_only_the_next_call(store, repos):
     assert store.processes == {}
 
     assert repos.process.add("sf2p") is True
-    assert store.calls == [("add", {"name": "sf2p", "actor": ""})] * 2
+    assert store.calls == [("add", {"name": "sf2p", "release": "", "actor": ""})] * 2
 
 
 def test_fail_next_queues_in_order_per_method(store, repos):
@@ -256,7 +264,7 @@ def test_an_exception_midway_rolls_the_data_back(store, repos, tmp_path):
     with pytest.raises(KeyError):
         repos.io.import_data(str(path))
 
-    assert (store.processes, store.devices) == ({}, {})
+    assert (store.processes, store.releases, store.devices) == ({}, {}, {})
 
 
 @pytest.mark.parametrize("name", ["get_id", "nope", "db.connection"])
@@ -326,7 +334,7 @@ def test_a_released_call_runs_and_is_recorded(store, repos):
     release.set()
     worker.join(5)
     assert out == {"value": True}
-    assert store.calls_of("add") == [{"name": "sf2p", "actor": "kim"}]
+    assert store.calls_of("add") == [{"name": "sf2p", "release": "", "actor": "kim"}]
     assert list(store.processes.values()) == ["sf2p"]
 
 
@@ -476,6 +484,19 @@ def test_add_device_uses_the_defaults_and_its_own_id_sequence(store):
         store.add_device(99, "x", "NFET")
     with pytest.raises(ValueError):
         store.add_process("sf2p")
+
+
+def test_add_process_seeds_a_release_beside_the_name(store, repos):
+    plain = store.add_process("sf2p")
+    v1 = store.add_process("sf2p", release="V1")
+
+    assert store.processes == {plain: "sf2p", v1: "sf2p"}
+    assert store.releases == {plain: "", v1: "V1"}
+    with pytest.raises(ValueError):
+        store.add_process("sf2p", release="V1")
+
+    repos.process.delete("sf2p", release="V1")
+    assert (store.processes, store.releases) == ({plain: "sf2p"}, {plain: ""})
 
 
 def test_deleted_ids_are_not_reused(store, repos):

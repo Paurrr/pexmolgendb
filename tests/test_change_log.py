@@ -327,6 +327,36 @@ def test_adding_a_process_by_name_is_recorded(db, log):
     assert row["actor"] == "dh991"
 
 
+def test_adding_and_deleting_a_release_records_the_release(db, log):
+    repo = ProcessRepository(db)
+    assert repo.add("sf2p", release="V1", actor="dh991")
+    pid = repo.get_id("sf2p", release="V1")
+    DeviceRepository(db).upsert_devices(pid, [_device("nfet_b")], actor="kim")
+    assert repo.delete("sf2p", release="V1", actor="jyk")
+
+    rows = _rows(log, actor="dh991") + _rows(log, actor="jyk")
+    assert [(r["action"], r["process_name"], r["process_release"], r["summary"]) for r in rows] == [
+        (audit.PROCESS_ADD, "sf2p", "V1", "process 추가  sf2p V1"),
+        (audit.PROCESS_DELETE, "sf2p", "V1", "process 삭제  sf2p V1  device 1개가 함께 사라짐"),
+    ]
+    assert [d["name"] for d in rows[1]["detail"]["devices"]] == ["nfet_b"]
+
+
+def test_creating_a_release_is_recorded_once(db, log):
+    repo = ProcessRepository(db)
+    repo.get_or_create_id("sf4u", actor="dh991")
+    repo.get_or_create_id("sf4u", release="V1", actor="dh991")
+    # 이미 있는 쌍을 다시 고르는 것은 사건이 아니다.
+    repo.get_or_create_id("sf4u", release="V1", actor="jyk")
+    repo.get_or_create_id("sf4u", actor="jyk")
+
+    rows = _rows(log, process="sf4u")
+    assert [(r["actor"], r["process_release"], r["summary"]) for r in rows] == [
+        ("dh991", "", "process 추가  sf4u"),
+        ("dh991", "V1", "process 추가  sf4u V1"),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # CSV
 # ---------------------------------------------------------------------------

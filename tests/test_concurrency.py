@@ -19,7 +19,7 @@ from genviewer.service.repo.audit import AuditRepository
 from genviewer.service.repo.device import DeviceRepository
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
-from genviewer.service.repo.process import ProcessRepository
+from genviewer.service.repo.process import ProcessRepository, find_or_create
 
 TERM_COLUMNS = ["reserved_key", "cds_inst_term_name"]
 
@@ -291,15 +291,19 @@ def test_a_save_larger_than_one_statement_can_bind(db, process_id):
 
 
 @contextmanager
-def _import_in_progress(pg_dsn, process_name):
+def _import_in_progress(pg_dsn, process_name, release=""):
     """CLI load 가 process 를 찾고 device 를 넣은 뒤 커밋하기 전 상태로 멈춘다.
 
     큰 파일이면 load 의 트랜잭션은 이 상태로 오래 있다(statement_timeout 0).
+    불러오기가 버전을 받기 전까지 버전 있는 쌍은 그것이 부르는 find_or_create 로 찾는다.
     """
     conn = psycopg.connect(pg_dsn, row_factory=dict_row)
     try:
         cur = conn.cursor()
-        process_id = IORepository._process_id(cur, process_name)
+        if release:
+            process_id, _ = find_or_create(cur, process_name, release)
+        else:
+            process_id = IORepository._process_id(cur, process_name)
         cur.execute(
             "INSERT INTO device (process_id, name, celltype, updated_by) "
             "VALUES (%s, %s, %s, %s)",
@@ -325,31 +329,35 @@ def gui_db(pg_dsn):
         other.close()
 
 
-def test_choosing_a_process_does_not_wait_for_an_import(db, process_id, pg_dsn, gui_db):
+@pytest.mark.parametrize("release", ["", "S00-V1.0.0.0"])
+def test_choosing_a_process_does_not_wait_for_an_import(db, pg_dsn, gui_db, release):
     """CSV 를 불러오는 동안 GUI 에서 같은 process 를 골라도 기다리지 않는다 (K5).
 
     예전에는 불러오기가 ON CONFLICT DO UPDATE 로 process 행을 잠근 채 커밋까지
     쥐고 있었고, GUI 의 get_or_create_id 도 같은 DO UPDATE 로 그 행을 잠그려다
     lock_timeout 뒤 55P03 으로 실패했다. 불러오기의 device INSERT 가 외래키
     검사로 잡는 FOR KEY SHARE 도 DO UPDATE(FOR UPDATE)와 부딪히므로 고르는
-    쪽도 잠그지 않아야 한다.
+    쪽도 잠그지 않아야 한다. 버전이 있는 (이름, 버전) 쌍도 같다.
     """
-    with _import_in_progress(pg_dsn, "sf2p"):
+    process_id = ProcessRepository(db).get_or_create_id("sf2p", release=release)
+    with _import_in_progress(pg_dsn, "sf2p", release):
         start = time.monotonic()
-        got = ProcessRepository(gui_db).get_or_create_id("sf2p", actor="gui")
+        got = ProcessRepository(gui_db).get_or_create_id("sf2p", release=release, actor="gui")
         elapsed = time.monotonic() - start
 
     assert got == process_id
     assert elapsed < 0.3, f"{elapsed:.3f}초 기다렸다"
 
 
-def test_saving_in_a_process_does_not_wait_for_an_import(db, process_id, pg_dsn, gui_db):
+@pytest.mark.parametrize("release", ["", "S00-V1.0.0.0"])
+def test_saving_in_a_process_does_not_wait_for_an_import(db, pg_dsn, gui_db, release):
     """CSV 를 불러오는 동안 같은 process 에 device 를 저장해도 기다리지 않는다.
 
     저장의 device INSERT 도 외래키 검사로 process 행에 FOR KEY SHARE 를 잡는다.
     불러오기가 process 행을 찾으면서 잠가 두면 여기서 막힌다.
     """
-    with _import_in_progress(pg_dsn, "sf2p"):
+    process_id = ProcessRepository(db).get_or_create_id("sf2p", release=release)
+    with _import_in_progress(pg_dsn, "sf2p", release):
         start = time.monotonic()
         saved = DeviceRepository(gui_db).upsert_devices(
             process_id, [_device("nfet_b")], actor="gui"
@@ -398,3 +406,32 @@ def test_two_creators_of_a_new_process_share_one_row(db, pg_dsn):
     assert got == created
     assert ProcessRepository(db).list_all() == ["sf9z"]
     assert AuditRepository(db).recent(limit=10, actor="gui") == []
+
+
+def test_two_creators_of_a_new_release_share_one_row(db, pg_dsn):
+    """같은 새 (이름, 버전)을 두 커넥션이 동시에 만들면 행은 하나이고 둘 다 같은 id 를 얻는다.
+
+    나중 쪽은 먼저 쪽이 커밋할 때까지 INSERT 에서 기다렸다가 그 행을 다시 읽고,
+    자기가 만들지 않았다고 답한다. 같은 이름의 빈 버전은 생기지 않는다.
+    """
+    first = psycopg.connect(pg_dsn, row_factory=dict_row)
+    second = psycopg.connect(pg_dsn, row_factory=dict_row)
+    try:
+        created, made = find_or_create(first.cursor(), "sf9z", "V1")
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            found = pool.submit(find_or_create, second.cursor(), "sf9z", "V1")
+            _wait_for_a_lock_waiter(db)
+            first.commit()
+            got = found.result(timeout=10)
+        second.commit()
+    finally:
+        for conn in (first, second):
+            conn.rollback()
+            conn.close()
+
+    assert made is True
+    assert got == (created, False)
+    repo = ProcessRepository(db)
+    assert repo.list_pairs() == [("sf9z", "V1")]
+    assert repo.get_id("sf9z", release="V1") == created
+    assert repo.get_id("sf9z") is None
