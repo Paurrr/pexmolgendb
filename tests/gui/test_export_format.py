@@ -5,9 +5,11 @@
 (대소문자 무시)가 아니면 메뉴에서 고른 형식을 따른다. 파일 이름은 바꾸지 않는다.
 """
 
+import csv
 from pathlib import Path
 
 import pytest
+from gui_support.helpers import select_process
 
 ZIP_MAGIC = b"PK\x03\x04"
 
@@ -70,3 +72,34 @@ def test_cancelling_the_save_dialog_writes_nothing(device_tab_ctrl, dialogs, tmp
 
     assert list(tmp_path.iterdir()) == []
     assert dialogs.shown == []
+
+
+@pytest.mark.parametrize("fmt", ["csv", "xlsx"])
+def test_the_suggested_name_of_a_release_is_the_name_molgen_looks_for(
+    device_tab_ctrl, store, dialogs, qtbot, tmp_path, fmt
+):
+    """버전이 있는 쌍의 제안 이름은 `<proc>_<cid>-<ver 점 제거>` 다 (phase 19 step 10).
+
+    파일 내용은 그대로다. CdsLibName 은 process 이름이고 버전 컬럼은 없다.
+    """
+    ctrl = device_tab_ctrl
+    release = "S00-V1.0.0.0"
+    process_id = store.add_process("sf2p", release=release)
+    store.add_device(process_id, "nfet_r", "NFET", order=0)
+    ctrl.device_tab_toolbar.refresh_processes()
+    select_process(ctrl, "sf2p", release)
+    qtbot.waitUntil(
+        lambda: [d["name"] for d in ctrl.device_table.ui.model_safe().get_devices()] == ["nfet_r"]
+    )
+    path = tmp_path / f"out.{fmt}"
+    suggested = ask_path(ctrl, path)
+
+    ctrl.device_table.export_selected_devices(fmt)
+
+    assert suggested == [f"sf2p_S00-V1000.{fmt}"]
+    assert written_format(path) == fmt
+    if fmt == "csv":
+        with open(path, newline="", encoding="utf-8") as f:
+            header, *rows = list(csv.reader(f))
+        assert header[:4] == ["CellType", "CdsLibName", "InstCellName", "Description"]
+        assert [row[:3] for row in rows] == [["NFET", "sf2p", "nfet_r"]]

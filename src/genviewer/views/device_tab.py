@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QPushButton,
     QSplitter,
@@ -9,6 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from genviewer.dialogs.add_process import NO_RELEASE_TEXT
 from genviewer.dialogs.connection import ConnectionDialog
 from genviewer.utils.file_dialogs import open_file
 from genviewer.utils.table_utils import (
@@ -66,7 +68,8 @@ class RefreshBanner(QFrame):
 
 class DeviceTab(QWidget):
     dbConnectRequested = Signal(str)
-    loadCsvRequested = Signal(str)
+    # (경로, 버전). 빈 버전은 "" 이다.
+    loadCsvRequested = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -139,5 +142,33 @@ class DeviceTab(QWidget):
     @Slot()
     def _ask_load_csv(self):
         path = open_file(self, "Load CSV", "csv file (*.csv)", "")
-        if path:
-            self.loadCsvRequested.emit(path)
+        if not path:
+            return
+        # CSV 에는 버전 컬럼이 없다. 모든 행을 넣을 버전을 여기서 정한다.
+        release = self._ask_release()
+        if release is None:
+            return
+        self.loadCsvRequested.emit(path, release)
+
+    def _ask_release(self) -> str | None:
+        """불러올 버전. 취소면 None, 버전 없음이면 "".
+
+        후보는 툴바가 이미 들고 있는 쌍의 서로 다른 버전이다(DB 를 부르지 않는다). 빈 버전은
+        NO_RELEASE_TEXT 로 맨 앞에 보이고, 처음 자리는 지금 쌍의 버전이다. 목록에 없는 버전도 친다.
+        """
+        toolbar = self.device_tab_toolbar_view
+        releases = sorted({release for _name, release in toolbar.pairs()})
+        current = toolbar.current_pair()[1]
+        items = [release or NO_RELEASE_TEXT for release in releases]
+        text, ok = QInputDialog.getItem(
+            self,
+            "Load CSV",
+            "불러올 버전 (비우면 버전 없음):",
+            items,
+            releases.index(current) if current in releases else 0,
+            editable=True,
+        )
+        if not ok:
+            return None
+        release = (text or "").strip()
+        return "" if release == NO_RELEASE_TEXT else release

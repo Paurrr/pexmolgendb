@@ -26,6 +26,27 @@ def _molgen_safe(value):
     return value.replace(",", ";")
 
 
+# 파일 이름에 쓸 수 없는 글자(Windows 기준, '/' 는 리눅스에서도). 버전 부분만 '_' 로 바꾼다.
+_PATH_UNSAFE = str.maketrans({c: "_" for c in '\\/:*?"<>|'})
+
+
+def export_file_name(process: str, release: str, fmt: str) -> str:
+    """내보내기 파일 이름 제안. molgen 이 찾는 `<proc>_<cid>-<ver 점 제거>.<fmt>` 다.
+
+    molgen pexGenDB_GenDev_GetMockInfo(genMOLDB_gui.il)는 작업 디렉터리 `<proc>/<cid>-<ver>` 의
+    `<cid>-<ver>` 를 '-' 로 나눠(빈 조각은 버린다) 앞 두 조각을 쓰고 `<ver>` 의 점을 지운다.
+    조각이 하나면 그 조각의 점을 지운다. 조각이 없으면(빈 버전) 지금처럼 `<proc>.<fmt>` 다.
+    """
+    pieces = [piece for piece in release.split("-") if piece]
+    if not pieces:
+        return f"{process}.{fmt}"
+    if len(pieces) == 1:
+        tail = pieces[0].replace(".", "")
+    else:
+        tail = f"{pieces[0]}-{pieces[1].replace('.', '')}"
+    return f"{process}_{tail.translate(_PATH_UNSAFE)}.{fmt}"
+
+
 def write_csv(path: str, headers: list[str], rows: list[list[str]]) -> None:
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)

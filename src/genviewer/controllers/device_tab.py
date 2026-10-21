@@ -422,9 +422,9 @@ class DeviceTabController(QObject):
         except Exception as e:
             self.statusMessageRequested.emit(f"Send failed: {e}", 5000)
 
-    @Slot(str)
+    @Slot(str, str)
     @report("Load CSV Failed")
-    def on_load_csv_requested(self, path: str):
+    def on_load_csv_requested(self, path: str, release: str = ""):
         if not self.connected:
             self.notifyRequested.emit(
                 "warn", "Database Not Loaded", "먼저 DB를 Load 해야 합니다."
@@ -439,8 +439,11 @@ class DeviceTabController(QObject):
 
         # 큰 CSV 는 몇 초씩 걸린다. GUI 스레드에서 돌리면 창이 얼어붙는다.
         # run_blocking 은 예외를 호출 지점에서 다시 내므로 @report 가 그대로 받는다.
+        # 모든 행이 (CdsLibName, release) 쌍으로 들어간다. 지금 쌍은 그대로다. 다른 버전으로
+        # 불러왔으면 사용자가 콤보로 옮겨 본다(자동으로 옮기면 화면이 말없이 바뀐다).
         created = run_blocking(
-            lambda: self.io_repo.import_data(path, actor=current_user()), self
+            lambda: self.io_repo.import_data(path, release=release, actor=current_user()),
+            self,
         )
 
         self.device_tab_toolbar.refresh_processes()
@@ -454,7 +457,12 @@ class DeviceTabController(QObject):
             f"device {created}개를 새로 추가했다.\n"
             "CSV 는 불러올 때마다 새로 쌓인다 — 같은 파일을 다시 넣으면 중복된다.",
         )
-        self.logRequested.emit(f"Imported CSV: {path} (device {created}개 추가).")
+        if release:
+            self.logRequested.emit(
+                f"Imported CSV: {path} (version {release}, device {created}개 추가)."
+            )
+        else:
+            self.logRequested.emit(f"Imported CSV: {path} (device {created}개 추가).")
 
     @Slot()
     @report("Load Failed")

@@ -11,7 +11,7 @@ import pytest
 from openpyxl import load_workbook
 
 from genviewer.service.repo.io import IORepository
-from genviewer.utils.exporter import write_csv, write_xlsx
+from genviewer.utils.exporter import export_file_name, write_csv, write_xlsx
 
 HEADERS = ["CellType", "Param"]
 ROWS = [["=1+1", "x"], ["a=b", "=SUM(A1:A2)"], ["plain", ""]]
@@ -135,6 +135,41 @@ def test_xlsx_keeps_the_description_as_written(tmp_path):
     write_xlsx(str(path), DESC_HEADERS, [["nfet", "sf2p", "nfet_a", "ESD 용, 2단\n둘째", "DRN d"]])
 
     assert _xlsx_cells(path)[1][3] == ("ESD 용, 2단\n둘째", "s")
+
+
+@pytest.mark.parametrize(
+    ("release", "fmt", "expected"),
+    [
+        ("", "csv", "sf2p.csv"),
+        ("", "xlsx", "sf2p.xlsx"),
+        ("S00-V1.0.0.0", "csv", "sf2p_S00-V1000.csv"),
+        ("S00-V1.0.0.0", "xlsx", "sf2p_S00-V1000.xlsx"),
+        ("S00-V1.0-beta", "csv", "sf2p_S00-V10.csv"),
+        ("V1.2", "csv", "sf2p_V12.csv"),
+        ('a\\b/c:d*e?f"g<h>i|j-V1.0', "csv", "sf2p_a_b_c_d_e_f_g_h_i_j-V10.csv"),
+        ("--S00--V1.0--", "csv", "sf2p_S00-V10.csv"),
+        ("--", "csv", "sf2p.csv"),
+    ],
+    ids=[
+        "no-release",
+        "no-release-xlsx",
+        "cid-ver",
+        "cid-ver-xlsx",
+        "first-two-pieces",
+        "one-piece",
+        "path-chars",
+        "empty-pieces",
+        "only-dashes",
+    ],
+)
+def test_export_file_name_is_the_name_molgen_looks_for(release, fmt, expected):
+    """molgen pexGenDB_GenDev_GetMockInfo 가 찾는 `<proc>_<cid>-<ver 점 제거>` (phase 19 step 10).
+
+    molgen 은 작업 디렉터리의 `<cid>-<ver>` 를 '-' 로 나눠(빈 조각은 버린다) 앞 두 조각을 쓰고
+    `<ver>` 의 점을 지운다. 조각이 하나면 그 조각의 점을 지운다. 경로에 못 쓰는 글자는 버전
+    부분에서만 '_' 로 바꾼다. 조각이 없으면(빈 버전, '-' 뿐) 지금처럼 process 이름뿐이다.
+    """
+    assert export_file_name("sf2p", release, fmt) == expected
 
 
 def test_each_row_carries_its_own_process_name(db, two_processes):

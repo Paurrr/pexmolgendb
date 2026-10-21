@@ -13,7 +13,7 @@ from genviewer.service.repo.device import DeviceRepository, SaveResult
 from genviewer.service.repo.io import IORepository
 from genviewer.service.repo.parameter import ParameterRepository
 from genviewer.utils.background import run_blocking
-from genviewer.utils.exporter import write_csv, write_xlsx
+from genviewer.utils.exporter import export_file_name, write_csv, write_xlsx
 from genviewer.utils.menus import build_device_table_menu
 from genviewer.utils.reporting import report
 from genviewer.utils.user import current_user
@@ -534,7 +534,7 @@ class DeviceTableController(QObject):
         ]
 
         headers, rows = self.io_repo.fetch_export_data(device_info)
-        suggested = f"{(self.current_process or 'process')}.{fmt}"
+        suggested = export_file_name(self.current_process or "process", self.current_release, fmt)
         save_path = self.ui._ask_export_path(suggested)
         if not save_path:
             return
