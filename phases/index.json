@@ -74,6 +74,10 @@
       "dir": "18-csv-description",
       "status": "completed",
       "completed_at": "2026-10-18T23:22:44+0900"
+    },
+    {
+      "dir": "19-process-release",
+      "status": "pending"
     }
   ]
 }

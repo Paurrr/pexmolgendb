@@ -1,0 +1,17 @@
+{
+  "project": "genviewer",
+  "phase": "19-process-release",
+  "steps": [
+    { "step": 0, "name": "schema-release", "status": "pending" },
+    { "step": 1, "name": "audit-release", "status": "pending" },
+    { "step": 2, "name": "process-repo-release", "status": "pending" },
+    { "step": 3, "name": "audit-sources", "status": "pending" },
+    { "step": 4, "name": "release-clone", "status": "pending" },
+    { "step": 5, "name": "io-release", "status": "pending" },
+    { "step": 6, "name": "cli-release", "status": "pending" },
+    { "step": 7, "name": "toolbar-pairs-view", "status": "pending" },
+    { "step": 8, "name": "selection-pair", "status": "pending" },
+    { "step": 9, "name": "add-clone", "status": "pending" },
+    { "step": 10, "name": "load-csv-release", "status": "pending" }
+  ]
+}
