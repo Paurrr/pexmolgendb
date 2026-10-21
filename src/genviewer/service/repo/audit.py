@@ -276,15 +276,27 @@ def tab_change(
     )
 
 
-def csv_import(path: str, created: int, per_process: dict[str, int]) -> Entry:
+def csv_import(
+    path: str, created: int, per_process: dict[str, int], *, release: str = ""
+) -> Entry:
+    """release 는 이 불러오기의 모든 process 가 받은 버전이다.
+
+    빈 버전이면 예전 줄 그대로다(detail 에 release 키도 없다).
+    """
     breakdown = ", ".join(f"{p} {n}" for p, n in sorted(per_process.items()))
     tail = f" ({breakdown})" if breakdown else ""
     only = next(iter(per_process)) if len(per_process) == 1 else ""
+    summary = f"CSV 불러오기  {Path(path).name}  device {created}개{tail}"
+    detail: dict = {"file": str(path), "devices": created, "processes": per_process}
+    if release:
+        summary += f"  버전 {release}"
+        detail["release"] = release
     return Entry(
         action=IMPORT,
         process_name=only,
-        summary=f"CSV 불러오기  {Path(path).name}  device {created}개{tail}",
-        detail={"file": str(path), "devices": created, "processes": per_process},
+        summary=summary,
+        detail=detail,
+        process_release=release if only else "",
     )
 
 

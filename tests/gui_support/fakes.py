@@ -712,7 +712,9 @@ class FakeIORepository:
         self.db = db
 
     @_recorded()
-    def import_data(self, input_path: str, *, actor: str = "") -> int:
+    def import_data(self, input_path: str, *, release: str = "", actor: str = "") -> int:
+        # 실제와 같다: 모든 행이 (CdsLibName, 앞뒤 공백을 지운 release) 쌍이다.
+        release = release.strip()
         data_path = Path(input_path)
         if not data_path.is_file():
             raise FileNotFoundError(f"CSV 파일이 없다: {data_path}")
@@ -741,9 +743,9 @@ class FakeIORepository:
             if process_name is None or pd.isna(process_name) or not str(process_name).strip():
                 continue
             process_name = str(process_name).strip()
-            process_id = store._process_id(process_name)
+            process_id = store._process_id(process_name, release)
             if process_id is None:
-                process_id = store._insert_process(process_name)
+                process_id = store._insert_process(process_name, release)
 
             description = row["Description"] if has_description else ""
             device = store._insert_device(

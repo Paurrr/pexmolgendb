@@ -423,6 +423,69 @@ def test_importing_the_same_file_again_adds_no_process_line(db, log, tmp_path):
     ]
 
 
+def _sf2p_csv(tmp_path) -> str:
+    csv_path = tmp_path / "sf2p.csv"
+    csv_path.write_text(
+        "CdsLibName,InstCellName,CellType\nsf2p,nfet_b,NFET\nsf2p,pfet_b,PFET\n",
+        encoding="utf-8",
+    )
+    return str(csv_path)
+
+
+def _import_lines(rows):
+    return [(r["action"], r["process_name"], r["process_release"], r["summary"]) for r in rows]
+
+
+def test_a_csv_import_into_a_new_release_records_the_release(db, log, tmp_path):
+    path = _sf2p_csv(tmp_path)
+    assert IORepository(db).import_data(path, release="V1", actor="dh991") == 2
+
+    rows = _rows(log, actor="dh991")
+    assert _import_lines(rows) == [
+        (audit.PROCESS_ADD, "sf2p", "V1", "process 추가  sf2p V1"),
+        (audit.IMPORT, "sf2p", "V1", "CSV 불러오기  sf2p.csv  device 2개 (sf2p 2)  버전 V1"),
+    ]
+    assert rows[1]["detail"] == {
+        "file": path,
+        "devices": 2,
+        "processes": {"sf2p": 2},
+        "release": "V1",
+    }
+
+
+def test_a_csv_import_of_many_processes_into_a_release(db, log, tmp_path):
+    IORepository(db).import_data(_devices_csv(tmp_path), release="V1", actor="dh991")
+
+    rows = _rows(log, actor="dh991")
+    assert _import_lines(rows) == [
+        (audit.PROCESS_ADD, "sf2p", "V1", "process 추가  sf2p V1"),
+        (audit.PROCESS_ADD, "sf4u", "V1", "process 추가  sf4u V1"),
+        (audit.IMPORT, "", "", "CSV 불러오기  devices.csv  device 3개 (sf2p 2, sf4u 1)  버전 V1"),
+    ]
+    assert rows[2]["detail"]["release"] == "V1"
+
+
+def test_a_csv_import_without_a_release_keeps_its_old_lines(db, log, tmp_path):
+    path = _sf2p_csv(tmp_path)
+    IORepository(db).import_data(path, actor="dh991")
+    # 빈 버전의 같은 이름이 이미 있으면 그 쌍에 더한다. 다른 버전을 만들지 않는다.
+    IORepository(db).import_data(path, release="  ", actor="dh991")
+
+    rows = _rows(log, actor="dh991")
+    line = (audit.IMPORT, "sf2p", "", "CSV 불러오기  sf2p.csv  device 2개 (sf2p 2)")
+    assert _import_lines(rows) == [
+        (audit.PROCESS_ADD, "sf2p", "", "process 추가  sf2p"),
+        line,
+        line,
+    ]
+    assert rows[0]["detail"] == {}
+    assert rows[1]["detail"] == rows[2]["detail"] == {
+        "file": path,
+        "devices": 2,
+        "processes": {"sf2p": 2},
+    }
+
+
 def test_a_failed_import_records_nothing(db, log, tmp_path):
     """process 를 만든 뒤 InstCellName 이 없어 실패한다. 이력도 같이 롤백된다."""
     csv_path = tmp_path / "bad.csv"
@@ -695,6 +758,37 @@ def test_a_cloned_process_line_names_its_source_and_the_device_count():
     blank = audit.process_add("sf9x", source=("sf2p", ""), devices=0)
     assert blank.summary == "process 추가  sf9x  (sf2p 에서 device 0개 복사)"
     assert blank.detail == {"source": {"name": "sf2p", "release": ""}, "devices": 0}
+
+
+def test_a_csv_import_line_into_a_release_names_it():
+    assert audit.csv_import("in/sf2p.csv", 2, {"sf2p": 2}, release="V1") == audit.Entry(
+        action=audit.IMPORT,
+        process_name="sf2p",
+        summary="CSV 불러오기  sf2p.csv  device 2개 (sf2p 2)  버전 V1",
+        detail={
+            "file": "in/sf2p.csv",
+            "devices": 2,
+            "processes": {"sf2p": 2},
+            "release": "V1",
+        },
+        process_release="V1",
+    )
+    # process 가 여럿이면 이름도 버전도 칸에 넣지 않는다. 버전은 문장과 detail 에 있다.
+    many = audit.csv_import("all.csv", 3, {"sf2p": 2, "sf4u": 1}, release="V1")
+    assert (many.process_name, many.process_release) == ("", "")
+    assert many.summary == "CSV 불러오기  all.csv  device 3개 (sf2p 2, sf4u 1)  버전 V1"
+    assert many.detail["release"] == "V1"
+
+
+def test_a_csv_import_line_without_a_release_is_the_old_line():
+    old = audit.Entry(
+        action=audit.IMPORT,
+        process_name="sf2p",
+        summary="CSV 불러오기  sf2p.csv  device 2개 (sf2p 2)",
+        detail={"file": "sf2p.csv", "devices": 2, "processes": {"sf2p": 2}},
+    )
+    assert audit.csv_import("sf2p.csv", 2, {"sf2p": 2}) == old
+    assert audit.csv_import("sf2p.csv", 2, {"sf2p": 2}, release="") == old
 
 
 def test_device_and_tab_lines_carry_the_release_but_keep_their_sentence():

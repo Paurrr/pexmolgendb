@@ -54,20 +54,23 @@ class IORepository:
             return self._process_id(conn.cursor(), process_name)
 
     @staticmethod
-    def _process_id(cur, process_name) -> int | None:
-        found = IORepository._find_or_create(cur, process_name)
+    def _process_id(cur, process_name, release: str = "") -> int | None:
+        found = IORepository._find_or_create(cur, process_name, release)
         return found[0] if found else None
 
     @staticmethod
-    def _find_or_create(cur, process_name) -> tuple[int, bool] | None:
-        """(process id, 이번 트랜잭션에서 새로 만들었는지). 이름이 비면 None."""
+    def _find_or_create(cur, process_name, release: str = "") -> tuple[int, bool] | None:
+        """(이름, 버전) 쌍의 (process id, 이번 트랜잭션에서 새로 만들었는지). 이름이 비면 None.
+
+        버전도 이름처럼 앞뒤 공백을 지운다.
+        """
         if process_name is None or pd.isna(process_name) or not str(process_name).strip():
             return None
         # 이미 있는 process 행을 잠그지 않는다. 불러오기는 커밋까지 오래 걸릴 수
         # 있고, 그동안 GUI 가 같은 process 를 고르고 저장할 수 있어야 한다.
-        return find_or_create(cur, str(process_name).strip())
+        return find_or_create(cur, str(process_name).strip(), release.strip())
 
-    def import_data(self, input_path: str, *, actor: str = "") -> int:
+    def import_data(self, input_path: str, *, release: str = "", actor: str = "") -> int:
         """CSV 를 읽어 device 와 탭 테이블에 넣는다. 새로 만든 device 수를 낸다.
 
         **CSV 행 하나가 device 하나다.** 같은 (CdsLibName, InstCellName) 이 여러
@@ -81,7 +84,11 @@ class IORepository:
 
         실패하면 예외를 그대로 올려보낸다. 예전에는 여기서 print 하고 False 를
         돌려줬는데, 배포본에는 터미널이 없어서 원인이 아무 데도 남지 않았다.
+
+        CSV 에는 버전 컬럼이 없다. release 는 불러오는 사람이 정하고(앞뒤 공백을
+        지운다) 이 파일의 모든 행이 (CdsLibName, release) 쌍의 process 로 간다.
         """
+        release = release.strip()
         data_path = Path(input_path)
         if not data_path.is_file():
             raise FileNotFoundError(f"CSV 파일이 없다: {data_path}")
@@ -112,14 +119,14 @@ class IORepository:
         created = 0
         per_process: dict[str, int] = defaultdict(int)
         # 이번 불러오기가 새로 만든 process. 처음 나온 순서다. find_or_create 는
-        # 같은 이름에 두 번째부터 False 를 내므로 중복이 생기지 않는다.
+        # 같은 쌍에 두 번째부터 False 를 내므로 중복이 생기지 않는다.
         new_processes: list[str] = []
         with self.db.connection() as conn:
             cur = conn.cursor()
             rows_by_table: dict[str, list[tuple]] = defaultdict(list)
 
             for _, row in df.iterrows():
-                found = self._find_or_create(cur, row["CdsLibName"])
+                found = self._find_or_create(cur, row["CdsLibName"], release)
                 if found is None:
                     continue
                 process_id, new_process = found
@@ -182,8 +189,15 @@ class IORepository:
                 audit.write(
                     cur,
                     actor,
-                    [audit.process_add(name) for name in new_processes]
-                    + [audit.csv_import(input_path, created, dict(per_process))],
+                    [
+                        audit.process_add(name, process_release=release)
+                        for name in new_processes
+                    ]
+                    + [
+                        audit.csv_import(
+                            input_path, created, dict(per_process), release=release
+                        )
+                    ],
                 )
 
         return created

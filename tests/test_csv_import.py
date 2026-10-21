@@ -322,14 +322,21 @@ def test_a_failed_import_leaves_no_process_behind(db, tmp_path):
     assert ProcessRepository(db).list_all() == []
 
 
+def test_a_failed_import_into_a_release_leaves_no_process_behind(db, tmp_path):
+    path = _write_csv(tmp_path / "bad.csv", ["CellType", "CdsLibName"], [["NFET", "sf9z"]])
+    with pytest.raises(KeyError):
+        IORepository(db).import_data(path, release="S00-V1.0.0.0")
+    assert ProcessRepository(db).list_pairs() == []
+
+
 # --------------------------------------------------------------------------
 # CdsLibName → process id
 # --------------------------------------------------------------------------
 
 
-def _process_id_of(db, name):
+def _process_id_of(db, name, release=""):
     with db.connection() as conn:
-        return IORepository._process_id(conn.cursor(), name)
+        return IORepository._process_id(conn.cursor(), name, release)
 
 
 def test_process_id_creates_a_new_process_once(db):
@@ -349,3 +356,18 @@ def test_process_id_finds_an_existing_process(db):
 def test_process_id_is_none_for_a_blank_name(db, blank):
     assert _process_id_of(db, blank) is None
     assert ProcessRepository(db).list_all() == []
+
+
+def test_process_id_is_one_id_per_trimmed_release(db):
+    plain = _process_id_of(db, "sf9z")
+    v1 = _process_id_of(db, " sf9z ", " V1 ")
+    assert v1 not in (None, plain)
+    assert _process_id_of(db, "sf9z", "V1") == v1
+    assert _process_id_of(db, "sf9z", "   ") == plain
+    assert ProcessRepository(db).list_pairs() == [("sf9z", ""), ("sf9z", "V1")]
+
+
+@pytest.mark.parametrize("blank", ["", "   ", float("nan"), None])
+def test_process_id_is_none_for_a_blank_name_whatever_the_release(db, blank):
+    assert _process_id_of(db, blank, "V1") is None
+    assert ProcessRepository(db).list_pairs() == []

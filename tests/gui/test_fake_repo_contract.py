@@ -893,6 +893,67 @@ def test_import_without_a_required_column_raises_and_writes_nothing(backend, tmp
     assert backend.process.count_devices("sf2p") == 1
 
 
+# CSV 에는 버전 컬럼이 없다. 불러오는 사람이 버전을 정하고 한 파일의 모든 행이 그 버전이다.
+SF2P_CSV = (
+    "CellType,CdsLibName,InstCellName,InstTerm\n"
+    "NFET,sf2p,nfet_c,DRN d\n"
+    "PFET,sf2p,pfet_z,GATE g\n"
+)
+
+
+def _import_release(backend, tmp_path, text=SF2P_CSV, **kw) -> int:
+    path = tmp_path / "release.csv"
+    path.write_text(text, encoding="utf-8", newline="")
+    return backend.io.import_data(str(path), actor="me", **kw)
+
+
+def test_import_puts_every_row_into_the_release_it_is_given(backend, tmp_path):
+    assert _import_release(backend, tmp_path) == 2
+    assert _import_release(backend, tmp_path, release="V1") == 2
+
+    assert backend.process.list_pairs() == [("sf2p", ""), ("sf2p", "V1")]
+    assert backend.process.count_devices("sf2p") == 2
+    assert backend.process.count_devices("sf2p", release="V1") == 2
+    # 같은 CSV 의 내용을 두 쌍이 따로 갖는다.
+    plain = backend.device.fetch_devices_by_process(backend.process.get_or_create_id("sf2p"))
+    v1 = backend.device.fetch_devices_by_process(
+        backend.process.get_or_create_id("sf2p", release="V1")
+    )
+    assert [d["name"] for d in plain] == [d["name"] for d in v1] == ["nfet_c", "pfet_z"]
+    assert not {d["id"] for d in plain} & {d["id"] for d in v1}
+    terms = backend.parameter.fetch_by_device
+    assert [terms("inst_terms", TERMS, d["id"]) for d in v1] == [
+        _terms(("DRN", "d")),
+        _terms(("GATE", "g")),
+    ]
+
+
+def test_import_gives_every_row_of_the_file_the_one_release(backend, tmp_path):
+    """CSV_TEXT 는 sf9x 와 sf2p 의 행이다. 둘 다 같은 버전으로 들어간다."""
+    assert _import_release(backend, tmp_path, CSV_TEXT, release="V1") == 2
+
+    assert backend.process.list_pairs() == [("sf2p", "V1"), ("sf9x", "V1")]
+
+
+@pytest.mark.parametrize("given,kept", [("  V1  ", "V1"), ("   ", "")], ids=["padded", "blank"])
+def test_import_trims_the_release(backend, tmp_path, given, kept):
+    assert _import_release(backend, tmp_path, release=given) == 2
+
+    assert backend.process.list_pairs() == [("sf2p", kept)]
+    assert backend.process.count_devices("sf2p", release=kept) == 2
+
+
+def test_import_into_an_existing_release_adds_only_to_that_pair(backend, tmp_path):
+    _import_release(backend, tmp_path)
+    _import_release(backend, tmp_path, release="V1")
+
+    assert _import_release(backend, tmp_path, release="V1") == 2
+
+    assert backend.process.list_pairs() == [("sf2p", ""), ("sf2p", "V1")]
+    assert backend.process.count_devices("sf2p", release="V1") == 4
+    assert backend.process.count_devices("sf2p") == 2
+
+
 def test_export_orders_rows_by_celltype_and_skips_info_without_a_process(backend, tmp_path):
     _import(backend, tmp_path)
     nfet = _only_device(backend, "sf2p")
