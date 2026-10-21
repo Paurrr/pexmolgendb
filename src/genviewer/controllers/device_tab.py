@@ -78,6 +78,8 @@ class DeviceTabController(QObject):
 
         self.device_tab_toolbar.processChanged.connect(self.on_process_changed)
         self.device_tab_toolbar.processRemoved.connect(self._on_process_removed)
+        self.device_tab_toolbar.set_add_guard(self._save_before_process_change)
+        self.device_tab_toolbar.processAdded.connect(self._on_process_added)
         self.device_tab_toolbar.runModeRequested.connect(self.send_device_data)
         self.device_tab_toolbar.showViewRequested.connect(lambda _on: self.show_views())
         self.device_tab_toolbar.clearTabRequested.connect(
@@ -516,6 +518,14 @@ class DeviceTabController(QObject):
         dt = self.device_table
         if (process_name, release) != (dt.current_process, dt.current_release):
             return
+        self.device_table.set_dirty(False)
+        self.parameter_tab._clear_tabs()
+
+    @Slot(str, str)
+    def _on_process_added(self, process_name: str, release: str) -> None:
+        # Add Process 가 새 쌍을 만들었고 곧 그 쌍을 고른다. 남은 편집은 만들기 전 "Save Changes"
+        # 에 아니오로 답한 것이다(예였으면 이미 저장됐다). 고를 때 같은 질문이 또 뜨지 않게 지금
+        # 버린다. 탭은 다시 읽지 않고 비운다(곧 다른 쌍으로 넘어간다).
         self.device_table.set_dirty(False)
         self.parameter_tab._clear_tabs()
 

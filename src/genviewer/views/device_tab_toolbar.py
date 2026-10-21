@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -9,17 +10,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+# 빈 버전 "" 의 표시 글자. 값이 아니다. 버전은 글자가 아니라 index 로 _releases 에서 읽는다.
+# 추가 창도 이 글자를 버전 이름으로 받지 않아야 해서 그쪽에 둔다.
+from genviewer.dialogs.add_process import NO_RELEASE_TEXT, AddProcessDialog
 from genviewer.service.repo.audit import process_label
 from genviewer.utils.dialogs import question
-
-# 빈 버전 "" 의 표시 글자. 값이 아니다. 버전은 글자가 아니라 index 로 _releases 에서 읽는다.
-NO_RELEASE_TEXT = "(없음)"
 
 
 class DeviceTabToolBar(QWidget):
     # (이름, 버전). 사용자 동작 한 번 또는 실제로 바뀐 선택 한 번에 정확히 한 번 낸다.
     selectionChanged = Signal(str, str)
-    addProcessRequested = Signal(str)
+    # (이름, 버전, 복사 원본 쌍 또는 None).
+    addProcessRequested = Signal(str, str, object)
     # (이름, 버전). 지울 쌍이다.
     removeProcessRequested = Signal(str, str)
     addLibraryRequested = Signal(str)
@@ -149,13 +151,19 @@ class DeviceTabToolBar(QWidget):
 
     @Slot()
     def open_add_process_dialog(self):
-        text, ok = QInputDialog.getText(self, "Add Process", "Enter new process name:")
-        if not ok:
-            return
-        name = (text or "").strip()
-        if not name:
-            return
-        self.addProcessRequested.emit(name)
+        answer = self._ask_add_pair()
+        if answer is not None:
+            self.addProcessRequested.emit(*answer)
+
+    def _ask_add_pair(self) -> tuple[str, str, tuple[str, str] | None] | None:
+        """추가 창을 띄운다. OK 면 (이름, 버전, 복사 원본 또는 None), 아니면 None."""
+        dialog = AddProcessDialog(self.pairs(), self.current_pair(), self)
+        try:
+            if dialog.exec() != QDialog.Accepted:
+                return None
+            return dialog.values()
+        finally:
+            dialog.deleteLater()
 
     @Slot()
     def open_remove_process_dialog(self):

@@ -531,7 +531,9 @@ def test_the_view_gives_the_pair_and_the_source(qtbot, monkeypatch):
     ui = DeviceTabToolBar()
     qtbot.addWidget(ui)
     got: list[tuple] = []
-    ui.addProcessRequested.connect(lambda name, release, source: got.append((name, release, source)))
+    ui.addProcessRequested.connect(
+        lambda name, release, source: got.append((name, release, source))
+    )
     answers = iter([("sf2p", V2, ("sf2p", "")), ("sf9x", "", None), None])
     monkeypatch.setattr(ui, "_ask_add_pair", lambda: next(answers))
 

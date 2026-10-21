@@ -319,7 +319,7 @@ def test_device_and_tab_edits_are_both_saved_before_changing_process(
 # -- Add Process ------------------------------------------------------------------
 
 
-def test_adding_a_process_after_cancelling_a_tab_conflict_keeps_the_tab_edits(
+def test_adding_a_process_after_cancelling_a_tab_conflict_makes_nothing_and_keeps_the_tab_edits(
     device_tab_ctrl, store, dialogs, qtbot
 ):
     ctrl = device_tab_ctrl
@@ -333,11 +333,12 @@ def test_adding_a_process_after_cancelling_a_tab_conflict_keeps_the_tab_edits(
     ctrl.device_tab_toolbar.add_process("new_p")
 
     qtbot.waitUntil(lambda: len(store.calls_of("replace_many_for_device")) == 1)
-    # process 는 만들어졌다. 고르지만 않았다.
-    assert "new_p" in combo_items(ctrl)
+    # 만들기 전에 묻는다. 저장이 취소됐으므로 process 를 만들지 않는다(2026-10-21 승인한 변경).
+    assert store.calls_of("add") == []
+    assert "new_p" not in combo_items(ctrl)
     assert combo(ctrl).currentText() == "sf2p"
     assert ctrl.device_table.current_process == "sf2p"
-    assert changes == [("new_p", "")]
+    assert changes == []
     assert created_since(store, since) == []
     assert_tab_edit_kept(ctrl, store)
     assert dialogs.shown.count(SAVE_CHANGES) == 1

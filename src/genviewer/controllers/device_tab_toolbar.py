@@ -1,8 +1,11 @@
+from collections.abc import Callable
+
 from PySide6.QtCore import QObject, Signal, Slot
 
 from genviewer.service.errors import user_message
 from genviewer.service.repo.audit import process_label
 from genviewer.service.repo.process import ProcessRepository
+from genviewer.utils.background import run_blocking
 from genviewer.utils.dialogs import question
 from genviewer.utils.reporting import report, report_error
 from genviewer.utils.user import current_user
@@ -16,6 +19,8 @@ class DeviceTabToolBarController(QObject):
     processChanged = Signal(str, str)
     # 사용자가 확인한 Remove Process 의 삭제가 성공했다. 목록을 다시 채우기 전에 낸다.
     processRemoved = Signal(str, str)
+    # Add Process 가 새 쌍을 만들었다. 목록을 다시 채우고 그 쌍을 고르기 전에 낸다.
+    processAdded = Signal(str, str)
     libraryChanged = Signal(str)
     showViewRequested = Signal(bool)
     setPairsRequested = Signal(list)
@@ -30,6 +35,8 @@ class DeviceTabToolBarController(QObject):
         super().__init__(ui)
         self.ui = ui
         self.repo = repo
+        # Add Process 가 만들기 전에 부르는 확인. False 면 아무것도 만들지 않는다.
+        self._add_guard: Callable[[], bool] | None = None
 
         self.ui.selectionChanged.connect(self.on_process_changed)
         self.ui.library_selector.currentTextChanged.connect(self.on_library_changed)
@@ -48,6 +55,9 @@ class DeviceTabToolBarController(QObject):
 
     def set_repo(self, repo: ProcessRepository):
         self.repo = repo
+
+    def set_add_guard(self, check: Callable[[], bool]) -> None:
+        self._add_guard = check
 
     def _require_repo(self) -> bool:
         if not self.repo:
@@ -83,26 +93,55 @@ class DeviceTabToolBarController(QObject):
     def on_gen_layout_toggled(self, checked: bool):
         self.logRequested.emit(f"Gen Layout {'enabled' if checked else 'disabled'}.")
 
-    @Slot(str)
+    @Slot(str, str, object)
     @report("Process Add Failed")
-    def add_process(self, name: str):
+    def add_process(
+        self, name: str, release: str = "", source: tuple[str, str] | None = None
+    ):
+        """(이름, 버전) 쌍을 만들고 고른다. source 가 있으면 그 쌍의 device 와 탭 행을 복사한다.
+
+        저장 안 한 편집은 만들기 전에 묻는다(set_add_guard). 저장이 취소·실패하면 아무것도
+        만들지 않는다. 만들기는 워커에서 돈다(복제는 device 수백 개·탭 행 수천 개를 쓸 수 있다).
+        예외(원본이 사라진 LookupError, DB 오류)는 @report 가 알린다. 그때는 만든 것도 버린 편집도
+        없다.
+        """
         if not self._require_repo():
             return
-        created = self.repo.add(name, actor=current_user())
+        if self._add_guard is not None and not self._add_guard():
+            return
+        repo, actor = self.repo, current_user()
+        label = process_label(name, release)
+        if source is None:
+            created = run_blocking(
+                lambda: repo.add(name, release=release, actor=actor), self
+            )
+        else:
+            src_name, src_release = source
+            copied = run_blocking(
+                lambda: repo.clone(src_name, src_release, name, release, actor=actor),
+                self,
+            )
+            created = copied is not None
         if not created:
             self.notifyRequested.emit(
-                "warn", "Duplicate", f"Process '{name}' already exists."
+                "warn", "Duplicate", f"Process '{label}' already exists."
             )
             self.setPairsRequested.emit(self.repo.list_pairs())
-            self.selectPairRequested.emit(name, "")
+            self.selectPairRequested.emit(name, release)
             return
 
+        # 남은 편집은 위 질문에 아니오로 답한 것이다. 새 쌍을 고를 때 다시 묻지 않게 고르기 전에
+        # 버린다. 만들기 전에 버리면 만들기가 실패했을 때 편집만 사라진다.
+        self.processAdded.emit(name, release)
         self.setPairsRequested.emit(self.repo.list_pairs())
-        # 탭은 비우지 않는다. 넘어가면 on_process_changed 가 비우고, 저장이 취소돼 이전
-        # process 에 머물렀으면 남겨 둔 탭 편집을 버리게 된다.
-        self.selectPairRequested.emit(name, "")
-        self.notifyRequested.emit("info", "Success", f"Process '{name}' added.")
-        self.logRequested.emit(f"Process added: {name}.")
+        self.selectPairRequested.emit(name, release)
+        text, line = f"Process '{label}' added.", f"Process added: {label}."
+        if source is not None:
+            src_label = process_label(*source)
+            text += f"\n{src_label} 에서 device {copied}개를 복사했다."
+            line = f"Process added: {label} (from {src_label}, device {copied})."
+        self.notifyRequested.emit("info", "Success", text)
+        self.logRequested.emit(line)
 
     @Slot(str, str)
     @report("Process Remove Failed")
