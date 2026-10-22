@@ -7,7 +7,8 @@
       "name": "add-window-completer",
       "status": "completed",
       "started_at": "2026-10-22T13:32:05+0900",
-      "summary": "add_process.name_box.setCompleter(None). tests/gui_support/keys.type_into(qtbot, line_edit, text)(창 활성화·포커스를 기다린 뒤 한 글자씩 친다, step 1 도 씀). RED: test_typing_a_prefix_of_an_existing_name_keeps_what_was_typed: assert 'sf2p' == 'sf2', test_enter_on_a_name_differing_only_in_case_keeps_the_case: assert ('sf4u', 'V9', None) == ('SF4U', 'V9', None) (회귀 둘은 수정 전에도 통과). 변이: setCompleter(None) 줄을 지우면 같은 두 테스트가 같은 단언으로 실패, 다시 넣으면 통과. AC: 대상 51 passed, tests/gui 733 passed, ruff 통과, 전체(DB 붙임) 1198 passed / 10 skipped"
+      "summary": "add_process.name_box.setCompleter(None). tests/gui_support/keys.type_into(qtbot, line_edit, text)(창 활성화·포커스를 기다린 뒤 한 글자씩 친다, step 1 도 씀). RED: test_typing_a_prefix_of_an_existing_name_keeps_what_was_typed: assert 'sf2p' == 'sf2', test_enter_on_a_name_differing_only_in_case_keeps_the_case: assert ('sf4u', 'V9', None) == ('SF4U', 'V9', None) (회귀 둘은 수정 전에도 통과). 변이: setCompleter(None) 줄을 지우면 같은 두 테스트가 같은 단언으로 실패, 다시 넣으면 통과. AC: 대상 51 passed, tests/gui 733 passed, ruff 통과, 전체(DB 붙임) 1198 passed / 10 skipped",
+      "completed_at": "2026-10-22T13:40:29+0900"
     },
     {
       "step": 1,
