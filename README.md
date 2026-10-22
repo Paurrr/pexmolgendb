@@ -476,9 +476,9 @@ process 의 화면 문구·CLI 출력·이력은 예전과 같다. 빈 버전은
   `sf2p` + `S00-V1.0.0.0` → `sf2p_S00-V1000.csv`(버전을 `-` 로 나눠 첫 조각은 그대로,
   둘째 조각은 점을 지운다). 버전이 없으면 지금처럼 `sf2p.csv` 다. 내용은 버전과 상관없이
   같은 형식이다.
-- 지금 Load CSV 의 버전 칸과 `Add Process` 의 Process 칸은 앞부분이 같은 기존 항목으로
-  자동 완성된다(`S00-V1.0` 을 치면 `S00-V1.0.0.0`). OK 전에 칸의 글자를 확인한다
-  (known-issues K56, 고칠 예정).
+- Load CSV 의 버전 칸과 `Add Process` 의 Process 칸은 친 글자를 그대로 쓴다. 기존 항목으로
+  자동 완성하지 않고 대소문자를 구분한다(`S00-V1.0` 은 `S00-V1.0.0.0` 이 아니고,
+  `s00-v1.0.0.0` 은 `S00-V1.0.0.0` 과 다른 버전이다). 기존 버전은 목록(▾)에서 고른다.
 
 ## 동시 편집
 
@@ -637,9 +637,9 @@ uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscr
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 963 passed / 241 skipped 다(`sh` 가 없는
-PowerShell 에서는 셸 스크립트 테스트 32개까지 skip 되어 931 / 273). DB 를 붙이면
-1194 passed / 10 skipped(윈도우에서 뜻이 없는 권한 테스트만)다. skip 되는 DB 테스트가
+DB 없이 돌리면 지금 기준 Git Bash 에서 972 passed / 241 skipped 다(`sh` 가 없는
+PowerShell 에서는 셸 스크립트 테스트 32개까지 skip 되어 940 / 273). DB 를 붙이면
+1203 passed / 10 skipped(윈도우에서 뜻이 없는 권한 테스트만)다. skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 
 `uv run pytest` 가 `uv trampoline failed to canonicalize script path` 로 죽으면 venv 를

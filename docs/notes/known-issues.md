@@ -33,6 +33,7 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | 20-combo-autocomplete | K56 | 버그 (2026-10-22 승인) |
 
 - 기록만 하기로 함(2026-10-22): K52, K53, K54, K55.
+- 셀 값 콤보(`delegates/combo_box.py`, `dialogs/insert.py`)도 같은 Qt 기본 completer 를 쓴다. phase 19 전부터 있던 값 입력 보조라 K56 범위에서 뺐다(2026-10-22).
 
 ## 데이터·DB
 
@@ -66,7 +67,6 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | K53 | 내 목록에 없는 쌍을 남이 먼저 만든 뒤 내가 편집을 남긴 채 `+` 로 같은 쌍을 만들고 `Save Changes` 에 아니오로 답하면, `Duplicate` 뒤 그 쌍으로 옮길 때 같은 질문을 한 번 더 한다 | `controllers/device_tab_toolbar.py` `add_process`(Duplicate 경로), `controllers/device_tab.py` `on_process_changed` | 2026-10-22 phase 19 리뷰가 코드로 본 것이고 재현하지 않았다. 만들지 못했으므로 편집을 버리지 않는 것이 step 9 의 판단이다. 창은 내 목록에 있는 쌍을 막으므로 동시에 만들 때만 닿는다 |
 | K54 | `+` 로 쌍을 만든 직후 목록 다시 읽기(`list_pairs`)가 실패하면 "Process Add Failed" 가 뜨지만 쌍은 만들어졌고, `processAdded` 가 이미 dirty 를 풀고 탭을 비웠다. 아니오로 답했던 device 편집값이 표에 보이는데 dirty 가 아니다 | `controllers/device_tab_toolbar.py` `add_process` | 2026-10-22 phase 19 리뷰가 코드로 본 것이고 재현하지 않았다. K49 와 같은 종류다(만들기는 성공하고 바로 뒤의 목록 조회만 실패해야 닿는다) |
 | K55 | 버전 이름 `(없음)` 을 CLI 는 막지 않는다(`load --version "(없음)"`). 그러면 Version 콤보에 `(없음)` 이 둘 보이고, 창의 Load CSV 는 `(없음)` 을 빈 버전으로 읽어서 그 버전으로는 불러올 수 없다 | `cli.py` `load`, `views/device_tab.py` `_ask_release` | 2026-10-22 phase 19 리뷰가 코드로 본 것이고 재현하지 않았다. 추가 창은 그 이름을 막는다 |
-| K56 | 편집 가능한 콤보의 Qt 기본 completer(대소문자 무시 inline 완성) 때문에 친 글자가 앞부분이 같은 기존 항목으로 바뀐다. Load CSV 버전 질문에 `S00-V1.0` 을 치면 `S00-V1.0.0.0` 으로 불러오고(행이 기존 버전에 쌓인다), 추가 창 Process 칸에 `sf2` 를 치면 `sf2p` 쌍을 만든다 | `views/device_tab.py` `_ask_release`(`QInputDialog.getItem(editable=True)`), `dialogs/add_process.py` `name_box` | 2026-10-22 phase 19 리뷰에서 offscreen 키 입력으로 재현했다(실제 `getItem` 이 `'S00-V1.0.0.0'` 을 돌려줌, 모달 창의 이름 칸이 `'sf2p'`). phase 20 에서 고친다(2026-10-22 승인) |
 
 ## 운영 스크립트
 

@@ -61,6 +61,7 @@
 - Remove Process(`-`)는 지금 (이름, 버전) 쌍 하나만 지운다(확인 문구에 `sf2p V2` 처럼 버전이 붙는다). 확인하면 지운 쌍의 저장 안 한 편집은 묻지 않고 버린다(`Save Changes` 도 충돌 대화상자도 없다).
 - Add Process(`+`)는 `Add Process` 창(Process 편집 콤보, Version 칸, Copy from 콤보 — 기본 `(복사 안 함)`)을 연다. 이름이 비었거나, 버전이 `(없음)` 이거나, 이미 있는 쌍이면 OK 가 꺼지고 뒤의 둘은 창 안에 이유 한 줄을 보인다(메시지 상자 없음). 저장 안 한 편집이 있으면 만들기 전에 `Save Changes` 를 묻고, 저장이 취소·실패하면 아무것도 만들지 않는다.
 - Load CSV 는 파일을 고른 뒤 `Load CSV` 질문으로 버전을 묻는다(있는 버전 목록 + 직접 입력, 처음 값은 지금 버전, `(없음)`·빈칸은 버전 없음). 불러온 뒤에도 지금 쌍에 머문다.
+- 이름·버전을 치는 편집 가능 콤보(Add Process 의 Process 칸, Load CSV 의 버전 칸)는 Qt 기본 completer 를 끈다(`setCompleter(None)`). 친 글자 그대로이고 Enter 도 대소문자까지 같은 항목만 고른다(K56, phase 20). 정적 `QInputDialog.getItem(editable=True)` 은 completer 를 끌 수 없어서 쓰지 않는다.
 - device 표 내보내기의 제안 파일 이름은 버전이 있으면 molgen 이 찾는 `<proc>_<cid>-<ver 점 제거>.csv` 다(예: `sf2p S00-V1.0.0.0` → `sf2p_S00-V1000.csv`).
 - CellType이 `delegate_config` 목록에 없는 device는 저장하지 않는다. 그런 행을 편집했으면 저장 뒤 경고(`Save Skipped`)로 이름을 알린다.
 - 창 닫기: 저장 안 한 편집이 있으면 `Save Changes`(Yes/No)를 묻고, Yes면 `save_db()` 가 True일 때만 닫는다. `run_blocking` 중의 닫기는 무시한다.

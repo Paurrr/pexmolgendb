@@ -51,7 +51,7 @@ src/genviewer/
 tools/                      # initdb.sh(클러스터 생성·기동), deploy.sh(태그 설치·런처)
 tests/                      # pytest. conftest: pg_dsn/db fixture (GENDB_TEST_PG_DSN)
   gui/                      #   pytest-qt GUI 테스트. conftest: offscreen, autouse dialogs(모달 가짜), store/device_tab_ctrl/main_window
-  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository), helpers.py(시드, install_fake_db·install_fake_history, 사용자 동작), virtuoso_server.py(127.0.0.1 LocalVirtuoso), virtuoso_child.py(서브프로세스 재현)
+  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository), helpers.py(시드, install_fake_db·install_fake_history, 사용자 동작), keys.py(type_into: 창 활성화·포커스를 기다린 뒤 키 입력), virtuoso_server.py(127.0.0.1 LocalVirtuoso), virtuoso_child.py(서브프로세스 재현)
   fixtures/                 #   Qt 없는 테스트 헬퍼 패키지(pythonpath=tests): imports.py(import 스캐너, test_boundaries.py·test_py39_compat.py 가 쓴다)
 scripts/                    # 하네스 execute.py (+ test_execute.py). 앱 코드가 아니다 (ruff 제외)
 phases/                     # 하네스 step 파일
