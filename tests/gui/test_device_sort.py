@@ -12,9 +12,10 @@ from gui_support.helpers import edit_device_cell, seeded_store, select_process
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
+from genviewer.utils.palette import current_colors
+
 NAME = 0
 DESCRIPTION = 2
-DIRTY = QColor(255, 249, 196)
 EDITED = "edited by tester"
 # sf2p 는 nfet_a(order 0), nfet_b(1), nfet_0(2) 순서다. 이름 순으로는 어느 방향도 아니다.
 SEED_ORDER = ["nfet_a", "nfet_b", "nfet_0"]
@@ -45,11 +46,12 @@ def visible_names(ctrl) -> list[str]:
 
 
 def dirty_cells(model) -> set[tuple[int, int]]:
+    dirty = QColor(current_colors()["dirty"])  # 지금 테마의 저장 안 한 셀 배경
     return {
         (r, c)
         for r in range(model.rowCount())
         for c in range(model.columnCount())
-        if model.index(r, c).data(Qt.BackgroundRole) == DIRTY
+        if model.index(r, c).data(Qt.BackgroundRole) == dirty
     }
 
 

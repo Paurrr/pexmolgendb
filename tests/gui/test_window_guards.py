@@ -20,10 +20,10 @@ from genviewer.config.config import delegate_config
 from genviewer.dialogs.conflict import CANCEL
 from genviewer.service.errors import DbUnavailableError
 from genviewer.utils.background import run_blocking
+from genviewer.utils.palette import current_colors
 
 EDITED = "edited by tester"
 DESCRIPTION = 2
-DIRTY = QColor(255, 249, 196)
 OFF_LIST = "nmos_rf"  # delegate_config 의 device.celltype.items 에 없다
 TAB = "InstTerm"
 COLUMN = "cds_inst_term_name"
@@ -50,11 +50,12 @@ def titles(dialogs) -> list[str]:
 
 
 def dirty_cells(model) -> set[tuple[int, int]]:
+    dirty = QColor(current_colors()["dirty"])  # 지금 테마의 저장 안 한 셀 배경
     return {
         (r, c)
         for r in range(model.rowCount())
         for c in range(model.columnCount())
-        if model.index(r, c).data(Qt.BackgroundRole) == DIRTY
+        if model.index(r, c).data(Qt.BackgroundRole) == dirty
     }
 
 

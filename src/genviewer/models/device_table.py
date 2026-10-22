@@ -1,6 +1,7 @@
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 from PySide6.QtGui import QColor
 
+from genviewer.utils.palette import current_colors
 from genviewer.utils.validators import normalize_value
 
 
@@ -42,10 +43,12 @@ class DeviceTableModel(QAbstractTableModel):
             role == Qt.BackgroundRole
             and (index.row(), index.column()) in self._dirty_cells
         ):
-            return QColor(255, 249, 196)
+            return QColor(current_colors()["dirty"])
         if role == Qt.ForegroundRole and index.column() == 0:
             name = device["name"]
-            return QColor(Qt.black) if name in self.known_names else QColor(Qt.red)
+            if name in self.known_names:
+                return None
+            return QColor(current_colors()["unknown_name"])
         return None
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):

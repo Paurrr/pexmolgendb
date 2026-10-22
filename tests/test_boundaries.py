@@ -3,7 +3,8 @@
 - Qt 금지 구역(티어 0~2, 그 안의 패키지 `__init__`, `__main__.py`)은 PySide6도, Qt 쪽 genviewer
   모듈(티어 3·4)도 import하지 않는다. `status` 등은 X가 없는 서버에서 돌아야 하고, 테스트가 GUI
   없이 돈다. 허용 예외는 `cli.py` 의 함수 `root` 안의 `genviewer.main` 하나다(창을 띄우는 경로).
-- `models/` 는 genviewer 에서 `utils.validators` 만 안다. `net/` 은 자기 안에서 닫혀 있다.
+- `models/` 는 genviewer 에서 `utils.validators` 와 `utils.palette` 만 안다(palette 는 테마 색
+  `current_colors()`, ADR-019). `net/` 은 자기 안에서 닫혀 있다.
 
 정적 검사는 함수 안의 import도 본다. 새 인터프리터 import 검사는 그 함수를 부르지 않으므로
 못 잡는다.
@@ -294,8 +295,8 @@ def test_importing_qt_free_zone_does_not_load_qt():
     assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
 
 
-def test_models_import_only_validators_from_genviewer():
-    allowed = ("genviewer.models", "genviewer.utils.validators")
+def test_models_import_only_validators_and_palette_from_genviewer():
+    allowed = ("genviewer.models", "genviewer.utils.validators", "genviewer.utils.palette")
     offenders = sorted(
         (path.as_posix(), name)
         for path, name in package_imports("genviewer.models")
