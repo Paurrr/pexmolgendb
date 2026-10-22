@@ -97,6 +97,10 @@
     {
       "dir": "23-ui-layout",
       "status": "pending"
+    },
+    {
+      "dir": "24-english-text",
+      "status": "pending"
     }
   ]
 }

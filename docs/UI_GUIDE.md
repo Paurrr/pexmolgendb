@@ -39,7 +39,35 @@
 - 창은 DeviceTabToolBar 의 최소 너비보다 좁아지지 않는다(툴바 가로 정책 `Preferred`. `Ignored` 면 고정 너비 단추·콤보가 겹친다, K57 phase 21). 화면이 그보다 좁으면 창 오른쪽이 화면 밖으로 나간다. `»` 넘침 메뉴·가로 스크롤·두 줄 배치는 쓰지 않는다.
 
 ## 문구
-- 대화상자 **제목은 영어**(`Save Complete`, `Load Failed`, `Connect Failed` …), **본문과 로그·CLI 출력은 주로 한국어**다. 섞여 있는 것이 현재 상태이고, 버그 수정 중에 기존 문구를 번역하거나 다듬지 않는다.
+- 사용자에게 보이는 문구는 **영어**다(ADR-020). GUI, CLI, `tools/*.sh` 출력이 모두 그렇다.
+  - 한국어로 두는 것: 주석, docstring(typer 명령 docstring 은 `--help` 라 영어), 로그 파일에만 가는 문구, 이력 요약(`change_log.summary`).
+  - 아직 한국어인 화면 문구는 phase 24 의 step 이 옮긴다. 다른 step 은 번역하지 않는다.
+  - 버그 수정 중에 기존 문구를 번역하거나 다듬지 않는다.
+- 문장 규칙
+  - 제목, 단추, 메뉴는 Title Case 다(`Save Conflict`, `Load CSV...`).
+  - 본문 문장은 마침표로 끝난다. 질문은 `... Continue?` 처럼 묻는다.
+  - 상태 표시줄 문구는 마침표가 없다(`Device table saved`).
+  - 개수는 `{n} device(s)`, `{n} row(s)` 로 쓴다.
+  - ASCII 만 쓴다. em dash 를 쓰지 않는다. 이유: cp949 콘솔이 그 글자를 출력하지 못한다.
+  - 이미 영어인 문구는 바꾸지 않는다.
+- 용어표 (따로 도는 step 이 같은 말을 쓰게 한다)
+
+| 한국어 | 영어 |
+|---|---|
+| 저장하지 않은 편집 | unsaved changes |
+| 서버 내용으로 다시 읽기 | reload from the server |
+| 충돌 대화상자 단추 다시 읽기 / 내 변경으로 덮어쓰기 / 취소 | Reload / Overwrite with Mine / Cancel |
+| 배너 단추 새로고침 / 닫기 | Reload / Dismiss |
+| History 단추 새로고침 | Refresh |
+| (없음) 빈 버전 | (none) |
+| (복사 안 함) | (no copy) |
+| (전체) | (all) |
+| (모름) | (unknown) |
+| 다른 사용자 | another user |
+| X 님이 수정 / 삭제 / 변경 | modified / deleted / changed by X |
+| 먼저 저장할 것 | Save first. |
+| 먼저 DB를 Load 해야 합니다 | Connect to the database first. |
+| CLI 의 `오류:` / `중단했다.` | `error:` / `Aborted.` |
 - 알림은 controller가 `notifyRequested(severity, title, text)` 로 올리고 `MainWindow.notify` 가 띄운다. severity는 `info` / `warn` / `critical` / 그 밖(error)이다. 로그 패널은 `logRequested`, 상태 표시줄은 `statusMessageRequested`.
 - 예/아니오 질문은 `utils/dialogs.question(parent, title, message) -> bool`(Yes/No 두 개뿐, 취소 없음).
 - 저장 충돌은 `dialogs/conflict.ask_conflict` 의 세 갈래: **다시 읽기**(RELOAD) / **덮어쓰기**(OVERWRITE, force) / **취소**(CANCEL, 창 닫기 포함). 충돌 목록은 `Conflict.describe()`("이름: X 님이 수정 (YYYY-MM-DD HH:MM)"). 내가 지운 행을 뺀 나머지 충돌이 전부 삭제면 덮어쓰기 버튼을 만들지 않는다(다시 읽기/취소만, 다른 문구는 그대로).

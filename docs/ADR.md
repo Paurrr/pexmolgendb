@@ -104,6 +104,51 @@
 **트레이드오프**: 쉼표·줄바꿈이 든 설명은 CSV 왕복에서 `;`·공백으로 돌아온다(DB·xlsx 는 원문). 불러오기는 바꿔 쓰지 않으므로 다른 곳에서 만든 CSV 의 쉼표는 그대로 저장된다. 등록 전의 molgen 은 이 컬럼에 경고를 내므로 운영에는 molgen 을 먼저 배포한다.
 
 ### ADR-018: process 는 (이름, 버전) 쌍이다
-**결정**: process 행 하나가 (이름, 버전) 쌍이다(`process.release TEXT NOT NULL DEFAULT ''`, `UNIQUE (name, release)`). device·탭 테이블은 그대로 `process_id` 로 묶이므로 (process, 버전)마다 device 데이터가 따로 있다. 버전은 `S00-V1.0.0.0` 같은 자유 문자열이고 앞뒤 공백만 다듬는다. 옛 process 는 모두 빈 버전 `''` 이 되고, 빈 버전의 문구·출력은 예전과 바이트까지 같다(화면 `(없음)`, CLI `-`). 이름은 코드·DB 에서 `release`, 화면 라벨 `Version`, CLI 옵션 `--version` 이다. CSV 형식은 그대로(버전 칸 없음, molgen 은 고치지 않음)이고 불러올 때 버전을 정한다. 새 버전은 기존 쌍에서 DB 안에서 복제한다(device 와 탭 행, `REPEATABLE READ` 한 시점, 원본을 잠그지 않음, 이력 한 줄). `change_log.process_release` 가 버전을 남긴다. 옮기기는 `init_db` 의 멱등 DDL 이다(카탈로그를 보고 빠졌을 때만 `ALTER`, 옛 `UNIQUE (name)` 은 이름이 아니라 컬럼으로 찾아 뗀다). GUI 내보내기의 제안 파일 이름은 molgen 이 찾는 `<proc>_<cid>-<ver 점 제거>.<fmt>` 다. 2026-10-21 승인한 기능(phase 19).
+**결정**: process 행 하나가 (이름, 버전) 쌍이다(`process.release TEXT NOT NULL DEFAULT ''`, `UNIQUE (name, release)`). device·탭 테이블은 그대로 `process_id` 로 묶이므로 (process, 버전)마다 device 데이터가 따로 있다. 버전은 `S00-V1.0.0.0` 같은 자유 문자열이고 앞뒤 공백만 다듬는다. 옛 process 는 모두 빈 버전 `''` 이 되고, 빈 버전의 문구·출력에는 버전 흔적이 없고 버전이 없던 형태 그대로다(화면 `(none)`, CLI `-`. ADR-020 전에는 예전 문구와 바이트까지 같았고 화면은 `(없음)` 이었다). 이름은 코드·DB 에서 `release`, 화면 라벨 `Version`, CLI 옵션 `--version` 이다. CSV 형식은 그대로(버전 칸 없음, molgen 은 고치지 않음)이고 불러올 때 버전을 정한다. 새 버전은 기존 쌍에서 DB 안에서 복제한다(device 와 탭 행, `REPEATABLE READ` 한 시점, 원본을 잠그지 않음, 이력 한 줄). `change_log.process_release` 가 버전을 남긴다. 옮기기는 `init_db` 의 멱등 DDL 이다(카탈로그를 보고 빠졌을 때만 `ALTER`, 옛 `UNIQUE (name)` 은 이름이 아니라 컬럼으로 찾아 뗀다). GUI 내보내기의 제안 파일 이름은 molgen 이 찾는 `<proc>_<cid>-<ver 점 제거>.<fmt>` 다. 2026-10-21 승인한 기능(phase 19).
 **이유**: 같은 process 의 공정 버전마다 device 데이터가 다르다. 코드에는 `device.version`(낙관적 잠금 카운터, ADR-004)과 그 뜻의 `version` 이 200곳 넘게 있어서 새 개념에 같은 이름을 쓰면 섞인다. 빈 버전을 `COMMON`·`ALL` 같은 이름으로 두지 않은 것은 버전 사이의 상속을 구현하지 않아서 그 이름이 거짓말이 되기 때문이다. `release` 를 NULL 허용으로 두지 않은 것은 PG 10~15 의 `UNIQUE` 가 NULL 끼리의 중복을 막지 않기 때문이다.
 **트레이드오프**: **배포가 무중단이 아니다.** 옮긴 DB 에 옛 앱이 붙어 있으면, 새 이름을 만드는 옛 코드(`ON CONFLICT (name)`)는 맞는 제약이 없어 42P10 으로 죽고, 옛 Remove Process 는 그 이름의 모든 버전을 지우며, 옛 조회는 같은 이름의 쌍 중 아무것이나 고른다. 그래서 모두 앱을 닫고(`load` 도) `init_db` → `deploy.sh` 순서로 하고, 옛 창이 다 닫힌 뒤에 첫 버전을 만든다(README '배포'). 처음 옮길 때 `init_db` 가 `process`·`change_log` 에 ACCESS EXCLUSIVE 를 한 번 잡는다. 여러 process 가 든 CSV 를 버전으로 불러온 이력 줄은 `process_release` 가 `''` 이라 `log --version` 필터에서 빈 버전 쪽에 잡힌다(K52). History 필터와 `log --process` 는 이름으로 거르므로 모든 버전이 나온다.
+
+### ADR-019: 어두운 테마는 pexqa 토큰
+**결정**
+- Graphite(어두움, 기본 테마)의 색은 형제 저장소 pexqa 의 `gui/theme.py`("Dim slate") 토큰과 같다.
+  - window·panel `#22272e`, base `#1c2128`, text `#c9d1d9`, border `#444c56`, accent `#539bf5`, 선택 `#2c4a72`/`#f0f6fc`, good `#6bc46d`, bad `#f47067` …
+- Mist(밝음)는 그대로다.
+- 테마마다 달라야 하는 의미 색도 `palette.THEMES` 키로 두고, 모델은 `palette.current_colors()` 로 읽는다.
+  - `dirty`: 저장 안 한 셀 배경
+  - `unknown_name`: Virtuoso 에 없는 이름
+  - `selection`/`selection_text`: 선택
+- 2026-10-22 승인(phase 22).
+
+**이유**
+- 모델이 이름 글자를 `Qt.black` 으로, dirty 배경을 밝은 노랑으로 박아 두었다. 그래서 Graphite 에서 대비가 1.6, 1.1 이었다.
+- 사용자가 pexqa 와 색을 맞추길 원했다.
+
+**트레이드오프**
+- QSS 구조는 그대로 두고 값만 바꿨다. 그래서 눌린 단추, 탭 모양 같은 위젯 모양은 pexqa 와 다를 수 있다.
+- Mist 의 빨강 `#ff0000` 은 base 위 대비가 3.8 로 기준(4.5)보다 낮다. 바꾸지 말라는 요청대로 둔다.
+
+### ADR-020: 사용자에게 보이는 문구는 영어
+**결정**
+- 사용자에게 보이는 문구는 영어다.
+  - GUI: 대화상자 본문·질문, 라벨, 툴팁, 배너, 상태 표시줄, 로그 패널, History 화면
+  - CLI: `--help`, 출력, 프롬프트
+  - `tools/*.sh` 의 출력
+- 한국어로 두는 것
+  - 코드 주석과 docstring. typer 명령 docstring 은 `--help` 문구라서 영어다.
+  - 문서
+  - 로그 파일에만 가는 문구
+  - 이력 요약 `change_log.summary`
+  - `deploy.sh` 의 런처 marker
+- 빈 버전 표시는 화면 `(none)`, CLI `-` 다.
+- 문장 규칙과 용어표는 UI_GUIDE "문구" 에 있다.
+- 2026-10-22 승인(phase 24). 회귀는 `tests/test_english_text.py` 가 막는다.
+
+**이유**
+- 사용자가 요청했다.
+- 이력 요약은 DB 에 저장되는 데이터다. 바꾸면 옛 줄과 새 줄이 섞이고 History 와 `log --find` 검색이 갈린다.
+- 런처 marker 는 다음 배포가 자기 런처를 찾는 식별자다. 바꾸면 옛 런처가 남는다.
+
+**트레이드오프**
+- History 와 `genviewer log` 는 영어 화면 안에 한국어 요약을 보인다.
+- ADR-018 의 "빈 버전 출력은 예전과 바이트까지 같다" 가 "버전 흔적 없음" 으로 약해졌다.
+- README 의 출력 예시를 영어로 다시 맞춰야 한다.

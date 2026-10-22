@@ -16,12 +16,16 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 - CRITICAL: 쓰기는 `device.version` 낙관적 잠금(충돌 시 `StaleWriteError`)과 `change_log` 기록을 **같은 트랜잭션**에서 한다(`repo/audit.write(cur, …)`). 화면에 들고 있지 않은 device는 절대 지우지 않는다(명시적으로 지운 id만 삭제).
 - CRITICAL: 비밀번호를 화면·로그·argv에 남기지 않는다. 예외는 `str(exc)` 대신 `service.errors.user_message(exc)`, DSN·접속 문자열은 `utils.logs.scrub()` 을 거친다. 이유: psycopg 접속 예외에는 conninfo가 통째로 들어 있다.
 - CRITICAL: `config/tab_config.json` 이 테이블 DDL·화면 탭·CSV import/export의 단일 원본이다. 키 구조를 바꾸지 않는다. 컬럼 목록과 `parse` 는 `../molgen/genMOLDB_config.il` 의 `pexGenDB_GenDev_Get_Header_Type()` 과 맞춘다.
-- process 는 (이름, 버전) 쌍이다(ADR-018). 버전은 코드·DB 에서 `release`, 화면 `Version`, CLI `--version` 이다. 새 코드에서 process 버전을 `version` 이라고 부르지 않는다. 이유: `device.version` 은 낙관적 잠금 카운터이고 그 뜻의 `version` 이 200곳 넘게 있다. 빈 버전 `''` 은 "버전 없음"이고 그때의 문구·출력은 버전 이전과 바이트까지 같아야 한다. 사람이 읽는 표시는 `audit.process_label(name, release)` 로 만든다.
+- process 는 (이름, 버전) 쌍이다(ADR-018). 버전은 코드·DB 에서 `release`, 화면 `Version`, CLI `--version` 이다. 새 코드에서 process 버전을 `version` 이라고 부르지 않는다. 이유: `device.version` 은 낙관적 잠금 카운터이고 그 뜻의 `version` 이 200곳 넘게 있다. 빈 버전 `''` 은 "버전 없음"이고 그때의 문구·출력에는 버전 흔적(빈 괄호, 남는 공백, version 낱말)이 없다. 버전이 없던 형태 그대로다(화면 `(none)`, CLI `-`. phase 24 전의 화면은 `(없음)`). 사람이 읽는 표시는 `audit.process_label(name, release)` 로 만든다.
 - GUI 스레드에서 DB를 기다리지 않는다. 새 DB 호출은 `utils/background.py` 의 `run_blocking`(결과가 필요할 때) 또는 `Task`(비동기)로 돌린다. 워커 스레드에서 위젯을 만지지 않는다. `Task` 의 결과·실패 슬롯은 `self.sender()` 가 지금 작업일 때만 쓰고, 정리(`finished`) 슬롯은 끝난 그 작업(`sender()`)만 `deleteLater` 한다. 이유: 기다린 뒤 큐에 남은 옛 `finished` 가 그 순간의 `self._task`(돌고 있는 새 작업)를 지우면 프로세스가 0xC0000409로 죽는다(phase 12 step 2·3).
 - 자동으로 다시 읽지 않는다. 남이 바꾼 것은 배너로 알리고, 언제 읽을지는 사용자가 정한다(편집 중 내용이 말없이 사라지면 안 된다).
 - 파일 I/O는 항상 `encoding="utf-8"`. 개발 PC는 Windows(cp949)이고 운영은 RHEL 8이다.
 - 새 런타임 의존성은 RHEL 8용 `manylinux_2_28` 이하 휠이 있어야 한다(`uv pip compile pyproject.toml --python-version 3.13 --python-platform x86_64-manylinux_2_28`).
-- 사용자에게 보이는 문구는 지금 관례를 따른다(대화상자 제목은 영어, 본문·CLI 출력·주석은 한국어). 버그 수정 중에 기존 문구를 바꾸지 않는다.
+- 사용자에게 보이는 문구(GUI·CLI·`tools/*.sh` 출력)는 영어다(ADR-020, 2026-10-22 승인). 문장 규칙과 용어는 UI_GUIDE "문구" 를 따른다.
+  - 한국어로 두는 것: 주석, docstring, 문서, 로그 파일에만 가는 문구, 이력 요약(`change_log.summary`).
+  - typer 명령 docstring은 예외다. `--help` 문구라서 영어로 쓴다.
+  - 아직 한국어인 화면 문구는 phase 24(`24-english-text`)의 step이 옮긴다. 다른 step은 번역하지 않는다. 이유: 그 문구를 고정한 테스트 수정이 섞인다.
+  - 버그 수정 중에 기존 문구를 바꾸지 않는다.
 
 ## 개발 프로세스
 - CRITICAL: 새 기능 구현 시 반드시 테스트를 먼저 작성하고, 테스트가 통과하는 구현을 작성할 것 (TDD)

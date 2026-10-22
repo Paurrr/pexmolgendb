@@ -1,0 +1,14 @@
+{
+  "project": "genviewer",
+  "phase": "24-english-text",
+  "steps": [
+    { "step": 0, "name": "service-messages", "status": "pending" },
+    { "step": 1, "name": "dialogs-text", "status": "pending" },
+    { "step": 2, "name": "device-screen-text", "status": "pending" },
+    { "step": 3, "name": "history-text", "status": "pending" },
+    { "step": 4, "name": "cli-text", "status": "pending" },
+    { "step": 5, "name": "init-db-text", "status": "pending" },
+    { "step": 6, "name": "shell-text", "status": "pending" },
+    { "step": 7, "name": "english-guard", "status": "pending" }
+  ]
+}
