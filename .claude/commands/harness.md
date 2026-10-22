@@ -167,6 +167,7 @@ execute.py가 자동으로 처리하는 것:
 
 - **error 발생 시**: `phases/{task-name}/index.json`에서 해당 step의 `status`를 `"pending"`으로 바꾸고 `error_message`를 삭제한 뒤 재실행한다.
 - **blocked 발생 시**: `blocked_reason`에 적힌 사유를 해결한 뒤(예: `GENDB_TEST_PG_DSN` 설정), `status`를 `"pending"`으로 바꾸고 `blocked_reason`을 삭제한 뒤 재실행한다.
+- **사용 한도로 멈춘 경우**: `Step did not update status` 가 몇 초 만에 세 번 나면 `step{N}-output.json` 의 stdout을 본다. `"api_error_status":429`·`usage_limit_reached` 면 코드 문제가 아니다. execute.py는 실패한 뒤에도 그 step의 반쯤 된 변경을 `feat(...)` 로 커밋하고 phase를 `error` 로 둔다. 한도가 풀리면 step과 phase의 status를 `"pending"` 으로 되돌리고 `error_message`·`failed_at`·`started_at` 을 지운 뒤 커밋하고 재실행한다. 반쯤 된 커밋은 되돌리지 않는다. 다음 시도가 검토해 이어 쓴다(phase 19 step 9). 그 사이에는 그 변경 때문에 Stop 훅이 실패할 수 있다. 그 파일을 고치지 않는다(다음 시도의 일이다).
 - **step 미루기**: execute.py를 고치지 말고 그 step의 `status` 를 `"deferred"` 로 둔다. execute.py는 남은 첫 `pending` step을 고르므로 deferred step은 건너뛰지만 그 **뒤의** pending step은 실행된다. 그래서 미룰 step은 마지막 step으로 두거나 뒤 step도 함께 deferred로 둔다. 다시 돌릴 때는 그 step과 `phases/index.json` 의 phase를 `"pending"` 으로 되돌리고 커밋한 뒤 재실행한다.
 
 ### F. phase 마무리
