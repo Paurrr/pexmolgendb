@@ -2,6 +2,13 @@
   "project": "genviewer",
   "phase": "21-toolbar-min-width",
   "steps": [
-    { "step": 0, "name": "toolbar-min-width", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "toolbar-min-width",
+      "status": "completed",
+      "started_at": "2026-10-22T18:19:19+0900",
+      "summary": "DeviceTabToolBar 가로 정책 Ignored→Preferred(창 최소 너비가 툴바를 따른다). tests/gui/test_toolbar_min_width.py(MainWindow 직접, 컨트롤러 없음). RED(Windows 개발 PC, offscreen): test_toolbar_widgets_do_not_overlap_at_the_default_size: _overlapping(toolbar) == [] 실패(6쌍, 첫 쌍 QComboBox('')·QLabel('Version')), test_shrinking_the_window_keeps_toolbar_widgets_apart: _overlapping(toolbar) == [] 실패(14쌍), test_long_names_keep_toolbar_widgets_apart: _overlapping(toolbar) == [] 실패(14쌍). 변이: 정책을 손으로 Ignored 로 되돌리면 새 테스트 3개 모두 실패, Preferred 로 다시 두면 3 passed. src 변경은 정책 한 줄과 주석뿐. tests/gui 741 passed, ruff 통과. DB 테스트: GENDB_TEST_PG_DSN 붙여 Git Bash 전체 1206 passed / 10 skipped(기준선 1203/10 + 3)."
+    }
+  ],
+  "created_at": "2026-10-22T18:19:19+0900"
 }

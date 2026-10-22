@@ -32,7 +32,8 @@ class DeviceTabToolBar(QWidget):
         layout = QHBoxLayout()
         layout.setSpacing(3)
         self.setMinimumSize(0, 0)
-        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        # Ignored 면 창이 툴바보다 좁아져 고정 너비 단추·콤보가 겹친다(K57).
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.setFixedHeight(34)
 
         self.process_selector_label = QLabel("Process")
