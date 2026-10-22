@@ -36,18 +36,18 @@ src/genviewer/
     repo/                   #   쿼리. 호출 하나 = 트랜잭션 하나
       device.py             #     목록, etag, upsert_devices(잠금·preflight·DML·audit)
       parameter.py          #     탭 행 읽기, replace_many_for_device(버전 확인 후 통째 교체)
-      process.py            #     process 목록·추가·삭제·get_or_create
+      process.py            #     (이름, 버전) 쌍 목록·추가·복제(clone)·삭제·get_or_create
       io.py                 #     CSV import(pandas), export 데이터
       audit.py              #     change_log 쓰기(호출자의 cursor)·읽기·포맷·purge
   scripts/                  # 관리 도구 (argparse). init_db(스키마·role·권한)
   models/                   # QAbstractTableModel: device_table(dirty·undo), generic_table(탭), device_state, parameter_summary, sorting_proxy
   views/                    # QWidget. 위젯을 만들고 의도 시그널을 낸다. main_window, device_tab, device_table, parameter_tab, tab_section, history_tab, socket_tab …
   controllers/              # QObject. view 시그널 ↔ repo 호출. main_window, device_tab(접속·폴링), device_table(저장·충돌), parameter_tab, tab_section(device별 모델 캐시), device_tab_toolbar, history_tab, socket_tab
-  dialogs/                  # conflict(다시 읽기/덮어쓰기/취소), connection(Connect…), insert, tab_selector
+  dialogs/                  # conflict(다시 읽기/덮어쓰기/취소), connection(Connect…), add_process(새 쌍·복사 원본), insert, tab_selector
   delegates/combo_box.py    # delegate_config 기반 콤보
   net/                      # Virtuoso 소켓: controller(ConnectionController: GUI 스레드의 QTcpSocket 하나, 4바이트 길이 + UTF-8 프레임)
   utils/                    # background(run_blocking, Task, is_busy), logs(파일 로그, scrub), reporting(report 데코레이터),
-                            # exporter(csv/xlsx), lisp(SKILL 리스트), validators, user(current_user), palette, dialogs, menus …
+                            # exporter(csv/xlsx, 내보내기 파일 이름), lisp(SKILL 리스트), validators, user(current_user), palette, dialogs, menus …
 tools/                      # initdb.sh(클러스터 생성·기동), deploy.sh(태그 설치·런처)
 tests/                      # pytest. conftest: pg_dsn/db fixture (GENDB_TEST_PG_DSN)
   gui/                      #   pytest-qt GUI 테스트. conftest: offscreen, autouse dialogs(모달 가짜), store/device_tab_ctrl/main_window
@@ -105,8 +105,9 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 - 탭 저장(`repo/parameter.py: replace_many_for_device`): `FOR UPDATE OF d` → `expected_version` 비교 → 테이블마다 DELETE … RETURNING + INSERT → `device.version+1` → audit.
 - GUI 쪽: 모델이 dirty·baseline을 들고 있다. 컨트롤러가 `run_blocking` 으로 repo를 부르고, `StaleWriteError` 면 `dialogs/conflict.ask_conflict` 로 RELOAD / OVERWRITE(force) / CANCEL을 묻는다. 내가 지운 행을 뺀 나머지 충돌이 전부 deleted면 OVERWRITE를 내놓지 않는다(`conflict.can_overwrite`, 테스트 가짜도 같은 함수로 판단한다).
 - 붙여넣기: device 행을 바로 저장하고, 그 저장이 돌려준 version으로 탭 행을 쓴다(`pasteRequested` 가 version을 싣는다). device 표나 탭이 dirty면 붙여넣지 않는다.
-- Remove Process: 삭제가 성공하면 `processRemoved` 가 목록을 다시 채우기 전에 지금 process의 device·탭 편집을 버린다(저장할 곳이 없다).
-- 저장 결과: device·탭 `save_all()` 과 `DeviceTabController.save_db()` 는 bool이다(저장했거나 쓸 것이 없으면 True, 취소·다시 읽기·건너뛴 편집이면 False, 예외는 그대로). 호출부(Database → Save, Ctrl+S, process·device 전환)는 False면 "Saved" 를 띄우지 않고, 편집이 남아 있으면 옮기지 않는다. process 콤보는 `select_process_silently` 로 시그널 없이 되돌린다(되돌릴 process가 목록에 없으면 False이고, 그때는 되돌리지 않고 새 process로 넘어간다).
+- Remove Process: 지금 (이름, 버전) 쌍 하나만 지운다(같은 이름의 다른 버전은 그대로). 삭제가 성공하면 `processRemoved(name, release)` 가 목록을 다시 채우기 전에, 지운 쌍이 지금 쌍이면 그 device·탭 편집을 버린다(저장할 곳이 없다).
+- Add Process(`+`): `AddProcessDialog` 가 (이름, 버전, 복사 원본)을 고른다(repo 를 모른다). 컨트롤러는 저장 안 한 편집을 먼저 기존 `Save Changes` 로 묻고(`set_add_guard` 로 받은 `_save_before_process_change`), False면 아무것도 만들지 않는다. 그다음 `run_blocking` 으로 `add` 또는 `clone` → 만들었으면 `processAdded` 가 남은 편집(아니오로 답한 것)을 버림 → 목록 → 새 쌍 고르기. 이미 있는 쌍이면 `Duplicate` 를 알리고 그 쌍을 고른다(편집은 버리지 않는다).
+- 저장 결과: device·탭 `save_all()` 과 `DeviceTabController.save_db()` 는 bool이다(저장했거나 쓸 것이 없으면 True, 취소·다시 읽기·건너뛴 편집이면 False, 예외는 그대로). 호출부(Database → Save, Ctrl+S, process·device 전환)는 False면 "Saved" 를 띄우지 않고, 편집이 남아 있으면 옮기지 않는다. 툴바의 두 콤보는 `select_process_silently(name, release)` 로 시그널 없이 함께 되돌린다(되돌릴 쌍이 목록에 없으면 False이고, 그때는 되돌리지 않고 새 쌍으로 넘어간다).
 - 창 닫기: `MainWindowController` 가 창에 이벤트 필터를 달아 Close를 판단한다(뷰는 컨트롤러를 모른다). `is_busy()` 면 무시하고, dirty면 묻고 `save_db()` 가 True일 때만 닫는다. `shutdown()` 이 먼저 필터를 뗀다.
 - 탭 로드 실패: `TabSectionController.update_model` 이 행을 읽지 못하면 섹션을 모델 없이 비우고 dirty를 푼다(이전 device의 모델이 남아 이 device에 저장되지 않게). 붙여넣기도 그 탭은 건너뛴다.
 - 탭 섹션 수명: `TabSectionController` 는 device마다 모델을 캐시하고(`model_by_device`), 콤보 delegate는 컬럼마다 하나를 모든 모델이 같이 쓴다(후보는 `index.model()` 의 celltype). `setModel` 이 표·머리글에 새로 만든 selection model 중 지금 쓰지 않는 것은 지운다. 접속·재접속의 `rebuild_tabs` 는 떼어 낸 옛 섹션(과 그 컨트롤러)·옛 "+" 를 지우고 Summary는 다시 쓴다.
@@ -114,18 +115,20 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 - 순서값: `save_all` 은 보통 화면 순서대로 `order = 0..n-1` 을 매긴다. 마지막 `refresh_devices` 가 Virtuoso 목록으로 숨긴 행이 있었으면, 보내는 행끼리 그때 읽은 자기들의 옛 순서값을 화면 순서대로 나눠 갖는다(`_filtered_orders`, 숨은 행은 보내지 않는다).
 - version 동기화: 탭 저장이 올린 version은 `deviceVersionChanged` 로 device 표에, device 저장이 올린 version은 `deviceVersionBumped` 로 탭에 간다. 탭은 정확히 +1일 때만 받는다(덮어쓰기로 남의 변경 위에 썼으면 다음 탭 저장이 충돌로 묻는다).
 
-**CSV** (`repo/io.py`, `utils/exporter.py`): 헤더는 `CellType, CdsLibName, InstCellName, Description` 다음에 탭마다 자식 행 수만큼 같은 이름을 반복한다(molgen 규약). 불러오기는 CSV 행 하나마다 새 device 를 만들고, `Description` 칸이 있으면 description 에 넣는다. 내보내기 행의 celltype·process·name·description 은 넘겨받은 device_info 의 값(창에서는 화면 값)이고 탭 값만 DB 에서 읽는다. `write_csv` 는 Description 열의 `,` 를 `;` 로, 줄바꿈을 공백으로 바꿔 쓴다(molgen 로더가 `,` 로만 나눈다, ADR-017). Virtuoso 보내기(`send_device_data`)도 `fetch_export_data` 를 쓰고, 고정 컬럼을 이름으로 골라 Description 은 뺀다.
+**process 쌍 고르기** (`views/device_tab_toolbar.py`, `controllers/device_tab_toolbar.py`, `controllers/device_tab.py`): 툴바는 `Process [▾] Version [▾] [+][-]` 이다. view 가 두 콤보를 묶어 `selectionChanged(name, release)` 를 쌍이 바뀔 때만 한 번 낸다. 이름을 바꾸면 지금 버전 문자열이 그 이름에도 있으면 그것, 없으면 그 이름의 첫 버전을 고른다. 빈 버전은 `(없음)` 으로 보이고 값은 index 로 읽는다. 목록은 `list_pairs()`(이름, 버전 `COLLATE "C"` 순)이고 `set_pairs` 가 지금 쌍 → 그 이름의 첫 버전 → 첫 쌍 순으로 고른다. `DeviceTableController` 는 `current_process`(이름, Virtuoso·내보내기에 쓴다), `current_release`, `current_process_id` 를 들고, 저장·폴링·etag 는 그대로 `process_id` 로 묶인다.
+
+**CSV** (`repo/io.py`, `utils/exporter.py`): 헤더는 `CellType, CdsLibName, InstCellName, Description` 다음에 탭마다 자식 행 수만큼 같은 이름을 반복한다(molgen 규약, 버전 칸 없음). 불러오기는 CSV 행 하나마다 새 device 를 만들고, `Description` 칸이 있으면 description 에 넣는다. 모든 행이 (CdsLibName, 받은 버전) 쌍에 들어간다(CLI `load --version`, 창은 파일을 고른 뒤 버전을 묻는다). 창의 내보내기 제안 파일 이름은 `export_file_name` 이 molgen 규칙(`<proc>_<cid>-<ver 점 제거>.<fmt>`, 빈 버전이면 `<proc>.<fmt>`)으로 만든다. 내보내기 행의 celltype·process·name·description 은 넘겨받은 device_info 의 값(창에서는 화면 값)이고 탭 값만 DB 에서 읽는다. `write_csv` 는 Description 열의 `,` 를 `;` 로, 줄바꿈을 공백으로 바꿔 쓴다(molgen 로더가 `,` 로만 나눈다, ADR-017). Virtuoso 보내기(`send_device_data`)도 `fetch_export_data` 를 쓰고, 고정 컬럼을 이름으로 골라 Description 은 뺀다.
 
 **변경 감지**: `DeviceTabController` 의 10초 `QTimer` → `Task(repo.etag(process_id))` → 기억한 etag와 다르면 배너. 연속 3회 실패하면 멈추고, 다시 접속하면 되살아난다. 자동으로 다시 읽지 않는다. 결과는 폴링을 시작한 process·DB가 그대로일 때만 쓴다(전환·재접속 뒤 도착한 결과는 버린다). History 화면도 10초마다 `Task` 로 다시 읽고, 줄을 고르면 멈춘다. 다시 읽는 중에 필터를 바꾸거나 DB가 바뀌면 끝난 뒤 한 번 더 읽고, 그사이 도착한 옛 결과는 버린다.
 
-**스키마**: `tab_config.json` 의 탭마다 자식 테이블 하나(`id IDENTITY`, `device_id … ON DELETE CASCADE`, payload `TEXT NOT NULL DEFAULT ''`, `(device_id, id)` 인덱스). 고정 테이블 `process`, `device`(version, updated_at, updated_by), `change_log`(FK 없음, JSONB detail). 전부 `CREATE … IF NOT EXISTS` + 탭 테이블의 빠진 컬럼은 카탈로그를 보고 `ADD COLUMN`(다 있으면 `ALTER` 를 실행하지 않아 ACCESS EXCLUSIVE 를 잡지 않는다)이라 `init_db` 는 여러 번 돌려도 된다. 같은 원본이 `TABLE_COLUMNS`, 화면 탭(`views/parameter_tab.py`), CSV import(`parse`, `row_per_token`), export, `diagnostics.expected_tables`(17개)와 탭 테이블의 컬럼을 만든다. DDL과 tab_config의 어긋남(테이블 집합, 컬럼 이름·순서)은 `tests/test_schema.py` 가 접속 없이 렌더링한 PostgreSQL DDL로 잡는다.
+**스키마**: `tab_config.json` 의 탭마다 자식 테이블 하나(`id IDENTITY`, `device_id … ON DELETE CASCADE`, payload `TEXT NOT NULL DEFAULT ''`, `(device_id, id)` 인덱스). 고정 테이블 `process`(name, release, `UNIQUE (name, release)`), `device`(version, updated_at, updated_by), `change_log`(FK 없음, JSONB detail, process_release). 전부 `CREATE … IF NOT EXISTS` + 탭 테이블과 `change_log` 의 빠진 컬럼은 카탈로그를 보고 `ADD COLUMN`(다 있으면 `ALTER` 를 실행하지 않아 ACCESS EXCLUSIVE 를 잡지 않는다)이라 `init_db` 는 여러 번 돌려도 된다. phase 18 이전 모양의 `process` 는 DO 블록이 카탈로그를 보고 `release` → `process_name_release_key` → 옛 `UNIQUE (name)`(컬럼으로 찾는다) 떼기 순으로 옮긴다. 고정 테이블에 더한 컬럼은 `FIXED_ADDED_COLUMNS` 가 원본이고 `diagnostics.probe` 가 빠진 것을 탭 컬럼보다 먼저 알린다. 같은 원본이 `TABLE_COLUMNS`, 화면 탭(`views/parameter_tab.py`), CSV import(`parse`, `row_per_token`), export, `diagnostics.expected_tables`(17개)와 탭 테이블의 컬럼을 만든다. DDL과 tab_config의 어긋남(테이블 집합, 컬럼 이름·순서)은 `tests/test_schema.py` 가 접속 없이 렌더링한 PostgreSQL DDL로 잡는다.
 
 **권한** (`scripts/init_db.py`): `SET ROLE <owner>` 후 DDL → `GRANT USAGE ON SCHEMA public`, `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES` → `ALTER DEFAULT PRIVILEGES`(새 탭 테이블도 자동). 시퀀스 권한은 IDENTITY라 필요 없다.
 
 ## 스레딩
-- `utils/background.run_blocking(fn, parent)`: `Task`(QThread)에서 fn을 돌리고 GUI 스레드는 `processEvents(ExcludeUserInputEvents)` 로 돌면서 대기 커서를 띄운다. 예외는 호출 지점에서 다시 난다. 끝난 `Task` 는 결과·예외를 읽은 뒤 지운다(parent 아래 쌓이지 않게). 접속·저장·CSV 불러오기·연결 테스트가 이것을 쓴다.
+- `utils/background.run_blocking(fn, parent)`: `Task`(QThread)에서 fn을 돌리고 GUI 스레드는 `processEvents(ExcludeUserInputEvents)` 로 돌면서 대기 커서를 띄운다. 예외는 호출 지점에서 다시 난다. 끝난 `Task` 는 결과·예외를 읽은 뒤 지운다(parent 아래 쌓이지 않게). 접속·저장·CSV 불러오기·process 추가와 복제·연결 테스트가 이것을 쓴다.
 - `Task` 단독(비동기): 변경 감지 폴링, History 다시 읽기. `done`/`failed` 시그널은 GUI 스레드에서 받는다. 결과·실패는 시그널을 낸 작업(`sender()`)이 지금 작업일 때만 쓰고, 정리(`finished`)는 끝난 그 작업만 지운다. 기다린 뒤 큐에 남은 옛 `finished` 가 돌고 있는 새 작업을 지우면 프로세스가 죽는다.
-- 아직 GUI 스레드에서 동기로 도는 DB 호출이 있다(process 목록·추가·삭제, 탭 로드, 복사·붙여넣기, export). 새 코드는 이 패턴을 따르지 않는다.
+- 아직 GUI 스레드에서 동기로 도는 DB 호출이 있다(process 목록·삭제·쌍 고르기의 `get_or_create_id`, 탭 로드, 복사·붙여넣기, export). 새 코드는 이 패턴을 따르지 않는다.
 - psycopg 커넥션은 스레드끼리 공유하지 않는다(풀에서 호출마다 꺼낸다).
 - `net/` 에는 워커 스레드가 없다. GUI 스레드의 QTcpSocket 하나가 시그널(`connected`·`readyRead`·`errorOccurred`·`disconnected`)로 돌고, 대기 메서드(`waitFor*`)는 쓰지 않는다. 접속 중의 Connect는 무시한다. 상대가 끊거나 수신 오류가 나면 Socket 탭에 알리고(`received("ERROR: recv failed - …")`) 상태를 Disconnected로 바꾼다. 창을 닫으면 `ConnectionController.shutdown()` 이 소켓을 abort한다.
 - 워커 스레드에서 샌 예외(`QThread.run`)는 PySide6가 그 스레드에서 `sys.excepthook` 을 부른다. `main.py` 의 hook은 로그를 남기고, 상자는 GUI 스레드일 때만 연다.
@@ -140,7 +143,8 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 ```
 
 ## 용어
-- **process**: molgen의 공정/라이브러리 단위(`CdsLibName`). device를 묶는다.
+- **process**: molgen의 공정/라이브러리 단위(`CdsLibName`) 이름과 버전(release)의 쌍. device를 묶는다. 버전은 자유 문자열이고 빈 버전 `''` 은 "버전 없음"이다(화면 `(없음)`, CLI `-`). 사람이 읽는 표시는 `audit.process_label(name, release)`(빈 버전이면 이름만, 아니면 `이름 버전`).
+- **release**: process 의 버전. 화면 라벨은 `Version`, CLI 옵션은 `--version` 이지만 코드·DB 이름은 `release` 다. `version` 은 `device.version`(낙관적 잠금)이다.
 - **device**: CSV 한 행. 이름은 표시용이고 중복될 수 있으며, 식별은 `id` 로 한다.
 - **탭 / 자식 테이블**: CSV 컬럼 하나. device마다 여러 행.
 - **etag**: process 하나의 device 상태 요약 `count(*)`, `sum(version)`, `max(updated_at)`(+ 표시용 `who`). 셋 중 하나라도 다르면 누군가 바꾼 것이다. 변경 감지에 쓴다(LISTEN/NOTIFY 대신, `repo/device.py` docstring).

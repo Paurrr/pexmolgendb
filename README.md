@@ -144,9 +144,21 @@ Connect 창의 **연결 테스트** 결과에는 실제 원인(비밀번호 틀�
 genviewer                        # 서브커맨드가 없으면 창을 띄운다 (지금까지와 같다)
 
 genviewer status                 # 어디에 붙어 있고 스키마와 행이 얼마나 있는지
-genviewer processes              # process 목록과 각 process 의 device 수
+genviewer processes              # process(이름, 버전) 목록과 각각의 device 수
 genviewer load ./devices.csv     # CSV 를 불러온다
 genviewer export sf2p ./out.csv  # process 하나를 파일로 낸다 (.xlsx 도 된다)
+
+genviewer load ./devices.csv --version S00-V1.0.0.0     # 그 버전으로 불러온다
+genviewer export sf2p ./out.csv --version S00-V1.0.0.0  # 그 버전을 낸다
+```
+
+```
+$ genviewer processes
+NAME  VERSION       DEVICE
+sf2p  -                  2
+sf2p  S00-V1.0.0.0       3
+sf4u  -                  1
+process 3개, device 6개
 ```
 
 ```
@@ -179,6 +191,12 @@ $ genviewer status
 - `load` 는 **넣을 때마다 쌓인다.** 같은 파일을 두 번 넣으면 device 가 두 배가
   된다(아래 'CSV 컬럼과 탭'). 그래서 몇 개를 새로 만들었는지 항상 찍는다. 큰
   파일을 위해 `statement_timeout` 을 풀고 도는데, 직접 정해 뒀으면 그 값을 따른다.
+- `--version` 을 주지 않거나 비우면 "버전 없음"(빈 버전)이다. `processes` 는 그것을
+  `-` 로 찍는다. 앞뒤 공백은 다듬는다(아래 'process 버전').
+- `load --version V` 는 파일의 모든 행을 (CdsLibName, V) 쌍에 넣는다. 그 쌍이 없으면
+  만든다. 첫 줄 끝에 `(version V)` 가 붙는다.
+- `export` 는 그 (이름, 버전) 하나만 낸다. 없으면 `그런 process 가 없다: sf2p V9` 다음에
+  같은 이름의 다른 버전이 있을 때 `있는 버전: -, V1` 을 보인다.
 - `export` 는 process 를 통째로 낸다. device 를 골라서 내보내는 것은 창 쪽이다.
   device 가 하나도 없으면 빈 파일을 만들지 않고 그렇다고 말한다. `.xlsx` 로 낼 때
   `=` 로 시작하는 값은 수식이 아니라 글자 그대로 들어간다(창의 내보내기도 같다).
@@ -207,6 +225,7 @@ $ genviewer status
 genviewer log                          # 최근 50줄, 오래된 것부터
 genviewer log -n 200 --since 7d        # 7d / 24h / 30m / 2026-09-01
 genviewer log --who dh991 --process sf2p
+genviewer log --version S00-V1.0.0.0   # 그 버전 것만. "" 이면 버전 없는 것만
 genviewer log --find nfet_b            # 바뀐 값 안까지 뒤진다
 genviewer log --detail                 # 이전/이후 값을 펼친다
 genviewer log --follow                 # 새 줄을 계속 이어 찍는다 (Ctrl-C)
@@ -228,6 +247,12 @@ $ genviewer log
 어긋날 수 있다.
 
 CSV 불러오기로 새로 생긴 process 는 'process 추가' 줄이 따로 남는다(불러오기 줄 앞에).
+
+버전이 있는 process 의 줄은 가운데 칸이 `sf2p S00-V1.0.0.0/nfet_a` 처럼 이름 뒤에 버전이
+붙는다. `--process` 와 History 화면의 필터는 이름으로 거르므로 그 이름의 모든 버전이
+나온다. 버전으로 거르려면 `--version` 을 쓴다. `--out` CSV 에는 process 다음에 `version`
+칸이 있다. 여러 process 가 든 CSV 를 버전으로 불러온 줄은 process 칸이 `-` 이고
+`--version ""` 쪽에 잡힌다(known-issues K52).
 
 - **사람이 실제로 바꾼 것만 남는다.** 저장은 화면의 device 를 전부 보내지만 값이
   달라진 행만 기록된다. 손대지 않고 Save 를 눌러도 새 줄이 생기지 않는다 — 그러지
@@ -317,6 +342,34 @@ DEPLOY_LINK_DIR=/usr/local/bin ./tools/deploy.sh /opt/genviewer v0.3.0
 
 배포 대상은 리눅스다.
 
+### process 버전을 넣는 배포 (모두 멈추고 한다)
+
+process 버전(위 'process 버전')이 든 태그를 처음 올릴 때는 **멈추는 시간 없이 할 수
+없다.** `init_db` 가 DB 를 옮긴 뒤 옛 앱이 붙어 있으면 이렇게 된다.
+
+- 새 process 이름을 만드는 옛 코드(CSV 불러오기, 없는 process 고르기)가 맞는 제약이
+  없어 `42P10` 으로 죽는다.
+- 버전이 하나라도 생긴 뒤 옛 앱의 Remove Process 는 **그 이름의 모든 버전을 지운다.**
+- 옛 앱은 같은 이름의 쌍 중 아무것이나 골라 보여 준다(다른 버전을 고치게 된다).
+
+그래서 순서를 지킨다.
+
+1. 모두 앱을 닫는다. 창뿐 아니라 돌고 있는 `genviewer load` 도.
+2. `genviewer-init-db` 를 **새 태그의 소스로**, 늘 쓰던 `--owner`·`--app-role` 과 함께
+   돌린다(아래 '서버' 4번). 처음 한 번은 `process`·`change_log` 에 ACCESS EXCLUSIVE 를
+   잡고 `process.release`·`change_log.process_release` 를 더하고 `UNIQUE (name)` 을
+   `UNIQUE (name, release)` 로 바꾼다. 데이터는 그대로이고 모든 process 가 빈 버전이
+   된다(`--dry-run` 의 2번 단계 `-- process 에 release 를 더하고 UNIQUE 를 (name, release)
+   로 바꾼다`). 다시 돌려도 아무것도 바꾸지 않는다.
+3. `tools/deploy.sh` 로 새 태그를 깐다.
+4. `genviewer status` 가 `스키마: 테이블 17개 모두 있음` 인지 본다. init-db 를 빠뜨렸으면
+   새 앱의 `status` 가 `스키마: 컬럼 2개가 없다 (process.release, change_log.process_release)`
+   로 1 을 낸다.
+5. 다시 띄운다. **옛 창이 하나도 남지 않은 것을 확인한 뒤에** 첫 버전을 만든다.
+
+옛 태그로 되돌리는 것은 이 배포에는 맞지 않는다. 옮긴 DB 위의 옛 앱은 위 문제를 그대로
+갖는다. molgen 은 고칠 것이 없다(CSV 형식이 그대로다).
+
 ### RHEL 8 제약
 
 PySide6 는 **6.9.3** 에 고정돼 있다. 이게 `manylinux_2_28` 휠을 내는 마지막
@@ -398,6 +451,34 @@ device 의 설명은 탭이 아니라 device 컬럼이고, CSV 에서는 `InstCe
 없어진다.** `CREATE TABLE IF NOT EXISTS` 는 있는 테이블을 손대지 않기 때문이다.
 DDL 이 제약 이름을 카탈로그에서 찾아 떼어내므로 손으로 만든 이름이어도 걸린다.
 데이터는 건드리지 않는다.
+
+## process 버전
+
+process 는 이름과 버전의 쌍이다. `sf2p` 의 `S00-V1.0.0.0` 과 `sf2p` 의 `S00-V2.0.0.0` 은
+device 데이터를 따로 갖는다. 버전은 자유 문자열이고 앞뒤 공백만 다듬는다(형식은 보지
+않는다). 버전을 넣기 전부터 있던 process 는 모두 "버전 없음"(빈 버전)이 되고, 그
+process 의 화면 문구·CLI 출력·이력은 예전과 같다. 빈 버전은 창에서 `(없음)`, CLI 에서
+`-` 로 보인다.
+
+- Device 탭 툴바는 `Process [▾] Version [▾] [+] [-]` 다. Version 콤보에는 고른 이름의
+  버전만 있다. 이름을 바꾸면 같은 버전 문자열이 그 이름에도 있으면 그것을, 없으면 그
+  이름의 첫 버전을 고른다. 저장하지 않은 편집이 있으면 지금처럼 먼저 묻는다.
+- `+` 는 `Add Process` 창을 연다. Process(이름, 고르거나 친다), Version(비우면 버전
+  없음), Copy from(기본 `(복사 안 함)`)을 정한다. 원본을 고르면 그 쌍의 device 와 탭
+  내용을 한 시점 그대로 새 쌍에 복사한다(원본은 그대로). 저장하지 않은 편집이 있으면
+  만들기 전에 `Save Changes` 를 묻고, 저장을 취소했거나 실패하면 아무것도 만들지
+  않는다. 이미 있는 쌍이면 `Duplicate` 를 알리고 그 쌍으로 옮긴다.
+- `-` 는 지금 쌍 하나만 지운다. 같은 이름의 다른 버전은 그대로다.
+- **Database → Load CSV** 는 파일을 고른 뒤 버전을 묻는다(있는 버전 목록에서 고르거나
+  친다. `(없음)`·빈칸은 버전 없음). 모든 행이 (CdsLibName, 그 버전) 쌍에 들어가고 지금
+  보던 쌍은 그대로다. CSV 형식에는 버전 칸이 없다.
+- device 표 내보내기의 제안 파일 이름은 molgen 이 찾는 이름이다:
+  `sf2p` + `S00-V1.0.0.0` → `sf2p_S00-V1000.csv`(버전을 `-` 로 나눠 첫 조각은 그대로,
+  둘째 조각은 점을 지운다). 버전이 없으면 지금처럼 `sf2p.csv` 다. 내용은 버전과 상관없이
+  같은 형식이다.
+- 지금 Load CSV 의 버전 칸과 `Add Process` 의 Process 칸은 앞부분이 같은 기존 항목으로
+  자동 완성된다(`S00-V1.0` 을 치면 `S00-V1.0.0.0`). OK 전에 칸의 글자를 확인한다
+  (known-issues K56, 고칠 예정).
 
 ## 동시 편집
 
@@ -556,9 +637,9 @@ uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscr
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 425 passed / 119 skipped / 1 xfailed 다(`sh` 가
-없는 PowerShell 에서는 셸 스크립트 테스트까지 skip 되어 405 / 139 / 1). xfail 하나는
-고치지 않기로 한 문제(known-issues K17)의 재현 테스트다. skip 되는 DB 테스트가
+DB 없이 돌리면 지금 기준 Git Bash 에서 963 passed / 241 skipped 다(`sh` 가 없는
+PowerShell 에서는 셸 스크립트 테스트 32개까지 skip 되어 931 / 273). DB 를 붙이면
+1194 passed / 10 skipped(윈도우에서 뜻이 없는 권한 테스트만)다. skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 
 `uv run pytest` 가 `uv trampoline failed to canonicalize script path` 로 죽으면 venv 를

@@ -25,7 +25,7 @@
 ┌ 메뉴: Database(Connect… / Save / Load CSV) ────────────────────────────────┐
 │ 툴바: (빈칸) Theme | Server [    ] Port [   ] Connect | 상태               │  ← Virtuoso 소켓, DB 아님
 ├──────────┬─────────────────────────────────────────────────────────────────┤
-│ Device   │ DeviceTabToolBar: process 콤보 +/- | Load Virtuoso | 라이브러리 … │
+│ Device   │ DeviceTabToolBar: Process [▾] Version [▾] +/- | Load Virtuoso | … │
 │ Socket   │ RefreshBanner (숨김: "이 process 가 X 님에 의해 변경되었습니다.")   │
 │(History) │ QSplitter: [Device List][Filtered List] | Device Info | 파라미터 탭 │
 ├──────────┴─────────────────────────────────────────────────────────────────┤
@@ -35,6 +35,7 @@
 - 왼쪽 목록이 `QStackedWidget` 페이지를 고른다. History는 `--history` 로 띄웠을 때만 있다.
 - 파라미터 탭 순서: `Summary`, `tab_config.json` 의 순서대로 14개, 마지막 `+`(숨긴 탭 다시 열기).
 - "Device List"·"Filtered List" 는 Virtuoso 목록을 받은 뒤에만 보인다.
+- Version 콤보는 지금 이름의 버전만 보인다. 빈 버전은 `(없음)` 으로 보이고 맨 앞이다(ADR-018). 이름을 바꾸면 같은 버전 문자열이 있으면 그것을, 없으면 그 이름의 첫 버전을 고른다.
 
 ## 문구
 - 대화상자 **제목은 영어**(`Save Complete`, `Load Failed`, `Connect Failed` …), **본문과 로그·CLI 출력은 주로 한국어**다. 섞여 있는 것이 현재 상태이고, 버그 수정 중에 기존 문구를 번역하거나 다듬지 않는다.
@@ -57,7 +58,10 @@
 - Virtuoso 로 보내기(Run Selected / Run All)는 저장하지 않은 device 가 있으면 보내지 않고 경고한다(`Unsaved Devices`).
 - device 표 내보내기는 고른 파일의 확장자(.csv / .xlsx)로 형식을 정한다. 둘 다 아니면 메뉴에서 고른 형식이다.
 - 재접속(Database → Connect…)은 device 표나 탭에, CSV 불러오기는 device 표에 저장 안 한 편집이 있으면 새로고침과 같은 `Refresh` 질문을 먼저 한다. 아니오면 아무것도 하지 않는다.
-- Remove Process를 확인하면 지운 process의 저장 안 한 편집은 묻지 않고 버린다(`Save Changes` 도 충돌 대화상자도 없다).
+- Remove Process(`-`)는 지금 (이름, 버전) 쌍 하나만 지운다(확인 문구에 `sf2p V2` 처럼 버전이 붙는다). 확인하면 지운 쌍의 저장 안 한 편집은 묻지 않고 버린다(`Save Changes` 도 충돌 대화상자도 없다).
+- Add Process(`+`)는 `Add Process` 창(Process 편집 콤보, Version 칸, Copy from 콤보 — 기본 `(복사 안 함)`)을 연다. 이름이 비었거나, 버전이 `(없음)` 이거나, 이미 있는 쌍이면 OK 가 꺼지고 뒤의 둘은 창 안에 이유 한 줄을 보인다(메시지 상자 없음). 저장 안 한 편집이 있으면 만들기 전에 `Save Changes` 를 묻고, 저장이 취소·실패하면 아무것도 만들지 않는다.
+- Load CSV 는 파일을 고른 뒤 `Load CSV` 질문으로 버전을 묻는다(있는 버전 목록 + 직접 입력, 처음 값은 지금 버전, `(없음)`·빈칸은 버전 없음). 불러온 뒤에도 지금 쌍에 머문다.
+- device 표 내보내기의 제안 파일 이름은 버전이 있으면 molgen 이 찾는 `<proc>_<cid>-<ver 점 제거>.csv` 다(예: `sf2p S00-V1.0.0.0` → `sf2p_S00-V1000.csv`).
 - CellType이 `delegate_config` 목록에 없는 device는 저장하지 않는다. 그런 행을 편집했으면 저장 뒤 경고(`Save Skipped`)로 이름을 알린다.
 - 창 닫기: 저장 안 한 편집이 있으면 `Save Changes`(Yes/No)를 묻고, Yes면 `save_db()` 가 True일 때만 닫는다. `run_blocking` 중의 닫기는 무시한다.
 - device 표 정렬(머리글 메뉴)은 모델의 모든 행을 정렬하는 undo 가능한 저장 안 한 변경이다. 프록시는 정렬하지 않고 필터는 그대로다.
