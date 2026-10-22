@@ -128,6 +128,11 @@ class MainWindow(QMainWindow):
         self.menubar = self.menuBar()
 
         self.setStatusBar(QStatusBar())
+        # 상태 표시줄 문구는 2초 뒤 사라진다. 지금 붙은 DB 는 영구 위젯으로 늘 보인다.
+        self.db_status_label = QLabel()
+        self.db_status_label.setObjectName("DbStatus")
+        self.statusBar().addPermanentWidget(self.db_status_label)
+        self.apply_db_status(None)
         self.show_status("No database loaded")
 
         self.center()
@@ -162,6 +167,13 @@ class MainWindow(QMainWindow):
         self.status_label.setText(text)
         self.status_label.setProperty("connected", "true" if connected else "false")
         self._refresh_style(self.status_label)
+
+    def apply_db_status(self, target: str | None):
+        """target 은 `diagnostics.target_summary` 의 결과다. None 이면 붙지 않은 것이다."""
+        connected = target is not None
+        self.db_status_label.setText(f"DB: {target}" if connected else "DB: not connected")
+        self.db_status_label.setProperty("connected", "true" if connected else "false")
+        self._refresh_style(self.db_status_label)
 
     def notify(self, severity: str, title: str, text: str):
         if severity == "info":

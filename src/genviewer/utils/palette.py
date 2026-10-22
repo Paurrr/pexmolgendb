@@ -218,12 +218,12 @@ def _build_stylesheet(colors: dict) -> str:
             font-weight: 600;
         }}
 
-        QLabel#ConnectionStatus[connected="true"] {{
+        QLabel#ConnectionStatus[connected="true"], QLabel#DbStatus[connected="true"] {{
             color: {colors["good"]};
             font-weight: 600;
         }}
 
-        QLabel#ConnectionStatus[connected="false"] {{
+        QLabel#ConnectionStatus[connected="false"], QLabel#DbStatus[connected="false"] {{
             color: {colors["bad"]};
             font-weight: 600;
         }}

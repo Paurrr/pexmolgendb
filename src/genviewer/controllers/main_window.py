@@ -8,6 +8,7 @@ from genviewer.controllers.device_tab import DeviceTabController
 from genviewer.controllers.socket_tab import SocketTabController
 from genviewer.net.controller import ConnectionController
 from genviewer.service import virtuoso_protocol
+from genviewer.service.diagnostics import target_summary
 from genviewer.service.errors import user_message
 from genviewer.utils.background import is_busy
 from genviewer.utils.dialogs import question
@@ -47,6 +48,10 @@ class MainWindowController(QObject):
         self.device_tab.statusMessageRequested.connect(self._on_status_message)
         self.device_tab.notifyRequested.connect(self._on_notify_requested)
         self.device_tab.logRequested.connect(self.ui.append_log)
+        # 첫 접속은 DeviceTabController 가 singleShot(0) 으로 예약하므로 여기서 이으면 놓치지
+        # 않는다. 그래도 지금 상태로 한 번 맞춘다.
+        self.device_tab.dbChanged.connect(self._on_db_changed)
+        self._on_db_changed(self.device_tab.db)
 
         # 이력 화면은 --history 로 띄웠을 때만 존재한다. Device 화면이 쓰는
         # Database 를 그대로 받아 쓴다 - 풀을 하나 더 열 이유가 없다.
@@ -192,6 +197,11 @@ class MainWindowController(QObject):
         else:
             self.socket_tab.ui.recv_msg_te.setText(msg)
             self.ui.append_log("Received socket message.")
+
+    @Slot(object)
+    def _on_db_changed(self, db) -> None:
+        # target_summary 는 host·port·dbname·user 만 고른다. DSN 을 직접 쓰면 비밀번호가 보인다.
+        self.ui.apply_db_status(target_summary(db.cfg.dsn) if db is not None else None)
 
     @Slot(bool, str)
     def _on_status_changed(self, connected: bool, text: str):

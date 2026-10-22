@@ -75,8 +75,10 @@ GRAPHITE = {
 }
 
 # `_build_stylesheet(THEMES["mist"])` 의 UTF-8 sha256. phase 22 전 코드(5190 자)에서
-# phase 23 step 1 이 `QPushButton#ThemeButton` 규칙만 뺀 결과 (5041 자)
-MIST_STYLESHEET_SHA256 = "c5cc3f33256d3f6c37152ebe07f99445e3d3218793a29c30b6e0464ac10838da"
+# phase 23 step 1 이 `QPushButton#ThemeButton` 규칙만 뺀 결과(5041 자)에, phase 23 step 2 가
+# `QLabel#ConnectionStatus[connected=…]` 두 규칙의 선택자에 `QLabel#DbStatus[…]` 만 더한 결과
+# (5112 자)
+MIST_STYLESHEET_SHA256 = "f56a034cd175d7eeb7813e9840751924c4a2fe62f03c83b0dee5a594f3844cc9"
 
 # `_build_palette(THEMES["mist"])` 가 정하는 역할 색 (phase 22 전 코드에서 잰 값)
 MIST_PALETTE = {
