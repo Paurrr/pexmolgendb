@@ -7,7 +7,8 @@
       "name": "graphite-palette",
       "status": "completed",
       "started_at": "2026-10-22T22:59:17+0900",
-      "summary": "graphite=pexqa 토큰, 새 키 selection/selection_text/dirty/unknown_name(mist 는 지금 값), current_colors(), tests/gui_support/theme.py preserved_theme, tests/gui/test_theme_colors.py(11개, mist dict·stylesheet sha256·palette 역할 고정, graphite 값·대비 4.5, current_colors). 변이: graphite base 를 #2b323b 로 되돌리면 test_graphite_colors_are_pexqa_tokens 실패, mist selection 을 #123456 으로 바꾸면 mist dict·stylesheet·palette 테스트 3개 실패(둘 다 원복). DB 테스트: 1217 passed / 10 skipped"
+      "summary": "graphite=pexqa 토큰, 새 키 selection/selection_text/dirty/unknown_name(mist 는 지금 값), current_colors(), tests/gui_support/theme.py preserved_theme, tests/gui/test_theme_colors.py(11개, mist dict·stylesheet sha256·palette 역할 고정, graphite 값·대비 4.5, current_colors). 변이: graphite base 를 #2b323b 로 되돌리면 test_graphite_colors_are_pexqa_tokens 실패, mist selection 을 #123456 으로 바꾸면 mist dict·stylesheet·palette 테스트 3개 실패(둘 다 원복). DB 테스트: 1217 passed / 10 skipped",
+      "completed_at": "2026-10-22T23:08:52+0900"
     },
     {
       "step": 1,
