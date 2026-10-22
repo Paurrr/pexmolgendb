@@ -74,8 +74,9 @@ GRAPHITE = {
     "unknown_name": "#f47067",  # ERROR / PATH_MISSING
 }
 
-# phase 22 전 코드의 `_build_stylesheet(THEMES["mist"])` (5190 자) 의 UTF-8 sha256
-MIST_STYLESHEET_SHA256 = "197584d4edacc5db5885de0023060c284caffb3496d20edd5e42c95751b48360"
+# `_build_stylesheet(THEMES["mist"])` 의 UTF-8 sha256. phase 22 전 코드(5190 자)에서
+# phase 23 step 1 이 `QPushButton#ThemeButton` 규칙만 뺀 결과 (5041 자)
+MIST_STYLESHEET_SHA256 = "c5cc3f33256d3f6c37152ebe07f99445e3d3218793a29c30b6e0464ac10838da"
 
 # `_build_palette(THEMES["mist"])` 가 정하는 역할 색 (phase 22 전 코드에서 잰 값)
 MIST_PALETTE = {

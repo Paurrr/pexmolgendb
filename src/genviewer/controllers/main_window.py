@@ -33,8 +33,6 @@ class MainWindowController(QObject):
         self.device_tab.sendDataRequested.connect(self.connection_controller.send)
         self.socket_tab.sendDataRequested.connect(self.connection_controller.send)
         self.ui.connect_btn.clicked.connect(self._on_click_connect_toggle)
-        self.ui.theme_btn.clicked.connect(self._toggle_theme)
-        self.ui.set_theme_name(THEMES[self.theme_name]["name"])
         self.device_tab.device_tab_toolbar.connect_load_virtuoso(
             self._action_load_virtuoso
         )
@@ -140,6 +138,15 @@ class MainWindowController(QObject):
         load_csv_action = QAction("Load CSV", self.ui)
         load_csv_action.triggered.connect(self.ui.device_tab_view._ask_load_csv)
         file_menu.addAction(load_csv_action)
+
+        view_menu = self.ui.menubar.addMenu("View")
+
+        # 테마를 바꾸는 길은 이것 하나다. 그래서 체크 상태와 theme_name 이 늘 같다.
+        dark_theme_action = QAction("Dark Theme", self.ui)
+        dark_theme_action.setCheckable(True)
+        dark_theme_action.setChecked(self.theme_name == "graphite")
+        dark_theme_action.toggled.connect(self._set_dark_theme)
+        view_menu.addAction(dark_theme_action)
 
     @Slot()
     def _action_load_virtuoso(self):
@@ -284,9 +291,8 @@ class MainWindowController(QObject):
         else:
             self.ui.append_log("Sent empty Virtuoso library request placeholder.")
 
-    @Slot()
-    def _toggle_theme(self):
-        self.theme_name = "mist" if self.theme_name == "graphite" else "graphite"
+    @Slot(bool)
+    def _set_dark_theme(self, dark: bool):
+        self.theme_name = "graphite" if dark else "mist"
         apply_theme(QApplication.instance(), self.theme_name)
-        self.ui.set_theme_name(THEMES[self.theme_name]["name"])
         self.ui.append_log(f"Theme changed to {THEMES[self.theme_name]['name']}.")

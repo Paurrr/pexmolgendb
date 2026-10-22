@@ -76,13 +76,9 @@ class MainWindow(QMainWindow):
         spacer_action.setDefaultWidget(spacer)
         toolbar.addAction(spacer_action)
 
-        self.theme_btn = QPushButton("Theme: Graphite")
-        self.theme_btn.setObjectName("ThemeButton")
-        self.theme_btn.setFixedWidth(126)
-        theme_action = QWidgetAction(self)
-        theme_action.setDefaultWidget(self.theme_btn)
-        toolbar.addAction(theme_action)
-
+        # 이 묶음은 Virtuoso 소켓이다. 메뉴 Database → Connect... (DB 접속)와
+        # 헷갈리지 않게 이름을 붙인다.
+        self.virtuoso_label = QLabel("<b>Virtuoso</b>")
         self.server_input = QLabel("Server:")
         self.server_field = QLineEdit()
         self.server_field.setPlaceholderText("Hostname")
@@ -95,12 +91,14 @@ class MainWindow(QMainWindow):
         self.connect_btn = QPushButton("Connect")
         self.connect_btn.setObjectName("ConnectButton")
         self.connect_btn.setFixedWidth(80)
+        self.connect_btn.setToolTip("Connect to the Virtuoso socket")
         self.status_label = QLabel("Disconnected")
         self.status_label.setObjectName("ConnectionStatus")
         self.status_label.setProperty("connected", "false")
         self.status_label.setFixedWidth(120)
 
         for widget in (
+            self.virtuoso_label,
             self.server_input,
             self.server_field,
             self.port_input,
@@ -164,10 +162,6 @@ class MainWindow(QMainWindow):
         self.status_label.setText(text)
         self.status_label.setProperty("connected", "true" if connected else "false")
         self._refresh_style(self.status_label)
-
-    def set_theme_name(self, theme_name: str):
-        self.theme_btn.setText(f"Theme: {theme_name}")
-        self._refresh_style(self)
 
     def notify(self, severity: str, title: str, text: str):
         if severity == "info":

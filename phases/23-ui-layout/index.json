@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "virtuoso-toolbar",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-22T23:50:47+0900",
+      "summary": "위 툴바: Virtuoso 라벨(<b>)+Connect 툴팁, Theme 단추 제거 → View 메뉴 Dark Theme(체크=graphite, toggled → _set_dark_theme, Database 뒤). ThemeButton QSS 제거(MIST_STYLESHEET_SHA256 갱신 5190→5041 자, 옛 결과와 diff: 빠진 줄 6(규칙 5줄 + 뒤 빈 줄), 더한 줄 0). tests/gui/test_main_toolbar.py 7개. 변이: Virtuoso 라벨을 툴바에서 손으로 빼면 2 failed(assert 7 == 8), 되살리면 7 passed. DB 테스트: 1231 passed / 10 skipped(GENDB_TEST_PG_DSN 붙임, 1224/10 + 7), tests/gui 766 passed, ruff 통과"
     },
     {
       "step": 2,

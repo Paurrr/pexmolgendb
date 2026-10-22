@@ -211,12 +211,6 @@ def _build_stylesheet(colors: dict) -> str:
             border-color: {colors["accent"]};
         }}
 
-        QPushButton#ThemeButton {{
-            background-color: {colors["accent_soft"]};
-            border-color: {colors["accent"]};
-            font-weight: 600;
-        }}
-
         QPushButton#ConnectButton {{
             background-color: {colors["accent"]};
             border-color: {colors["accent"]};
