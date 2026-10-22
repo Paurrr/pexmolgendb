@@ -23,7 +23,8 @@
       "name": "db-status",
       "status": "completed",
       "started_at": "2026-10-23T00:03:39+0900",
-      "summary": "상태 표시줄 영구 라벨 db_status_label(objectName DbStatus): DB: <target_summary> / DB: not connected, connected 속성 good/bad(MainWindow.apply_db_status, _refresh_style). MainWindowController 가 dbChanged → _on_db_changed 로 갱신하고 __init__ 에서 지금 db 로 한 번 맞춘다. tests/gui/test_db_status.py(6경로: 새 창, 첫 접속 성공·실패, 재접속 성공·실패, close_db/shutdown + 테마별 색 2개 = 9개). palette: ConnectionStatus 두 규칙 선택자에 QLabel#DbStatus[…] 추가, MIST_STYLESHEET_SHA256 갱신 5041→5112 자, 옛 결과와 diff: 바뀐 줄 2(두 선택자 줄)뿐, 빠진·더한 다른 줄 0. 변이: dbChanged 연결을 손으로 끊으면 7 failed(새 창·첫 접속 실패는 신호 없이도 not connected 라 통과), DbStatus 선택자를 빼면 색 테스트 2 + 해시 1 failed, 되살리면 9 passed. DB 테스트: 1240 passed / 10 skipped(GENDB_TEST_PG_DSN 붙임, 1231/10 + 9), tests/gui 775 passed, ruff 통과"
+      "summary": "상태 표시줄 영구 라벨 db_status_label(objectName DbStatus): DB: <target_summary> / DB: not connected, connected 속성 good/bad(MainWindow.apply_db_status, _refresh_style). MainWindowController 가 dbChanged → _on_db_changed 로 갱신하고 __init__ 에서 지금 db 로 한 번 맞춘다. tests/gui/test_db_status.py(6경로: 새 창, 첫 접속 성공·실패, 재접속 성공·실패, close_db/shutdown + 테마별 색 2개 = 9개). palette: ConnectionStatus 두 규칙 선택자에 QLabel#DbStatus[…] 추가, MIST_STYLESHEET_SHA256 갱신 5041→5112 자, 옛 결과와 diff: 바뀐 줄 2(두 선택자 줄)뿐, 빠진·더한 다른 줄 0. 변이: dbChanged 연결을 손으로 끊으면 7 failed(새 창·첫 접속 실패는 신호 없이도 not connected 라 통과), DbStatus 선택자를 빼면 색 테스트 2 + 해시 1 failed, 되살리면 9 passed. DB 테스트: 1240 passed / 10 skipped(GENDB_TEST_PG_DSN 붙임, 1231/10 + 9), tests/gui 775 passed, ruff 통과",
+      "completed_at": "2026-10-23T00:17:10+0900"
     },
     {
       "step": 3,
