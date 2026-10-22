@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "menus",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-23T00:25:46+0900",
+      "summary": "메뉴 줄 Database|Edit|View. Database: Load CSV..., Export Selected Devices...(export_selected_devices('csv')). Edit: 기존 act_undo/act_redo. Save 단축키 표시 없음. tests/gui/test_menus.py 8개(메뉴 순서, Database 항목·구분선, Save 단축키 없음, Load CSV... → _ask_load_csv, Export 고른 행(nfet_b)만·Save CSV 알림, 빈 process 에서 Export 경고·파일 창 없음, Edit 동작이 창 동작과 같은 객체·단축키 Undo/Redo, 포커스 준 device 표에서 Edit→Undo/Redo). 선택이 없으면 export_selected_devices 가 표 전체를 내므로(fallback_to_all) 경고 테스트는 device 없는 process 로 만들었다. 수정 전 7 failed. 변이: Export 메뉴 연결을 손으로 끊으면 2 failed(export 두 테스트), Load CSV 연결을 끊으면 1 failed, 되살리면 8 passed. 실제 Ctrl+Z/Ctrl+Y 키도 메뉴에 넣은 뒤 그대로 device 표를 되돌림(임시 확인, 파일은 지움). test_save_entry_points.py 그대로 통과. DB 테스트: 1247 passed / 10 skipped(GENDB_TEST_PG_DSN 붙임, 1239/10 + 8), tests/gui 782 passed, ruff 통과"
     }
   ],
   "created_at": "2026-10-22T23:42:26+0900"

@@ -140,9 +140,22 @@ class MainWindowController(QObject):
 
         file_menu.addSeparator()
 
-        load_csv_action = QAction("Load CSV", self.ui)
+        load_csv_action = QAction("Load CSV...", self.ui)
         load_csv_action.triggered.connect(self.ui.device_tab_view._ask_load_csv)
         file_menu.addAction(load_csv_action)
+
+        # 오른쪽 클릭 Export 와 같은 함수다. 형식은 고른 파일의 확장자를 따른다.
+        # triggered(bool) 가 fmt 로 들어가지 않게 감싼다.
+        export_action = QAction("Export Selected Devices...", self.ui)
+        export_action.triggered.connect(
+            lambda: self.device_tab.device_table.export_selected_devices("csv")
+        )
+        file_menu.addAction(export_action)
+
+        # 창 동작(단축키)을 그대로 넣는다. 메뉴에서 눌러도 지금처럼 포커스 쪽을 되돌린다.
+        edit_menu = self.ui.menubar.addMenu("Edit")
+        edit_menu.addAction(act_undo)
+        edit_menu.addAction(act_redo)
 
         view_menu = self.ui.menubar.addMenu("View")
 
