@@ -140,7 +140,13 @@ class DeviceTableView(QTableView):
         model = self.model_safe()
 
         dlg = InsertDialog(
-            None, self.table_name, model._columns, model._headers, self, old_values
+            None,
+            self.table_name,
+            model._columns,
+            model._headers,
+            self,
+            prefill=old_values,
+            window_title="Edit",
         )
         if dlg.exec_() != QDialog.Accepted:
             return
