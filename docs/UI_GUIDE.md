@@ -11,12 +11,15 @@
 
 ## 스타일과 색
 - `QApplication.setStyle("Fusion")` + `utils/palette.apply_theme`. 기본 테마는 **Graphite**(어두움), 툴바 버튼으로 **Mist**(밝음)와 전환한다. 글꼴은 9pt.
-- 색은 `palette.THEMES` 의 키(`window`, `panel`, `base`, `text`, `muted`, `border`, `accent`, `good`, `bad` …)만 쓴다. 위젯에 색을 직접 박지 않는다(예외: 아래 dirty 셀).
+- Graphite 의 색은 pexqa `gui/theme.py` 토큰과 같다. Mist 는 phase 22 전 그대로다(ADR-019, `tests/gui/test_theme_colors.py` 가 dict·스타일시트 해시·팔레트로 고정).
+- 색은 `palette.THEMES` 의 키(`window`, `panel`, `base`, `text`, `muted`, `border`, `accent`, `good`, `bad`, `selection`, `dirty`, `unknown_name` …)만 쓴다. 위젯·모델에 색을 직접 박지 않는다. 모델은 `palette.current_colors()` 로 지금 테마의 키를 읽는다(테마 이름으로 분기하지 않는다).
 
 | 용도 | 값 |
 |---|---|
-| 편집했지만 저장 안 한 셀 | 배경 `QColor(255, 249, 196)` (`models/device_table.py`) |
-| Virtuoso에 없는 device 이름 | 글자 빨강 (`known_names` 밖) |
+| 편집했지만 저장 안 한 셀 | 배경 `dirty` (Mist `#fff9c4`, Graphite `#3a3220`, `models/device_table.py`) |
+| Virtuoso에 없는 device 이름 | 글자 `unknown_name` (Mist `#ff0000`, Graphite `#f47067`, `known_names` 밖) |
+| 알려진 device 이름 | 색을 정하지 않는다(다른 칸과 같은 테마 `text`) |
+| 선택 | `selection` / `selection_text` (palette `Highlight`, QSS `selection-*`) |
 | 저장 안 한 탭 | 탭 이름 뒤 ` *` (`views/parameter_tab.py`) |
 | 성공 / 실패 | 테마의 `good` / `bad` |
 

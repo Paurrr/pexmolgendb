@@ -117,6 +117,8 @@
   - `dirty`: 저장 안 한 셀 배경
   - `unknown_name`: Virtuoso 에 없는 이름
   - `selection`/`selection_text`: 선택
+- 그래서 `models/` 가 `utils.palette` 를 import 한다(`tests/test_boundaries.py` 허용 목록).
+- 알려진 device 이름은 색을 정하지 않고 테마 글자색을 따른다. Mist 에서는 검정이 다른 칸과 같은 `#20262d` 가 된다.
 - 2026-10-22 승인(phase 22).
 
 **이유**

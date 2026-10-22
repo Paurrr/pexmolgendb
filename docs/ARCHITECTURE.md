@@ -47,11 +47,12 @@ src/genviewer/
   delegates/combo_box.py    # delegate_config 기반 콤보
   net/                      # Virtuoso 소켓: controller(ConnectionController: GUI 스레드의 QTcpSocket 하나, 4바이트 길이 + UTF-8 프레임)
   utils/                    # background(run_blocking, Task, is_busy), logs(파일 로그, scrub), reporting(report 데코레이터),
-                            # exporter(csv/xlsx, 내보내기 파일 이름), lisp(SKILL 리스트), validators, user(current_user), palette, dialogs, menus …
+                            # exporter(csv/xlsx, 내보내기 파일 이름), lisp(SKILL 리스트), validators, user(current_user),
+                            # palette(THEMES, apply_theme, current_colors), dialogs, menus …
 tools/                      # initdb.sh(클러스터 생성·기동), deploy.sh(태그 설치·런처)
 tests/                      # pytest. conftest: pg_dsn/db fixture (GENDB_TEST_PG_DSN)
   gui/                      #   pytest-qt GUI 테스트. conftest: offscreen, autouse dialogs(모달 가짜), store/device_tab_ctrl/main_window
-  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository), helpers.py(시드, install_fake_db·install_fake_history, 사용자 동작), keys.py(type_into: 창 활성화·포커스를 기다린 뒤 키 입력), virtuoso_server.py(127.0.0.1 LocalVirtuoso), virtuoso_child.py(서브프로세스 재현)
+  gui_support/              #   GUI 테스트 헬퍼 패키지(pythonpath=tests): dialogs.py, fakes.py(FakeStore·FakeDatabase·Fake*Repository), helpers.py(시드, install_fake_db·install_fake_history, 사용자 동작), keys.py(type_into: 창 활성화·포커스를 기다린 뒤 키 입력), theme.py(preserved_theme: apply_theme 를 부른 테스트 뒤 앱 글꼴·팔레트·스타일시트·themeName 되돌리기), virtuoso_server.py(127.0.0.1 LocalVirtuoso), virtuoso_child.py(서브프로세스 재현)
   fixtures/                 #   Qt 없는 테스트 헬퍼 패키지(pythonpath=tests): imports.py(import 스캐너, test_boundaries.py·test_py39_compat.py 가 쓴다)
 scripts/                    # 하네스 execute.py (+ test_execute.py). 앱 코드가 아니다 (ruff 제외)
 phases/                     # 하네스 step 파일
@@ -68,7 +69,7 @@ docs/                       # 이 문서들. notes/ 는 주입 제외
 | 3 | `models/`, `delegates/`, `views/`, `dialogs/`, `net/`, Qt `utils/*`(background, dialogs, file_dialogs, menus, palette, table_utils), `utils/reporting.py`(Qt 없음, `service.errors` 사용) | 아래 티어 전부, PySide6 |
 | 4 | `controllers/`, `main.py` | 전부 |
 
-- models는 `utils.validators` 만 안다. `net/` 은 자기 안에서 닫혀 있다.
+- models는 genviewer 에서 `utils.validators` 와 `utils.palette`(테마 색 `current_colors()`, ADR-019)만 안다. `net/` 은 자기 안에서 닫혀 있다.
 - 강제: `tests/test_boundaries.py` 가 Qt 금지 구역(티어 0~2, 함수 안까지 보는 정적 스캔 + 새 인터프리터 import, 예외는 `cli.py` 의 `root` 안 `genviewer.main` 뿐)과 models·net 의 import 범위를 지킨다. `tests/test_py39_compat.py` 가 init_db 에서 닿는 모듈을 import를 따라가며 찾아(함수 안 import·부모 패키지 포함) 3.9 문법·런타임 `X | Y`·3.10+ 키워드와 이름·PEP 701 f-string을 정적으로 검사한다(3.9 인터프리터로 import해 보지는 않는다).
 
 ### 현재 어긋난 곳 (따라 하지 않는다)
