@@ -32,6 +32,7 @@
 - `src/genviewer/controllers/main_window.py`: `__init__`(`theme_btn.clicked`, `set_theme_name`), `_setup_actions`(메뉴), `_toggle_theme`
 - `src/genviewer/utils/palette.py`: `QPushButton#ThemeButton` QSS 규칙, `apply_theme`, `THEMES`
 - `tests/gui_support/theme.py`: phase 22가 만든 `preserved_theme`. `apply_theme` 를 부르는 테스트는 이 안에서 돈다.
+- `tests/gui/test_theme_colors.py`: phase 22. `MIST_STYLESHEET_SHA256`, `test_mist_stylesheet_is_byte_identical`
 - `tests/gui/test_toolbar_min_width.py`: 컨트롤러 없이 `MainWindow("localhost")` 를 띄우는 방식(CLAUDE.md 레이아웃 관례)
 - `tests/gui/test_virtuoso_connection.py`: Connect/Disconnect·상태 라벨 문구를 고정한다. 그대로 통과해야 한다.
 
@@ -67,7 +68,12 @@
   - 체크 상태와 `self.theme_name` 이 늘 같게 한다. 메뉴로 바꾸든 다른 길로 바꾸든 같아야 한다.
 - `utils/palette.py`
   - `QPushButton#ThemeButton` 규칙을 지운다. 이 objectName을 쓰는 위젯이 없어진다.
-  - 이 규칙 하나를 지우면 phase 22의 "mist stylesheet 바이트 고정" 테스트가 실패한다. 그 테스트의 기대값(리터럴 또는 해시)을 새 결과로 갱신한다. 지운 규칙 말고는 같아야 한다.
+  - 이 규칙 하나를 지우면 phase 22의 mist 스타일시트 고정 테스트 `tests/gui/test_theme_colors.py::test_mist_stylesheet_is_byte_identical` 가 실패한다. 이 테스트는 `_build_stylesheet(THEMES["mist"])` 의 UTF-8 sha256을 상수 `MIST_STYLESHEET_SHA256` 으로 고정한다.
+    - 해시만 보고는 무엇이 바뀌었는지 모른다. 그래서 옛 결과와 줄 단위로 비교한다.
+      - 옛 결과: `git show HEAD:src/genviewer/utils/palette.py` 를 scratchpad 에 꺼내 `importlib` 로 불러 만든다. step 커밋 전이라 HEAD 는 고치기 전 코드다.
+      - `difflib.unified_diff` 로 비교한다. 빠진 줄이 `QPushButton#ThemeButton { … }` 규칙(과 그 뒤 빈 줄)뿐이고 더한 줄이 없어야 한다. 그 결과를 summary 에 한 줄로 적는다.
+    - 상수를 새 해시로 바꾼다. 위 주석의 출처(`phase 22 전 코드`, 글자 수)도 "phase 23 step 1: ThemeButton 규칙만 뺀 결과 (N 자)" 처럼 고친다.
+    - 같은 파일의 `MIST`, `MIST_PALETTE` 와 다른 기대값은 바꾸지 마라. 이유: 그것까지 바뀌었다면 지운 규칙 말고 다른 것이 바뀐 것이다.
 
 ## Acceptance Criteria
 
@@ -86,7 +92,7 @@ uv run pytest -q
    - `apply_theme` 를 부르는 새 테스트가 모두 `preserved_theme` 안에서 도는가?
    - Database 메뉴의 내용은 그대로인가? step 4가 바꾼다.
 3. 결과에 따라 `phases/23-ui-layout/index.json` 의 step 1을 업데이트한다.
-   - 성공 → `"status": "completed"`, `"summary": "위 툴바: Virtuoso 라벨+Connect 툴팁, Theme 단추 제거 → View 메뉴 Dark Theme(체크=graphite). ThemeButton QSS 제거(mist 고정값 갱신). tests/gui/test_main_toolbar.py. 변이: <결과>"`
+   - 성공 → `"status": "completed"`, `"summary": "위 툴바: Virtuoso 라벨+Connect 툴팁, Theme 단추 제거 → View 메뉴 Dark Theme(체크=graphite). ThemeButton QSS 제거(MIST_STYLESHEET_SHA256 갱신, 옛 결과와 diff: <빠진 줄 수>, 더한 줄 0). tests/gui/test_main_toolbar.py. 변이: <결과>"`
    - 수정 3회 시도 후에도 실패 → `"status": "error"`, `"error_message": "구체적 에러 내용"`
    - 사용자 개입 필요 → `"status": "blocked"`, `"blocked_reason": "구체적 사유"` 후 즉시 중단
 

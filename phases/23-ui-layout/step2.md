@@ -78,7 +78,10 @@
   - `__init__` 에서 한 번 지금 상태로 맞춘다.
 - `utils/palette.py`
   - `QLabel#ConnectionStatus[connected="true"]`/`[="false"]` 규칙의 선택자에 `QLabel#DbStatus[...]` 를 더한다.
-  - phase 22의 mist stylesheet 고정 테스트 기대값을 새 결과로 갱신한다. 더한 선택자 말고는 같아야 한다.
+  - phase 22의 mist 스타일시트 고정 테스트(`tests/gui/test_theme_colors.py` 의 `MIST_STYLESHEET_SHA256`, sha256 해시)를 새 결과로 갱신한다. 더한 선택자 말고는 같아야 한다.
+    - 해시로는 차이를 볼 수 없다. 옛 결과는 `git show HEAD:src/genviewer/utils/palette.py` 를 scratchpad 에 꺼내 `importlib` 로 불러 만든다. `difflib.unified_diff` 로 새 결과와 비교한다.
+    - 바뀐 줄이 `QLabel#ConnectionStatus[connected=…]` 두 규칙의 선택자 줄뿐이어야 한다. 그 결과를 summary 에 적는다.
+    - 상수 위 주석의 출처도 이 step 결과로 고친다. `MIST`, `MIST_PALETTE` 는 바꾸지 마라.
 
 ## Acceptance Criteria
 
