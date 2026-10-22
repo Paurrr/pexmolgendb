@@ -92,7 +92,8 @@
     },
     {
       "dir": "22-dark-theme",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-10-22T23:18:34+0900"
     },
     {
       "dir": "23-ui-layout",
