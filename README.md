@@ -463,6 +463,8 @@ process 의 화면 문구·CLI 출력·이력은 예전과 같다. 빈 버전은
 - Device 탭 툴바는 `Process [▾] Version [▾] [+] [-]` 다. Version 콤보에는 고른 이름의
   버전만 있다. 이름을 바꾸면 같은 버전 문자열이 그 이름에도 있으면 그것을, 없으면 그
   이름의 첫 버전을 고른다. 저장하지 않은 편집이 있으면 지금처럼 먼저 묻는다.
+- 창은 이 툴바보다 좁아지지 않는다(윈도우 9pt 글꼴에서 약 1260px). 그래서 툴바의 단추와
+  콤보는 서로 겹치지 않는다. 화면이 그보다 좁으면 창 오른쪽이 화면 밖으로 나간다.
 - `+` 는 `Add Process` 창을 연다. Process(이름, 고르거나 친다), Version(비우면 버전
   없음), Copy from(기본 `(복사 안 함)`)을 정한다. 원본을 고르면 그 쌍의 device 와 탭
   내용을 한 시점 그대로 새 쌍에 복사한다(원본은 그대로). 저장하지 않은 편집이 있으면
@@ -637,9 +639,9 @@ uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscr
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 972 passed / 241 skipped 다(`sh` 가 없는
-PowerShell 에서는 셸 스크립트 테스트 32개까지 skip 되어 940 / 273). DB 를 붙이면
-1203 passed / 10 skipped(윈도우에서 뜻이 없는 권한 테스트만)다. skip 되는 DB 테스트가
+DB 없이 돌리면 지금 기준 Git Bash 에서 975 passed / 241 skipped 다(`sh` 가 없는
+PowerShell 에서는 셸 스크립트 테스트 32개까지 skip 되어 943 / 273). DB 를 붙이면
+1206 passed / 10 skipped(윈도우에서 뜻이 없는 권한 테스트만)다. skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 
 `uv run pytest` 가 `uv trampoline failed to canonicalize script path` 로 죽으면 venv 를

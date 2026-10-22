@@ -31,6 +31,7 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | phase | 항목 | 구분 |
 |---|---|---|
 | 20-combo-autocomplete | K56 | 버그 (2026-10-22 승인) |
+| 21-toolbar-min-width | K57(창을 줄이면 Device 탭 툴바 위젯이 겹침, phase 19 손 확인에서 찾음) | 버그 (2026-10-22 승인) |
 
 - 기록만 하기로 함(2026-10-22): K52, K53, K54, K55.
 - 셀 값 콤보(`delegates/combo_box.py`, `dialogs/insert.py`)도 같은 Qt 기본 completer 를 쓴다. phase 19 전부터 있던 값 입력 보조라 K56 범위에서 뺐다(2026-10-22).
