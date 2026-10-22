@@ -1,4 +1,5 @@
 from PySide6.QtGui import QColor, QFont, QPalette
+from PySide6.QtWidgets import QApplication
 
 THEMES = {
     "mist": {
@@ -19,25 +20,33 @@ THEMES = {
         "accent_text": "#ffffff",
         "good": "#1d6f52",
         "bad": "#9b3b42",
+        "selection": "#2f6f73",
+        "selection_text": "#ffffff",
+        "dirty": "#fff9c4",
+        "unknown_name": "#ff0000",
     },
     "graphite": {
         "name": "Graphite",
-        "window": "#1f242b",
-        "panel": "#252b33",
-        "base": "#2b323b",
-        "alternate": "#303944",
-        "text": "#e6eaee",
-        "muted": "#a9b2bd",
-        "border": "#46515e",
-        "header": "#303741",
-        "button": "#333b46",
-        "button_hover": "#3d4652",
-        "button_pressed": "#465362",
-        "accent": "#7aa2b8",
-        "accent_soft": "#354c5a",
-        "accent_text": "#10161c",
-        "good": "#77c8a3",
-        "bad": "#df8f92",
+        "window": "#22272e",
+        "panel": "#22272e",
+        "base": "#1c2128",
+        "alternate": "#252b33",
+        "text": "#c9d1d9",
+        "muted": "#8b949e",
+        "border": "#444c56",
+        "header": "#2a3038",
+        "button": "#2d333b",
+        "button_hover": "#373e47",
+        "button_pressed": "#444c56",
+        "accent": "#539bf5",
+        "accent_soft": "#2c4a72",
+        "accent_text": "#1c2128",
+        "good": "#6bc46d",
+        "bad": "#f47067",
+        "selection": "#2c4a72",
+        "selection_text": "#f0f6fc",
+        "dirty": "#3a3220",
+        "unknown_name": "#f47067",
     },
 }
 
@@ -48,6 +57,17 @@ def apply_theme(app, theme_name: str = "mist"):
     app.setFont(_compact_font(app.font()))
     app.setPalette(_build_palette(colors))
     app.setStyleSheet(_build_stylesheet(colors))
+
+
+def current_colors() -> dict:
+    """지금 앱 테마의 색 dict. 모델의 data() 가 부르므로 dict 조회만 한다.
+
+    `apply_theme` 가 남긴 앱 속성 `themeName` 으로 고른다. 앱이 없거나, 속성이 없거나, 모르는
+    이름이면 mist 다(`apply_theme` 의 기본값과 같다).
+    """
+    app = QApplication.instance()
+    name = app.property("themeName") if app is not None else None
+    return THEMES.get(name, THEMES["mist"])
 
 
 def _compact_font(font: QFont) -> QFont:
@@ -71,8 +91,8 @@ def _build_palette(colors: dict) -> QPalette:
     palette.setColor(QPalette.ButtonText, QColor(colors["text"]))
     palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(colors["muted"]))
     palette.setColor(QPalette.Link, QColor(colors["accent"]))
-    palette.setColor(QPalette.Highlight, QColor(colors["accent"]))
-    palette.setColor(QPalette.HighlightedText, QColor(colors["accent_text"]))
+    palette.setColor(QPalette.Highlight, QColor(colors["selection"]))
+    palette.setColor(QPalette.HighlightedText, QColor(colors["selection_text"]))
     palette.setColor(QPalette.Mid, QColor(colors["border"]))
     palette.setColor(QPalette.Dark, QColor(colors["header"]))
     palette.setColor(QPalette.Light, QColor(colors["panel"]))
@@ -84,8 +104,8 @@ def _build_stylesheet(colors: dict) -> str:
     return f"""
         QWidget {{
             color: {colors["text"]};
-            selection-background-color: {colors["accent"]};
-            selection-color: {colors["accent_text"]};
+            selection-background-color: {colors["selection"]};
+            selection-color: {colors["selection_text"]};
         }}
 
         QMainWindow,
