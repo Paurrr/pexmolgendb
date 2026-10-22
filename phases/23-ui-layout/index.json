@@ -1,0 +1,11 @@
+{
+  "project": "genviewer",
+  "phase": "23-ui-layout",
+  "steps": [
+    { "step": 0, "name": "edit-dialog-title", "status": "pending" },
+    { "step": 1, "name": "virtuoso-toolbar", "status": "pending" },
+    { "step": 2, "name": "db-status", "status": "pending" },
+    { "step": 3, "name": "remove-process-confirm", "status": "pending" },
+    { "step": 4, "name": "menus", "status": "pending" }
+  ]
+}

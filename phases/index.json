@@ -93,6 +93,10 @@
     {
       "dir": "22-dark-theme",
       "status": "pending"
+    },
+    {
+      "dir": "23-ui-layout",
+      "status": "pending"
     }
   ]
 }
