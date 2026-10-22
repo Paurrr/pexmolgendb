@@ -1,0 +1,8 @@
+{
+  "project": "genviewer",
+  "phase": "20-combo-autocomplete",
+  "steps": [
+    { "step": 0, "name": "add-window-completer", "status": "pending" },
+    { "step": 1, "name": "load-csv-completer", "status": "pending" }
+  ]
+}
