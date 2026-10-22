@@ -29,7 +29,9 @@
     {
       "step": 3,
       "name": "remove-process-confirm",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-23T00:17:10+0900",
+      "summary": "Remove Process 확인 2회→1회(view 의 Confirm Delete 제거, controller 의 Remove Process 만, controller 는 손대지 않음). views/device_tab_toolbar.py 에서 question·process_label import 제거. QUESTION_MODULES 에서 views.device_tab_toolbar 제거. 고친 테스트: test_remove_gives_the_current_pair_without_asking(옛 test_remove_asks_about_the_current_pair_and_gives_it, shown == []), test_the_minus_button_confirms_and_removes_the_current_pair(answer_question(True) 한 번, 질문은 Remove Process 하나·'sf2p V2' device 1개), test_the_minus_button_question_without_a_release_is_the_old_one(아니오 → Remove Process 하나·'sf2p' device 2개, delete 없음, 쌍 그대로). 수정 전 코드에서 셋 다 failed. 변이: view 에 Confirm Delete 질문을 손으로 되살리면 4 failed(고친 3개 + test_every_dialogs_import_is_patched), 되돌리면 100 passed. DB 테스트: 1239 passed / 10 skipped(GENDB_TEST_PG_DSN 붙임, 1240/10 에서 QUESTION_MODULES 매개 test_question_answers_in_queue_order 1개 줄어듦), tests/gui 774 passed, ruff 통과"
     },
     {
       "step": 4,

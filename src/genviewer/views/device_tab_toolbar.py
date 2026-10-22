@@ -13,8 +13,6 @@ from PySide6.QtWidgets import (
 # 빈 버전 "" 의 표시 글자. 값이 아니다. 버전은 글자가 아니라 index 로 _releases 에서 읽는다.
 # 추가 창도 이 글자를 버전 이름으로 받지 않아야 해서 그쪽에 둔다.
 from genviewer.dialogs.add_process import NO_RELEASE_TEXT, AddProcessDialog
-from genviewer.service.repo.audit import process_label
-from genviewer.utils.dialogs import question
 
 
 class DeviceTabToolBar(QWidget):
@@ -168,15 +166,11 @@ class DeviceTabToolBar(QWidget):
 
     @Slot()
     def open_remove_process_dialog(self):
+        # 묻지 않는다. 확인은 controller 의 Remove Process 질문 하나다(device 수를 알려 준다).
         name, release = self.current_pair()
         if not name:
             return
-        if question(
-            self,
-            "Confirm Delete",
-            f"Are you sure you want to delete the process:\n'{process_label(name, release)}'?",
-        ):
-            self.removeProcessRequested.emit(name, release)
+        self.removeProcessRequested.emit(name, release)
 
     @Slot()
     def open_add_library_dialog(self):

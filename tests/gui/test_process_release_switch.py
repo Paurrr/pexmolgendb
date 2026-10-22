@@ -489,30 +489,45 @@ def test_the_minus_button_confirms_and_removes_the_current_pair(
 ):
     ctrl = device_tab_ctrl
     open_v2(ctrl, store, qtbot)
-    dialogs.answer_question(True, True)  # Confirm Delete, Remove Process
+    dialogs.answer_question(True)  # Remove Process 하나만 묻는다
 
     toolbar(ctrl).remove_process_btn.click()
 
     qtbot.waitUntil(lambda: device_names(ctrl) == ["nfet_a", "nfet_b"])
-    assert dialogs.shown[0] == (
-        "question",
-        "Confirm Delete",
-        "Are you sure you want to delete the process:\n'sf2p V2'?",
-    )
+    assert [shown for shown in dialogs.shown if shown[0] == "question"] == [
+        (
+            "question",
+            "Remove Process",
+            "Process 'sf2p V2' 을(를) 삭제하면 device 1개와 그 파라미터가\n"
+            "모두 함께 삭제됩니다. 계속할까요?",
+        )
+    ]
     (call,) = store.calls_of("delete")
     assert (call["name"], call["release"]) == ("sf2p", V2)
     assert toolbar(ctrl).pairs() == [("sf2p", ""), ("sf4u", "")]
 
 
-def test_the_minus_button_question_without_a_release_is_the_old_one(device_tab_ctrl, dialogs):
+def test_the_minus_button_question_without_a_release_is_the_old_one(
+    device_tab_ctrl, store, dialogs, qtbot
+):
     ctrl = device_tab_ctrl
+    before = current(ctrl)
     dialogs.answer_question(False)
 
     toolbar(ctrl).remove_process_btn.click()
 
+    # 질문 전에 exists·count_devices 를 부른다.
+    qtbot.waitUntil(lambda: dialogs.shown != [])
     assert dialogs.shown == [
-        ("question", "Confirm Delete", "Are you sure you want to delete the process:\n'sf2p'?")
+        (
+            "question",
+            "Remove Process",
+            "Process 'sf2p' 을(를) 삭제하면 device 2개와 그 파라미터가\n"
+            "모두 함께 삭제됩니다. 계속할까요?",
+        )
     ]
+    assert store.calls_of("delete") == []
+    assert current(ctrl) == before
 
 
 # -- 변경 감지 ------------------------------------------------------------------------

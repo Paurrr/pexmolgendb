@@ -33,7 +33,6 @@ QUESTION_MODULES: tuple[str, ...] = (
     "genviewer.controllers.device_tab_toolbar",
     "genviewer.controllers.main_window",
     "genviewer.views.device_table",
-    "genviewer.views.device_tab_toolbar",
     "genviewer.views.tab_section",
 )
 # info / warning / error / critical 을 묶은 모듈.

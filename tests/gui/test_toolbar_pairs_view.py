@@ -275,18 +275,16 @@ def test_the_old_process_api_is_gone(view):
         assert not hasattr(view, name), name
 
 
-def test_remove_asks_about_the_current_pair_and_gives_it(view, dialogs):
+def test_remove_gives_the_current_pair_without_asking(view, dialogs):
+    # 확인은 controller 의 Remove Process 질문 하나다(device 수를 알려 준다).
     got: list[tuple[str, str]] = []
     view.removeProcessRequested.connect(lambda name, release: got.append((name, release)))
     view.set_pairs(PAIRS)
     view.select_pair("sf2p", "V1")
-    dialogs.answer_question(True)
 
     view.open_remove_process_dialog()
 
-    assert dialogs.shown == [
-        ("question", "Confirm Delete", "Are you sure you want to delete the process:\n'sf2p V1'?")
-    ]
+    assert dialogs.shown == []
     assert got == [("sf2p", "V1")]
 
 
