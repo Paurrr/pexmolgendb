@@ -6,6 +6,8 @@
 """
 
 import pytest
+from gui_support.keys import type_into
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit
 
 from genviewer.dialogs.add_process import AddProcessDialog
@@ -180,3 +182,54 @@ def test_ok_accepts_only_when_enabled(dialog):
 
     assert accepted == [True]
     assert dialog.result() == QDialog.Accepted
+
+
+# K56: 편집 가능한 콤보에 Qt 가 붙이는 기본 completer(대소문자 무시, inline 완성)가 친 글자를
+# 앞부분이 같은 기존 이름으로 바꿨다. `fill` 의 `setEditText` 는 completer 를 거치지 않으므로
+# 아래는 포커스를 가진 칸에 실제로 키를 친다(`type_into`). 모달 `exec` 없이 `show` 로 재현된다.
+TYPED_PAIRS = [("sf2p", ""), ("sf4u", "")]
+
+
+@pytest.fixture
+def typed_dialog(qtbot) -> AddProcessDialog:
+    dlg = AddProcessDialog(TYPED_PAIRS, ("sf2p", ""))
+    qtbot.addWidget(dlg)
+    dlg.release_edit.setText("V9")
+    return dlg
+
+
+def test_typing_a_prefix_of_an_existing_name_keeps_what_was_typed(qtbot, typed_dialog):
+    line_edit = typed_dialog.name_box.lineEdit()
+
+    type_into(qtbot, line_edit, "sf2")
+
+    assert line_edit.text() == "sf2"
+    assert typed_dialog.values() == ("sf2", "V9", None)
+    assert ok_enabled(typed_dialog)
+
+
+def test_enter_on_a_name_differing_only_in_case_keeps_the_case(qtbot, typed_dialog):
+    line_edit = typed_dialog.name_box.lineEdit()
+
+    type_into(qtbot, line_edit, "SF4U")
+    qtbot.keyClick(line_edit, Qt.Key_Return)
+
+    # Enter 가 OK(기본 버튼)를 누른다.
+    assert typed_dialog.result() == QDialog.Accepted
+    assert typed_dialog.values() == ("SF4U", "V9", None)
+
+
+def test_enter_on_an_existing_name_typed_exactly_gives_that_name(qtbot, typed_dialog):
+    line_edit = typed_dialog.name_box.lineEdit()
+
+    type_into(qtbot, line_edit, "sf4u")
+    qtbot.keyClick(line_edit, Qt.Key_Return)
+
+    assert typed_dialog.result() == QDialog.Accepted
+    assert typed_dialog.values() == ("sf4u", "V9", None)
+
+
+def test_choosing_from_the_list_still_gives_that_name(typed_dialog):
+    typed_dialog.name_box.setCurrentIndex(1)
+
+    assert typed_dialog.values()[0] == "sf4u"

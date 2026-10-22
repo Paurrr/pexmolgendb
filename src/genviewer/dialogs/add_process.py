@@ -35,6 +35,8 @@ class AddProcessDialog(QDialog):
 
         self.name_box = QComboBox()
         self.name_box.setEditable(True)
+        # 기본 completer(대소문자 무시 inline 완성)가 친 이름을 기존 이름으로 바꾼다(K56).
+        self.name_box.setCompleter(None)
         self.name_box.addItems(list(dict.fromkeys(n for n, _ in self._pairs)))
         self.name_box.setCurrentIndex(self.name_box.findText(current[0]))
 
