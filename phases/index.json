@@ -87,7 +87,8 @@
     },
     {
       "dir": "21-toolbar-min-width",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-10-22T18:27:02+0900"
     }
   ]
 }
