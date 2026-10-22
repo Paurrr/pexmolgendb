@@ -1,0 +1,7 @@
+{
+  "project": "genviewer",
+  "phase": "21-toolbar-min-width",
+  "steps": [
+    { "step": 0, "name": "toolbar-min-width", "status": "pending" }
+  ]
+}
