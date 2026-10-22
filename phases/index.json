@@ -89,6 +89,10 @@
       "dir": "21-toolbar-min-width",
       "status": "completed",
       "completed_at": "2026-10-22T18:27:02+0900"
+    },
+    {
+      "dir": "22-dark-theme",
+      "status": "pending"
     }
   ]
 }

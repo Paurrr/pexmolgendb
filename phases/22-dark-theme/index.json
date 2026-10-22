@@ -1,0 +1,8 @@
+{
+  "project": "genviewer",
+  "phase": "22-dark-theme",
+  "steps": [
+    { "step": 0, "name": "graphite-palette", "status": "pending" },
+    { "step": 1, "name": "device-name-color", "status": "pending" }
+  ]
+}
