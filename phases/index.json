@@ -97,7 +97,8 @@
     },
     {
       "dir": "23-ui-layout",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-10-23T00:35:04+0900"
     },
     {
       "dir": "24-english-text",
