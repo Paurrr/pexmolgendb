@@ -7,7 +7,8 @@
       "name": "edit-dialog-title",
       "status": "completed",
       "started_at": "2026-10-22T23:42:26+0900",
-      "summary": "device 표 Edit 창 제목 Insert→Edit(views/device_table.open_edit_dialog 에 prefill=·window_title=\"Edit\" 키워드). tests/gui/test_device_edit_dialog.py. RED: test_device_edit_dialog_is_titled_edit: AssertionError: assert 'Insert' == 'Edit' (Windows, insert 테스트는 수정 전에도 통과). 변이: window_title 을 손으로 빼면 같은 단언으로 1 failed, 되살리면 2 passed. DB 테스트: 1224 passed / 10 skipped(GENDB_TEST_PG_DSN 붙임, 기준선 1222/10 + 2), tests/gui 759 passed, ruff 통과"
+      "summary": "device 표 Edit 창 제목 Insert→Edit(views/device_table.open_edit_dialog 에 prefill=·window_title=\"Edit\" 키워드). tests/gui/test_device_edit_dialog.py. RED: test_device_edit_dialog_is_titled_edit: AssertionError: assert 'Insert' == 'Edit' (Windows, insert 테스트는 수정 전에도 통과). 변이: window_title 을 손으로 빼면 같은 단언으로 1 failed, 되살리면 2 passed. DB 테스트: 1224 passed / 10 skipped(GENDB_TEST_PG_DSN 붙임, 기준선 1222/10 + 2), tests/gui 759 passed, ruff 통과",
+      "completed_at": "2026-10-22T23:50:47+0900"
     },
     {
       "step": 1,
