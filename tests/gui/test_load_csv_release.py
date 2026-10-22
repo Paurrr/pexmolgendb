@@ -8,9 +8,17 @@ CSV 형식은 그대로다(버전 컬럼 없음). 파일을 고른 뒤 `DeviceTa
 
 import pytest
 from gui_support.helpers import select_process
-from PySide6.QtWidgets import QInputDialog
+from gui_support.keys import type_into
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QInputDialog
 
 import genviewer.views.device_tab as device_tab_view
+from genviewer.views.device_tab import DeviceTab
+
+# 진짜 모달 테스트(K56)가 되돌려 쓰는 진짜 함수. autouse dialogs fixture 가 테스트마다 둘을
+# 막으므로 모듈 import(수집) 때 잡아 둔다.
+REAL_GET_ITEM = QInputDialog.getItem
+REAL_DIALOG_EXEC = QDialog.exec
 
 CSV_TEXT = "CellType,CdsLibName,InstCellName,InstTerm\nNFET,sf2p,nfet_c,DRN d\n"
 LOAD_CSV_NOTICE = (
@@ -190,18 +198,30 @@ def three_releases(device_tab_ctrl, store, qtbot):
     return ctrl
 
 
-def answer_get_item(monkeypatch, answer: tuple[str, bool]) -> list[tuple]:
-    """QInputDialog.getItem 대신 answer 를 돌려준다. 받은 인자를 기록해 돌려준다.
+def answer_exec(monkeypatch, text: str, accept: bool = True) -> list[dict]:
+    """QInputDialog.exec 대신 창에 text 를 넣고 OK(accept) 또는 취소로 돌아온다.
 
-    autouse dialogs fixture 가 막아 둔 것을 이 테스트 안에서 바꾼다(뒤에 바꾼 것이 이긴다).
+    창이 뜰 때 본 것(부모, 제목, 라벨, 후보, 처음 글자, 편집 가능, 콤보 completer)을 기록해
+    돌려준다. autouse dialogs fixture 가 QDialog.exec 를 막아 둔 것을 QInputDialog 에서 이긴다.
     """
-    asked: list[tuple] = []
+    asked: list[dict] = []
 
-    def fake(*args, **kwargs):
-        asked.append((args, kwargs))
-        return answer
+    def fake(dialog, *_args):
+        asked.append(
+            {
+                "parent": dialog.parentWidget(),
+                "title": dialog.windowTitle(),
+                "label": dialog.labelText(),
+                "items": dialog.comboBoxItems(),
+                "text": dialog.textValue(),
+                "editable": dialog.isComboBoxEditable(),
+                "completer": dialog.findChild(QComboBox).completer(),
+            }
+        )
+        dialog.setTextValue(text)
+        return QDialog.Accepted if accept else QDialog.Rejected
 
-    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(fake))
+    monkeypatch.setattr(QInputDialog, "exec", fake)
     return asked
 
 
@@ -209,20 +229,22 @@ def test_the_release_question_lists_each_release_once_with_no_release_first(
     three_releases, store, monkeypatch
 ):
     ctrl = three_releases
-    asked = answer_get_item(monkeypatch, ("V1", True))
+    asked = answer_exec(monkeypatch, "V1")
     since = len(store.calls)
 
     assert ctrl.ui._ask_release() == "V1"
 
-    ((args, kwargs),) = asked
-    assert args == (
-        ctrl.ui,
-        "Load CSV",
-        "불러올 버전 (비우면 버전 없음):",
-        ["(없음)", "V1", "V2"],
-        1,
-    )
-    assert kwargs == {"editable": True}
+    (seen,) = asked
+    assert seen.pop("parent") is ctrl.ui
+    assert seen == {
+        "title": "Load CSV",
+        "label": "불러올 버전 (비우면 버전 없음):",
+        "items": ["(없음)", "V1", "V2"],
+        "text": "V1",
+        "editable": True,
+        # 기본 completer 가 친 글자를 기존 버전으로 바꾼다(K56).
+        "completer": None,
+    }
     # 목록은 툴바가 들고 있다. 묻는 동안 DB 를 부르지 않는다.
     assert store.calls[since:] == []
 
@@ -234,12 +256,35 @@ def test_the_release_question_starts_on_no_release_when_the_current_pair_has_non
     store.add_process("sf4u", release="V2")
     ctrl.device_tab_toolbar.refresh_processes()
     assert toolbar(ctrl).current_pair() == ("sf2p", "")
-    asked = answer_get_item(monkeypatch, ("(없음)", True))
+    asked = answer_exec(monkeypatch, "(없음)")
 
     assert ctrl.ui._ask_release() == ""
 
-    ((args, _kwargs),) = asked
-    assert args[3:] == (["(없음)", "V2"], 0)
+    (seen,) = asked
+    assert (seen["items"], seen["text"]) == (["(없음)", "V2"], "(없음)")
+
+
+def test_the_release_question_is_asked_even_without_any_pair(qtbot, monkeypatch):
+    view = DeviceTab()
+    qtbot.addWidget(view)
+    view.device_tab_toolbar_view.set_pairs([])
+    asked = answer_exec(monkeypatch, "V1")
+
+    assert view._ask_release() == "V1"
+
+    (seen,) = asked
+    assert (seen["items"], seen["text"]) == ([], "")
+
+
+def test_an_unanswered_release_question_is_blocked_by_the_fixture(qtbot, dialogs):
+    view = DeviceTab()
+    qtbot.addWidget(view)
+    view.device_tab_toolbar_view.set_pairs([("sf2p", "")])
+
+    # 진짜 창이 뜬다. dialogs fixture 가 답하지 않은 exec 를 막는다(정적 getItem 이 아니다).
+    with pytest.raises(AssertionError, match="QInputDialog.exec: 'Load CSV'"):
+        view._ask_release()
+    dialogs.unexpected.clear()
 
 
 @pytest.mark.parametrize(
@@ -268,6 +313,86 @@ def test_the_release_question_starts_on_no_release_when_the_current_pair_has_non
 def test_the_release_answer_is_trimmed_and_no_release_is_empty(
     three_releases, monkeypatch, answer, expected
 ):
-    answer_get_item(monkeypatch, answer)
+    answer_exec(monkeypatch, *answer)
 
     assert three_releases.ui._ask_release() == expected
+
+
+# -- K56: 친 버전을 그대로 받는다 (진짜 모달) ------------------------------------------------
+# 편집 가능한 콤보에 Qt 가 붙이는 기본 completer(대소문자 무시, inline 완성)가 친 글자를 앞부분이
+# 같은 기존 버전으로 바꿨고, Enter 도 대소문자를 무시하고 기존 버전을 골랐다. completer 는 포커스를
+# 가진 칸에서만 돌아서 진짜 모달 안에서 실제로 키를 친다(`type_into`).
+TYPED_PAIRS = [("sf2p", ""), ("sf2p", "S00-V1.0.0.0")]
+
+
+@pytest.fixture
+def typed_view(qtbot, monkeypatch) -> DeviceTab:
+    """툴바 쌍이 TYPED_PAIRS 인 view. 진짜 getItem·exec 를 되돌려 둔다(fixture 의 가짜를 이긴다)."""
+    for real in (REAL_GET_ITEM, REAL_DIALOG_EXEC):
+        assert getattr(real, "__module__", None) != "gui_support.dialogs"
+    monkeypatch.setattr(QInputDialog, "getItem", REAL_GET_ITEM)
+    monkeypatch.setattr(QDialog, "exec", REAL_DIALOG_EXEC)
+    view = DeviceTab()
+    qtbot.addWidget(view)
+    view.device_tab_toolbar_view.set_pairs(TYPED_PAIRS)
+    return view
+
+
+def visible_input_dialog(view) -> QInputDialog | None:
+    found = [d for d in view.findChildren(QInputDialog) if d.isVisible()]
+    return found[0] if found else None
+
+
+def ask_release_typing(qtbot, view, text: str, *, enter: bool = False) -> tuple[str | None, bool]:
+    """진짜 모달로 `_ask_release` 를 부르고 뜬 창의 콤보에 text 를 친다. enter 면 Enter 를 누른다.
+
+    (돌려받은 버전, 키가 창을 닫았는지)를 돌려준다. 치기는 모달 루프 안(`drive`)에서 돈다. drive 는
+    단언하지 않고 예외를 기록만 한다. 떠 있는 모달은 finally 에서 반드시 닫는다(OK). 닫지 않으면
+    테스트가 멈춘다. drive 의 예외는 `_ask_release` 가 돌아온 뒤 다시 낸다.
+    """
+    errors: list[BaseException] = []
+    closed_by_keys: list[bool] = []
+
+    def drive():
+        dialog = None
+        try:
+            qtbot.waitUntil(lambda: visible_input_dialog(view) is not None)
+            dialog = visible_input_dialog(view)
+            line_edit = dialog.findChild(QComboBox).lineEdit()
+            type_into(qtbot, line_edit, text)
+            if enter:
+                qtbot.keyClick(line_edit, Qt.Key_Return)
+            closed_by_keys.append(not dialog.isVisible())
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            modal = dialog or QApplication.activeModalWidget()
+            if isinstance(modal, QDialog) and modal.isVisible():
+                modal.accept()
+
+    QTimer.singleShot(0, view, drive)
+    answer = view._ask_release()
+    if errors:
+        raise errors[0]
+    return answer, closed_by_keys == [True]
+
+
+def test_typing_a_prefix_of_an_existing_release_keeps_what_was_typed(qtbot, typed_view):
+    answer, _closed = ask_release_typing(qtbot, typed_view, "S00-V1.0")
+
+    assert answer == "S00-V1.0"
+
+
+def test_enter_on_a_release_differing_only_in_case_keeps_the_case(qtbot, typed_view):
+    answer, closed = ask_release_typing(qtbot, typed_view, "s00-v1.0.0.0", enter=True)
+
+    assert answer == "s00-v1.0.0.0"
+    # Enter 가 OK(기본 버튼)를 누른다.
+    assert closed
+
+
+def test_enter_on_an_existing_release_typed_exactly_gives_that_release(qtbot, typed_view):
+    answer, closed = ask_release_typing(qtbot, typed_view, "S00-V1.0.0.0", enter=True)
+
+    assert answer == "S00-V1.0.0.0"
+    assert closed

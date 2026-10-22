@@ -1,5 +1,7 @@
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QInputDialog,
@@ -160,15 +162,20 @@ class DeviceTab(QWidget):
         releases = sorted({release for _name, release in toolbar.pairs()})
         current = toolbar.current_pair()[1]
         items = [release or NO_RELEASE_TEXT for release in releases]
-        text, ok = QInputDialog.getItem(
-            self,
-            "Load CSV",
-            "불러올 버전 (비우면 버전 없음):",
-            items,
-            releases.index(current) if current in releases else 0,
-            editable=True,
-        )
-        if not ok:
-            return None
-        release = (text or "").strip()
+        start = releases.index(current) if current in releases else 0
+        # 정적 getItem 과 같은 순서로 채운다. 항목이 없으면 처음 글자는 "" 다(Qt 의 items.value).
+        dialog = QInputDialog(self)
+        try:
+            dialog.setWindowTitle("Load CSV")
+            dialog.setLabelText("불러올 버전 (비우면 버전 없음):")
+            dialog.setComboBoxItems(items)
+            dialog.setTextValue(items[start] if items else "")
+            dialog.setComboBoxEditable(True)
+            # 기본 completer(대소문자 무시 inline 완성)가 친 버전을 기존 버전으로 바꾼다(K56).
+            dialog.findChild(QComboBox).setCompleter(None)
+            if dialog.exec() != QDialog.Accepted:
+                return None
+            release = dialog.textValue().strip()
+        finally:
+            dialog.deleteLater()
         return "" if release == NO_RELEASE_TEXT else release

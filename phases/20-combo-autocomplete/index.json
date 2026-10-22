@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "load-csv-completer",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-22T13:40:29+0900",
+      "summary": "_ask_release 가 QInputDialog(self) 인스턴스(getItem 과 같은 순서로 채움, 항목 없으면 처음 글자 '')의 콤보 completer 를 끄고 exec. RED(진짜 모달, Windows): test_typing_a_prefix_of_an_existing_release_keeps_what_was_typed: assert 'S00-V1.0.0.0' == 'S00-V1.0', test_enter_on_a_release_differing_only_in_case_keeps_the_case: assert 'S00-V1.0.0.0' == 's00-v1.0.0.0' (회귀 test_enter_on_an_existing_release_typed_exactly_gives_that_release 는 수정 전에도 통과). 옮긴 테스트: getItem 대역 answer_get_item → QInputDialog.exec 대역 answer_exec (test_the_release_question_lists_each_release_once_with_no_release_first 가 부모·제목·라벨·후보·처음 글자 V1·편집 가능·completer None·DB 호출 없음, test_the_release_question_starts_on_no_release_when_the_current_pair_has_none, test_the_release_answer_is_trimmed_and_no_release_is_empty 8개; 수정 전에는 fixture 의 QInputDialog.getItem 막기로 실패, 버그 RED 아님). 새: test_the_release_question_is_asked_even_without_any_pair(후보 [], 처음 글자 ''), test_an_unanswered_release_question_is_blocked_by_the_fixture(QInputDialog.exec: 'Load CSV'). 변이: setCompleter(None) 줄을 지우면 진짜 모달 RED 둘이 같은 단언으로, 대역 테스트가 completer QCompleter != None 으로 실패; 처음 글자를 items[0] 으로 바꾸면 처음 자리 테스트가 '(없음)' != 'V1', 쌍 없음 테스트가 IndexError 로 실패. 둘 다 되돌림. AC: 대상 74 passed, tests/gui 738 passed, ruff 통과, 전체 DB 없이 972 passed / 241 skipped, DB 테스트: 1203 passed / 10 skipped",
+      "completed_at": "2026-10-22T13:52:15+0900"
     }
   ],
   "created_at": "2026-10-22T13:32:05+0900"
