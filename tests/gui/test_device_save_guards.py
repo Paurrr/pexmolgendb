@@ -366,7 +366,7 @@ def test_another_users_save_between_paste_and_tab_write_is_a_conflict(
     [new_id] = new_device_ids(store, before)
     bob_saved_at = store.devices[new_id]["updated_at"]
     assert [s for s in dialogs.shown if s[0] == "conflict"] == [
-        ("conflict", "Save Conflict", f"nfet_b: bob 님이 수정 ({bob_saved_at:%Y-%m-%d %H:%M})")
+        ("conflict", "Save Conflict", f"nfet_b: modified by bob ({bob_saved_at:%Y-%m-%d %H:%M})")
     ]
     # 취소했으므로 붙여넣은 탭 행은 쓰이지 않았고 bob 의 저장이 그대로다
     assert store.rows("inst_terms", new_id) == []
@@ -393,7 +393,7 @@ def test_a_stale_tab_write_after_paste_asks_and_cancel_keeps_the_pasted_rows_dir
 
     [new_id] = new_device_ids(store, before)
     assert [s for s in dialogs.shown if s[0] == "conflict"] == [
-        ("conflict", "Save Conflict", "nfet_b: bob 님이 수정")
+        ("conflict", "Save Conflict", "nfet_b: modified by bob")
     ]
     assert [s for s in dialogs.shown if s[0] == "error"] == []
     # device 행은 저장됐고 목록을 다시 읽었다. 탭 행은 쓰이지 않고 dirty 로 남았다

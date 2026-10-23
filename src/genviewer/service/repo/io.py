@@ -91,7 +91,7 @@ class IORepository:
         release = release.strip()
         data_path = Path(input_path)
         if not data_path.is_file():
-            raise FileNotFoundError(f"CSV 파일이 없다: {data_path}")
+            raise FileNotFoundError(f"CSV file not found: {data_path}")
 
         # dtype=str: 숫자로 보이는 컬럼이 int64 로 추론되면 셀을 문자열로
         # 다룰 수 없어 통째로 버려졌다.

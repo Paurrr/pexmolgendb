@@ -360,7 +360,7 @@ def test_clone_of_an_empty_process_makes_the_pair_with_no_devices(backend):
 
 @pytest.mark.parametrize(
     "src_release,message",
-    [("V1", "원본 process 가 없다: sf2p V1"), ("", "원본 process 가 없다: sf2p")],
+    [("V1", "Source process not found: sf2p V1"), ("", "Source process not found: sf2p")],
     ids=["V1", "no-release"],
 )
 def test_clone_of_a_missing_source_raises_and_makes_nothing(backend, src_release, message):

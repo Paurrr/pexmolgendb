@@ -95,12 +95,12 @@ def test_only_the_first_equals_splits():
 
 def test_a_line_without_equals_is_reported():
     """조용히 넘기면 '왜 이 값이 안 먹지' 로 시간을 버린다."""
-    with pytest.raises(ValueError, match="2행"):
+    with pytest.raises(ValueError, match="Line 2"):
         env_file.parse("PGHOST=h\n그냥 글자\n")
 
 
 def test_a_bad_key_is_reported():
-    with pytest.raises(ValueError, match="키 이름"):
+    with pytest.raises(ValueError, match="key name"):
         env_file.parse("PG HOST=h\n")
 
 
@@ -187,7 +187,7 @@ def test_an_empty_file_is_skipped(site):
 def test_a_broken_file_names_itself(site):
     path = write(site["install"] / env_file.SITE_NAME, "PGHOST=h\n쓰레기\n")
 
-    with pytest.raises(RuntimeError, match="쓰레기|행"):
+    with pytest.raises(RuntimeError, match="쓰레기|Line"):
         env_file.load()
     assert path.is_file()
 

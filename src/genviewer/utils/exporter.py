@@ -68,7 +68,7 @@ def write_xlsx(path: str, headers: list[str], rows: list[list[str]]) -> None:
     try:
         from openpyxl import Workbook
     except ImportError as e:
-        raise RuntimeError("xlsx 로 쓰려면 openpyxl 이 필요하다.") from e
+        raise RuntimeError("Writing xlsx needs openpyxl.") from e
 
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)

@@ -200,7 +200,7 @@ class ProcessRepository:
                 ).fetchone()
                 if src is None:
                     raise LookupError(
-                        f"원본 process 가 없다: {audit.process_label(src_name, src_release)}"
+                        f"Source process not found: {audit.process_label(src_name, src_release)}"
                     )
                 # ON CONFLICT 를 쓰지 않는다. REPEATABLE READ 에서 동시 생성과 부딪히면 40001 이
                 # 날 수 있다. 평범한 INSERT 의 UniqueViolation 은 add 와 같은 길이다.

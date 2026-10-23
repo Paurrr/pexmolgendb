@@ -499,7 +499,7 @@ class FakeProcessRepository:
         store = self.db.store
         src = store._process_id(src_name, src_release)
         if src is None:
-            raise LookupError(f"원본 process 가 없다: {process_label(src_name, src_release)}")
+            raise LookupError(f"Source process not found: {process_label(src_name, src_release)}")
         if store._process_id(name, release) is not None:
             return None
         now = store._tick()
@@ -717,7 +717,7 @@ class FakeIORepository:
         release = release.strip()
         data_path = Path(input_path)
         if not data_path.is_file():
-            raise FileNotFoundError(f"CSV 파일이 없다: {data_path}")
+            raise FileNotFoundError(f"CSV file not found: {data_path}")
 
         df = pd.read_csv(data_path, dtype=str, keep_default_na=False)
 

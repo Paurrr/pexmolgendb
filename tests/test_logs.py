@@ -244,11 +244,11 @@ class _FakePgError(Exception):
 @pytest.mark.parametrize(
     "sqlstate,expected",
     [
-        ("57014", "오래 걸려"),  # statement_timeout - pool.py 가 일부러 건다
-        ("55P03", "다른 사용자"),  # lock_timeout - 위와 같다
+        ("57014", "took too long"),  # statement_timeout - pool.py 가 일부러 건다
+        ("55P03", "Another user"),  # lock_timeout - 위와 같다
         ("42P01", "genviewer-init-db"),
-        ("42501", "권한"),
-        ("23505", "이미 있다"),
+        ("42501", "permission"),
+        ("23505", "already exists"),
     ],
 )
 def test_user_message_explains_known_sqlstates(sqlstate, expected):
@@ -267,4 +267,4 @@ def test_user_message_never_returns_empty():
 
 
 def test_user_message_handles_db_unavailable():
-    assert "접속" in user_message(DbUnavailableError("서버가 응답하지 않는다"))
+    assert "Cannot connect" in user_message(DbUnavailableError("서버가 응답하지 않는다"))

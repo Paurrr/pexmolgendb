@@ -67,7 +67,7 @@ def test_closed_port_raises_db_unavailable(closed_port_db):
             pass
 
     assert isinstance(info.value.__cause__, psycopg.OperationalError)
-    assert "접속할 수 없다" in user_message(info.value)
+    assert "Cannot connect to the database" in user_message(info.value)
 
 
 def test_operational_error_in_body_keeps_its_type(fake_db):

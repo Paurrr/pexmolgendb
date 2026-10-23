@@ -72,10 +72,10 @@ def parse(text: str) -> dict[str, str]:
 
         key, sep, value = line.partition("=")
         if not sep:
-            raise ValueError(f"{lineno}행: KEY=VALUE 형식이 아니다: {line!r}")
+            raise ValueError(f"Line {lineno}: not in KEY=VALUE form: {line!r}")
         key = key.strip()
         if not _KEY.fullmatch(key):
-            raise ValueError(f"{lineno}행: 키 이름으로 쓸 수 없다: {key!r}")
+            raise ValueError(f"Line {lineno}: not a valid key name: {key!r}")
         values[key] = _unquote(value.strip())
     return values
 
@@ -151,7 +151,7 @@ def check_permissions(path: Path, values: dict[str, str]) -> None:
         return
     if path.stat().st_mode & stat.S_IROTH:
         raise RuntimeError(
-            f"{path} 에 비밀번호가 있는데 모두가 읽을 수 있다.\n"
+            f"{path} has a password but everyone can read it.\n"
             f"  chmod 640 {path}"
         )
 
@@ -176,11 +176,11 @@ def load(explicit: str = "") -> tuple[Path | None, list[Path]]:
         try:
             text = path.read_text(encoding="utf-8-sig")
         except OSError as e:
-            raise RuntimeError(f"설정 파일을 읽을 수 없다: {path}\n  {e}") from e
+            raise RuntimeError(f"Cannot read the config file: {path}\n  {e}") from e
         except UnicodeDecodeError as e:
             # 한국어 윈도우에서 메모장이 cp949 로 저장한 경우가 대부분이다.
             raise RuntimeError(
-                f"설정 파일이 UTF-8 이 아니다: {path}\n  {e}"
+                f"The config file is not UTF-8: {path}\n  {e}"
             ) from e
 
         try:

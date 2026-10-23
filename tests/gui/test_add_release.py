@@ -378,7 +378,7 @@ def test_answering_no_makes_the_pair_drops_the_edits_and_asks_once(
     [
         (None, "add", RuntimeError("add broke")),
         (("sf2p", ""), "clone", RuntimeError("clone broke")),
-        (("sf2p", ""), "clone", LookupError("원본 process 가 없다: sf2p")),
+        (("sf2p", ""), "clone", LookupError("Source process not found: sf2p")),
     ],
     ids=["add", "clone", "missing-source"],
 )
@@ -411,8 +411,9 @@ def test_a_missing_source_reports_and_makes_nothing(device_tab_ctrl, store, dial
     ctrl.device_tab_toolbar.add_process("sf2p", V2, ("sf9q", "V1"))
 
     assert pid(store, "sf2p", V2) is None
+    missing = LookupError("Source process not found: sf9q V1")
     assert notices(dialogs, "Process Add Failed") == [
-        ("error", "Process Add Failed", user_message(LookupError("원본 process 가 없다: sf9q V1")))
+        ("error", "Process Add Failed", user_message(missing))
     ]
     assert toolbar(ctrl).current_pair() == ("sf2p", "")
 

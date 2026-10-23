@@ -72,9 +72,9 @@ def resolve_dsn(dsn_override: str = "") -> str:
     # 없고, 그게 다음 질문이 된다.
     places = "\n".join(f"  {p}" for p in searched)
     raise RuntimeError(
-        f"접속 정보가 없다. --dsn, {DSN_ENV} 환경변수, Connect 다이얼로그, "
-        f"또는 아래 중 한 곳에 {env_file.SITE_NAME} 을 둘 것"
-        f"({CONFIG_ENV} 로 파일을 직접 가리킬 수도 있다):\n"
+        f"No connection settings. Use --dsn, the {DSN_ENV} environment variable, "
+        f"the Connect dialog, or put {env_file.SITE_NAME} in one of the places below"
+        f" ({CONFIG_ENV} can also point to the file directly):\n"
         f"{places}"
     )
 

@@ -4,7 +4,7 @@ psycopg 예외를 그대로 UI 까지 올리지 않는다. 사용자가 실제�
 두 가지 상황 — 남이 먼저 고쳤다, 서버에 못 붙었다 — 은 전용 예외로 구분한다.
 
 나머지는 어차피 psycopg 예외 그대로 올라온다. 그것을 트레이스백으로 보여주는
-대신 user_message() 가 한 줄짜리 한국어로 바꾼다.
+대신 user_message() 가 한 줄짜리 영어 문장으로 바꾼다(ADR-020).
 """
 
 from dataclasses import dataclass
@@ -24,11 +24,11 @@ class Conflict:
     updated_at: datetime | None = None
 
     def describe(self) -> str:
-        who = self.updated_by or "다른 사용자"
+        who = self.updated_by or "another user"
         when = self.updated_at.strftime("%Y-%m-%d %H:%M") if self.updated_at else ""
-        verb = {"stale": "수정", "deleted": "삭제"}.get(self.reason, "변경")
+        verb = {"stale": "modified", "deleted": "deleted"}.get(self.reason, "changed")
         tail = f" ({when})" if when else ""
-        return f"{self.device_name or self.device_id}: {who} 님이 {verb}{tail}"
+        return f"{self.device_name or self.device_id}: {verb} by {who}{tail}"
 
 
 class StaleWriteError(Exception):
@@ -50,24 +50,24 @@ class DbUnavailableError(Exception):
 # 정상적으로 나오는 결과다. 지금까지 이 둘은 아무 데서도 다뤄지지 않아 그대로
 # 트레이스백이 됐다.
 _BY_SQLSTATE = {
-    "22001": "값이 컬럼에 담을 수 있는 길이보다 길다.",
-    "23502": "비어 있으면 안 되는 값이 비어 있다.",
-    "23503": "다른 자료가 참조하고 있어 지울 수 없다.",
-    "23505": "같은 값이 이미 있다.",
-    "28000": "이 사용자로는 접속할 수 없다.",
-    "28P01": "사용자 이름이나 비밀번호가 맞지 않는다.",
-    "3D000": "데이터베이스가 없다. 접속 설정을 확인할 것.",
-    "40001": "같은 자료를 동시에 고쳤다. 다시 저장할 것.",
-    "40P01": "저장이 서로 맞물렸다. 다시 저장할 것.",
-    "42501": "이 작업을 할 권한이 없다. 관리자에게 문의할 것.",
-    "42P01": "테이블이 없다. genviewer-init-db 를 먼저 실행할 것.",
-    "53300": "서버 접속 수가 한도에 찼다. 잠시 후 다시 시도할 것.",
-    "55P03": "다른 사용자가 저장하는 중이다. 잠시 후 다시 시도할 것.",
-    "57014": "처리가 너무 오래 걸려 서버가 취소했다. 잠시 후 다시 시도할 것.",
-    "57P01": "서버가 연결을 끊었다. 다시 접속할 것.",
+    "22001": "A value is longer than the column allows.",
+    "23502": "A required value is empty.",
+    "23503": "Cannot delete it because other data refers to it.",
+    "23505": "The same value already exists.",
+    "28000": "Cannot connect as this user.",
+    "28P01": "The user name or password is wrong.",
+    "3D000": "The database does not exist. Check the connection settings.",
+    "40001": "The same data was changed at the same time. Save again.",
+    "40P01": "Two saves blocked each other. Save again.",
+    "42501": "You do not have permission for this. Ask the administrator.",
+    "42P01": "Tables are missing. Run genviewer-init-db first.",
+    "53300": "The server has too many connections. Try again later.",
+    "55P03": "Another user is saving. Try again later.",
+    "57014": "The server canceled the operation because it took too long. Try again later.",
+    "57P01": "The server closed the connection. Connect again.",
 }
 
-_UNAVAILABLE = "데이터베이스에 접속할 수 없다. 서버 상태와 접속 설정을 확인할 것."
+_UNAVAILABLE = "Cannot connect to the database. Check the server and the connection settings."
 
 
 def _detail(exc: BaseException) -> str:

@@ -15,7 +15,7 @@ def _check(table_name: str, columns: list[str]) -> list[str]:
     known = schema.TABLE_COLUMNS[table_name]
     unknown = set(columns) - set(known)
     if unknown:
-        raise KeyError(f"{table_name} 에 없는 컬럼: {sorted(unknown)}")
+        raise KeyError(f"Unknown column(s) in {table_name}: {sorted(unknown)}")
     return columns
 
 
