@@ -65,7 +65,7 @@ phase 24 공통 규칙:
 **`controllers/parameter_tab.py`**
 - `Tab conflict:` 로그 셋을 device 쪽과 같은 꼴로 바꾼다.
 
-**`controllers/main_window.py`** ~176
+**`controllers/main_window.py`** ~200 (phase 23 뒤)
 - Refresh 질문 본문을 `REFRESH_QUESTION` 과 같은 글자로 둔다. `from genviewer.controllers.device_tab import REFRESH_QUESTION` 으로 import해도 된다.
 - 로그 파일 호출 `"저장 실패"` 는 그대로 둔다.
 
@@ -88,7 +88,7 @@ phase 24 공통 규칙:
 | `tests/gui/test_conflict_deleted_only.py` | 충돌 로그 줄 |
 | `tests/gui/test_load_csv_release.py` ~27, ~117, ~135, ~241 | CSV 안내, 로그 줄 둘, 버전 라벨 |
 | `tests/gui/test_poll_binding.py`, `tests/gui/test_user_message_sites.py` | 폴링 중단 접두어 |
-| `tests/gui/test_process_release_switch.py` ~452 | Remove Process 질문 |
+| `tests/gui/test_process_release_switch.py` ~452, ~501, ~525 | Remove Process 질문 전문. phase 23 step 3 이 `-` 단추 테스트 둘(`test_the_minus_button_confirms_and_removes_the_current_pair`, `test_the_minus_button_question_without_a_release_is_the_old_one`)도 이 문구로 고정했다. 빈 버전 쪽은 `'sf2p'` 처럼 버전 흔적이 없어야 한다 |
 | `tests/gui/test_connect_failure.py` ~211, ~293 | `"데이터베이스에 연결하지 못했다."` |
 | 배너 테스트(`test_own_save_banner`, `test_poll_binding`, `test_smoke`, `test_tab_version_sync` 등) | 배너 글에 actor가 들어가는지 |
 
