@@ -59,7 +59,7 @@ DsnOpt = Annotated[
     str,
     typer.Option(
         "--dsn",
-        help=f"PostgreSQL 접속 문자열. 없으면 {DSN_ENV} 환경변수와 설정 파일을 본다.",
+        help=f"PostgreSQL connection string. If omitted, uses {DSN_ENV} or the config file.",
     ),
 ]
 
@@ -71,7 +71,7 @@ app = typer.Typer(
     rich_markup_mode=None,
     # argparse 가 주던 -h 를 그대로 유지한다.
     context_settings={"help_option_names": ["-h", "--help"]},
-    help="genMOLDB device 데이터베이스 편집기. 서브커맨드 없이 부르면 창을 띄운다.",
+    help="genMOLDB device database editor. Opens the window when run without a command.",
 )
 
 
@@ -80,17 +80,17 @@ def root(
     ctx: typer.Context,
     dsn: DsnOpt = "",
     host: Annotated[
-        str, typer.Option("--host", help="Virtuoso 소켓 호스트 이름. 데이터베이스가 아니다.")
+        str, typer.Option("--host", help="Virtuoso socket host name. Not the database.")
     ] = "",
     check_config: Annotated[
         bool,
         typer.Option(
             "--check-config",
-            help="어느 설정 파일이 쓰이고 무슨 값이 적용되는지 보여주고 끝낸다.",
+            help="Show which config file is used and which values apply, then exit.",
         ),
     ] = False,
     verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="실패했을 때 트레이스백까지 보여준다.")
+        bool, typer.Option("--verbose", "-v", help="Show the full traceback on failure.")
     ] = False,
     history: Annotated[
         bool,
@@ -128,14 +128,14 @@ def _print_config() -> int:
     try:
         info = diagnostics.inspect_config()
     except RuntimeError as e:
-        typer.echo(f"설정 파일 오류: {e}", err=True)
+        typer.echo(f"Config file error: {e}", err=True)
         return 1
 
     for line in diagnostics.config_lines(info):
         typer.echo(line)
     if info.has_connection_info:
         return 0
-    typer.echo("접속 정보가 없다. 위 경로 중 한 곳에 설정 파일을 둘 것.", err=True)
+    typer.echo("No connection settings. Put a config file in one of the paths above.", err=True)
     return 1
 
 
@@ -160,7 +160,7 @@ def _open(ctx: typer.Context, dsn: str, *, statement_timeout_ms: int | None = No
 
 @app.command()
 def status(ctx: typer.Context, dsn: DsnOpt = "") -> None:
-    """설정과 접속 상태를 보여준다."""
+    """Show the configuration and the connection status."""
     # 다른 명령과 같은 기준이다(config.resolve_dsn). --dsn 이나 GENDB_PG_DSN 이
     # 있으면 설정 파일을 읽지 않는다. 읽으면 status 만 파일의 PGPASSWORD 로 붙어서
     # 같은 인자로 다른 명령이 실패하는 것을 진단하지 못한다.
@@ -168,18 +168,18 @@ def status(ctx: typer.Context, dsn: DsnOpt = "") -> None:
     try:
         info = diagnostics.inspect_config(read_file=not override)
     except RuntimeError as e:
-        typer.echo(f"설정 파일 오류: {e}", err=True)
+        typer.echo(f"Config file error: {e}", err=True)
         raise typer.Exit(1) from None
 
     for line in diagnostics.config_lines(info):
         typer.echo(line)
 
     if not info.has_connection_info and not override:
-        typer.echo("접속 정보가 없다. 위 경로 중 한 곳에 설정 파일을 둘 것.", err=True)
+        typer.echo("No connection settings. Put a config file in one of the paths above.", err=True)
         raise typer.Exit(1)
 
     cfg = load_config(override)
-    typer.echo(f"접속 대상: {diagnostics.target_summary(cfg.dsn)}")
+    typer.echo(f"Target: {diagnostics.target_summary(cfg.dsn)}")
 
     db = Database(cfg)
     db.open()
@@ -189,34 +189,34 @@ def status(ctx: typer.Context, dsn: DsnOpt = "") -> None:
         db.close()
 
     if not server.reachable:
-        typer.echo(f"접속: 안 됨 ({server.elapsed:.2f}초)")
+        typer.echo(f"Connection: failed ({server.elapsed:.2f}s)")
         typer.echo(server.message, err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"접속: 됨 ({server.elapsed:.2f}초)")
-    typer.echo(f"서버: {server.version}")
-    typer.echo(f"계정: {server.user}@{server.database}")
+    typer.echo(f"Connection: ok ({server.elapsed:.2f}s)")
+    typer.echo(f"Server: {server.version}")
+    typer.echo(f"Account: {server.user}@{server.database}")
 
     if server.missing_tables:
         missing = ", ".join(server.missing_tables)
-        typer.echo(f"스키마: 테이블 {len(server.missing_tables)}개가 없다 ({missing})")
-        typer.echo("genviewer-init-db 를 먼저 실행할 것.", err=True)
+        typer.echo(f"Schema: {len(server.missing_tables)} table(s) missing ({missing})")
+        typer.echo("Run genviewer-init-db first.", err=True)
         raise typer.Exit(1)
 
     # 테이블은 다 있어도 tab_config 에 더한 컬럼이 없으면 저장이 42703 으로 죽는다.
     if server.missing_columns:
         missing = ", ".join(server.missing_columns)
-        typer.echo(f"스키마: 컬럼 {len(server.missing_columns)}개가 없다 ({missing})")
-        typer.echo("genviewer-init-db 를 다시 실행할 것.", err=True)
+        typer.echo(f"Schema: {len(server.missing_columns)} column(s) missing ({missing})")
+        typer.echo("Run genviewer-init-db again.", err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"스키마: 테이블 {len(diagnostics.expected_tables())}개 모두 있음")
-    typer.echo(f"내용: process {server.processes}개, device {server.devices}개")
+    typer.echo(f"Schema: all {len(diagnostics.expected_tables())} table(s) present")
+    typer.echo(f"Contents: {server.processes} process(es), {server.devices} device(s)")
 
 
 @app.command()
 def processes(ctx: typer.Context, dsn: DsnOpt = "") -> None:
-    """process 목록과 각 process 의 device 수."""
+    """List the processes and the device count of each."""
     db = _open(ctx, dsn)
     try:
         rows = ProcessRepository(db).list_with_counts()
@@ -224,7 +224,7 @@ def processes(ctx: typer.Context, dsn: DsnOpt = "") -> None:
         db.close()
 
     if not rows:
-        typer.echo("process 가 없다.")
+        typer.echo("No processes.")
         return
 
     # 헤더는 ASCII 로 둔다. 한글은 터미널에서 두 칸을 먹는데 len() 은 한 칸으로
@@ -236,23 +236,23 @@ def processes(ctx: typer.Context, dsn: DsnOpt = "") -> None:
     typer.echo(f"{'NAME':<{width}}  {'VERSION':<{rwidth}}  DEVICE")
     for name, release, count in rows:
         typer.echo(f"{name:<{width}}  {release:<{rwidth}}  {count:>6}")
-    typer.echo(f"process {len(rows)}개, device {sum(n for _, _, n in rows)}개")
+    typer.echo(f"{len(rows)} process(es), {sum(n for _, _, n in rows)} device(s)")
 
 
 @app.command()
 def load(
     ctx: typer.Context,
-    csv_path: Annotated[Path, typer.Argument(metavar="CSV", help="불러올 CSV 파일")],
+    csv_path: Annotated[Path, typer.Argument(metavar="CSV", help="CSV file to load")],
     release: Annotated[
-        str, typer.Option("--version", help="이 버전으로 불러온다. 비우면 버전 없음.")
+        str, typer.Option("--version", help="Load into this version. Empty means no version.")
     ] = "",
     dsn: DsnOpt = "",
 ) -> None:
-    """CSV 를 불러온다. 행 하나가 device 하나다."""
+    """Load a CSV. Each row becomes one device."""
     release = release.strip()
     # 붙기 전에 본다. 파일 이름을 잘못 친 사람에게 접속 에러를 보여주지 않는다.
     if not csv_path.is_file():
-        typer.echo(f"CSV 파일이 없다: {csv_path}", err=True)
+        typer.echo(f"CSV file not found: {csv_path}", err=True)
         raise typer.Exit(1)
 
     # 큰 CSV 한 방은 기본 statement_timeout(15초)을 넘긴다. 그 값은 창이 굳지
@@ -267,25 +267,27 @@ def load(
         db.close()
 
     if release:
-        typer.echo(f"device {created}개를 새로 추가했다 (version {release}).")
+        typer.echo(f"Added {created} device(s) (version {release}).")
     else:
-        typer.echo(f"device {created}개를 새로 추가했다.")
-    typer.echo("CSV 는 불러올 때마다 새로 쌓인다 - 같은 파일을 다시 넣으면 중복된다.")
+        typer.echo(f"Added {created} device(s).")
+    typer.echo(
+        "CSV import always adds new rows - importing the same file again duplicates them."
+    )
 
 
 @app.command()
 def export(
     ctx: typer.Context,
-    process: Annotated[str, typer.Argument(help="내보낼 process 이름")],
+    process: Annotated[str, typer.Argument(help="Name of the process to export")],
     out_path: Annotated[
-        Path, typer.Argument(metavar="파일", help="쓸 파일. 확장자가 .xlsx 면 엑셀로 쓴다.")
+        Path, typer.Argument(metavar="FILE", help="File to write. Excel if it ends in .xlsx.")
     ],
     release: Annotated[
-        str, typer.Option("--version", help="이 버전을 내보낸다. 비우면 버전 없음.")
+        str, typer.Option("--version", help="Export this version. Empty means no version.")
     ] = "",
     dsn: DsnOpt = "",
 ) -> None:
-    """process 하나를 통째로 파일로 낸다."""
+    """Export one whole process to a file."""
     # 불러오기(import_data)가 버전의 앞뒤 공백을 다듬어 넣으므로 찾을 때도 다듬는다.
     release = release.strip()
     label = audit.process_label(process, release)
@@ -294,16 +296,16 @@ def export(
         repo = ProcessRepository(db)
         process_id = repo.get_id(process, release=release)
         if process_id is None:
-            typer.echo(f"그런 process 가 없다: {label}", err=True)
+            typer.echo(f"No such process: {label}", err=True)
             # 버전만 틀렸을 때 무엇을 쳐야 하는지 보인다.
             others = [r or "-" for name, r in repo.list_pairs() if name == process]
             if others:
-                typer.echo(f"있는 버전: {', '.join(others)}", err=True)
+                typer.echo(f"Versions: {', '.join(others)}", err=True)
             raise typer.Exit(1)
 
         devices = DeviceRepository(db).fetch_devices_by_process(process_id)
         if not devices:
-            typer.echo(f"process {label} 에 device 가 없다.", err=True)
+            typer.echo(f"Process {label} has no devices.", err=True)
             raise typer.Exit(1)
 
         # process_name 을 손으로 넣어야 한다. fetch_export_data 는 이 값이 빈
@@ -318,7 +320,7 @@ def export(
         write_xlsx(str(out_path), headers, rows)
     else:
         write_csv(str(out_path), headers, rows)
-    typer.echo(f"device {len(rows)}개를 {out_path} 에 썼다.")
+    typer.echo(f"Wrote {len(rows)} device(s) to {out_path}.")
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +359,7 @@ def _parse_when(text: str) -> datetime:
         except ValueError:
             continue
     typer.echo(
-        f"시각을 못 읽겠다: {text}  (YYYY-MM-DD, 'YYYY-MM-DD HH:MM', 7d, 24h)",
+        f"Cannot parse time: {text}  (YYYY-MM-DD, 'YYYY-MM-DD HH:MM', 7d, 24h)",
         err=True,
     )
     raise typer.Exit(2)
@@ -374,36 +376,36 @@ def _emit(rows: list[dict], detail: bool) -> None:
 @app.command(hidden=True)
 def log(
     ctx: typer.Context,
-    number: Annotated[int, typer.Option("-n", "--number", help="보여줄 줄 수.")] = 50,
+    number: Annotated[int, typer.Option("-n", "--number", help="Number of rows to show.")] = 50,
     since: Annotated[
-        str, typer.Option("--since", help="이 시각부터. 7d / 24h / 2026-09-01 형식.")
+        str, typer.Option("--since", help="From this time. 7d / 24h / 2026-09-01.")
     ] = "",
-    who: Annotated[str, typer.Option("--who", help="이 사람이 한 것만.")] = "",
-    process: Annotated[str, typer.Option("--process", help="이 process 것만.")] = "",
+    who: Annotated[str, typer.Option("--who", help="Only changes by this person.")] = "",
+    process: Annotated[str, typer.Option("--process", help="Only this process.")] = "",
     release: Annotated[
         str | None,
-        typer.Option("--version", help="이 버전 것만. \"\" 이면 버전 없는 것만."),
+        typer.Option("--version", help="Only this version. \"\" means only rows without one."),
     ] = None,
-    device: Annotated[str, typer.Option("--device", help="이 device 것만.")] = "",
+    device: Annotated[str, typer.Option("--device", help="Only this device.")] = "",
     find: Annotated[
-        str, typer.Option("--find", help="이 글자가 든 줄만. 바뀐 값까지 뒤진다.")
+        str, typer.Option("--find", help="Only rows with this text. Searches changed values too.")
     ] = "",
     detail: Annotated[
-        bool, typer.Option("--detail", help="이전/이후 값을 펼쳐 보여준다.")
+        bool, typer.Option("--detail", help="Show the before and after values.")
     ] = False,
     follow: Annotated[
-        bool, typer.Option("--follow", "-f", help="새 줄을 계속 이어 찍는다. Ctrl-C 로 끝.")
+        bool, typer.Option("--follow", "-f", help="Keep printing new rows. Stop with Ctrl-C.")
     ] = False,
-    out: Annotated[str, typer.Option("--out", help="화면 대신 CSV 파일로 쓴다.")] = "",
+    out: Annotated[str, typer.Option("--out", help="Write a CSV file instead of printing.")] = "",
     purge_before: Annotated[
-        str, typer.Option("--purge-before", help="이 시각 이전 이력을 지운다.")
+        str, typer.Option("--purge-before", help="Delete the history before this time.")
     ] = "",
     yes: Annotated[
-        bool, typer.Option("--yes", help="--purge-before 에서 묻지 않고 지운다.")
+        bool, typer.Option("--yes", help="Delete without asking (with --purge-before).")
     ] = False,
     dsn: DsnOpt = "",
 ) -> None:
-    """누가 언제 어떤 데이터를 바꿨는지 본다."""
+    """Show who changed which data and when."""
     # 옵션이 없으면(None) 거르지 않는다. 빈 문자열은 "버전 없는 것만" 이다.
     if release is not None:
         release = release.strip()
@@ -430,7 +432,7 @@ def log(
             return
 
         if not rows and not follow:
-            typer.echo("이력이 없다.")
+            typer.echo("No history.")
             return
 
         _emit(rows, detail)
@@ -480,16 +482,16 @@ def _follow(
 
 def _write_log_csv(out: str, rows: list[dict]) -> None:
     headers = [
-        "시각",
-        "사람",
-        "출처",
-        "동작",
+        "Time",
+        "Who",
+        "Source",
+        "Action",
         "process",
         "version",
         "device",
-        "테이블",
-        "내용",
-        "상세",
+        "Table",
+        "Change",
+        "Detail",
     ]
     table = [
         [
@@ -507,19 +509,19 @@ def _write_log_csv(out: str, rows: list[dict]) -> None:
         for row in rows
     ]
     write_csv(out, headers, table)
-    typer.echo(f"{len(table)}줄을 {out} 에 썼다.")
+    typer.echo(f"Wrote {len(table)} row(s) to {out}.")
 
 
 def _purge(repo: AuditRepository, before: datetime, yes: bool) -> None:
     when = before.strftime("%Y-%m-%d %H:%M:%S")
     doomed = repo.count_before(before)
     if not doomed:
-        typer.echo(f"{when} 이전 이력이 없다.")
+        typer.echo(f"No history before {when}.")
         return
     if not yes:
         # 이력은 지우면 끝이다. 원본 데이터와 달리 다시 만들 방법이 없다.
-        typer.confirm(f"{when} 이전 이력 {doomed}줄을 지운다. 계속할까?", abort=True)
-    typer.echo(f"{repo.purge(before)}줄을 지웠다.")
+        typer.confirm(f"Delete {doomed} history row(s) before {when}? Continue?", abort=True)
+    typer.echo(f"Deleted {repo.purge(before)} row(s).")
 
 
 # ---------------------------------------------------------------------------
@@ -533,7 +535,7 @@ def _fail(exc: BaseException) -> None:
         typer.echo(scrub("".join(traceback.format_exception(exc))), err=True, nl=False)
     # str(exc) 를 쓰면 안 된다. psycopg 의 접속 실패 문자열에는 conninfo 가
     # 통째로 들어 있어서 비밀번호가 샌다. user_message 가 가려준다.
-    typer.echo(f"오류: {user_message(exc)}", err=True)
+    typer.echo(f"error: {user_message(exc)}", err=True)
     raise SystemExit(1) from None
 
 
@@ -545,7 +547,7 @@ def main() -> None:
     try:
         app(prog_name="genviewer")
     except KeyboardInterrupt:
-        typer.echo("중단했다.", err=True)
+        typer.echo("Aborted.", err=True)
         raise SystemExit(130) from None
     except OSError as exc:
         # 파이프를 읽는 쪽이 먼저 닫았다 (genviewer processes 를 head 로 받는 경우).

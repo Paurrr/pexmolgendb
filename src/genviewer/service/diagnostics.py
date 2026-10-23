@@ -34,7 +34,7 @@ SHOWN = ("PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGSERVICE", "PGSSLMODE")
 # "어디에 붙으려 하는가" 요약에 낼 키. 화이트리스트다.
 _TARGET = (("host", "PGHOST"), ("port", "PGPORT"), ("dbname", "PGDATABASE"), ("user", "PGUSER"))
 
-_MASKED = "(설정됨, 비밀번호가 들어 있어 감춤)"
+_MASKED = "(set, hidden: contains a password)"
 
 
 @dataclass(frozen=True)
@@ -97,20 +97,20 @@ def inspect_config(explicit: str = "", *, read_file: bool = True) -> ConfigInfo:
 def config_lines(info: ConfigInfo) -> list[str]:
     """`--check-config` 가 찍는 그대로의 줄들."""
     if info.file_skipped:
-        out = ["설정 파일: (읽지 않음 - --dsn 또는 GENDB_PG_DSN 이 있다)"]
+        out = ["Config file: (not read - --dsn or GENDB_PG_DSN is set)"]
     else:
-        out = [f"설정 파일: {info.used if info.used else '(없음)'}", "찾아본 곳:"]
+        out = [f"Config file: {info.used if info.used else '(none)'}", "Searched:"]
         for path in info.searched:
-            mark = "<-- 이것" if info.used == path else ""
+            mark = "<-- this one" if info.used == path else ""
             out.append(f"  {path} {mark}".rstrip())
 
-    out.append("적용된 값:")
+    out.append("Values:")
     out += [f"  {key}={value}" for key, value in info.values]
-    out += [f"  {key}=(설정됨)" for key in info.secrets]
+    out += [f"  {key}=(set)" for key in info.secrets]
     if not info.values:
-        out.append("  (없음)")
+        out.append("  (none)")
 
-    out.append(f"로그 파일: {info.log_path}  ({logs.LOG_ENV} 로 바꿀 수 있다)")
+    out.append(f"Log file: {info.log_path}  (set {logs.LOG_ENV} to change)")
     return out
 
 
@@ -131,7 +131,7 @@ def target_summary(dsn: str) -> str:
         value = str(parsed.get(key) or os.environ.get(env, "")).strip()
         if value:
             parts.append(f"{key}={value}")
-    return " ".join(parts) if parts else "(libpq 기본값)"
+    return " ".join(parts) if parts else "(libpq defaults)"
 
 
 def expected_tables() -> list[str]:

@@ -372,7 +372,7 @@ def _pad(text: str, width: int) -> str:
 
 def format_line(row: dict) -> str:
     when = row["at"].strftime("%Y-%m-%d %H:%M:%S")
-    who = _pad(row["actor"] or "(모름)", 12)
+    who = _pad(row["actor"] or "(unknown)", 12)
     return f"{when}  {who}  {_pad(where_of(row), 28)}  {row['summary']}"
 
 

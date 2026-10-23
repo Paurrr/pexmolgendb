@@ -123,16 +123,16 @@ def test_help_works_and_a_korean_console_can_print_it(args):
 def test_status_without_connection_info_says_where_to_look(isolated):
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 1
-    assert "접속 정보가 없다" in result.output
-    assert "찾아본 곳:" in result.output
+    assert "No connection settings" in result.output
+    assert "Searched:" in result.output
 
 
 def test_check_config_still_works(isolated):
     """기존 플래그다. 서브커맨드가 생겼다고 사라지면 안 된다 (README 가 안내한다)."""
     result = runner.invoke(app, ["--check-config"])
     assert result.exit_code == 1
-    assert "설정 파일:" in result.output
-    assert "로그 파일:" in result.output
+    assert "Config file:" in result.output
+    assert "Log file:" in result.output
 
 
 def test_a_missing_csv_is_reported_before_connecting(isolated, tmp_path):
@@ -212,10 +212,10 @@ def test_status_with_a_dsn_does_not_read_the_config_file(team_file, monkeypatch,
 
     assert result.exit_code == 1, result.output
     assert result.output.splitlines()[0] == (
-        "설정 파일: (읽지 않음 - --dsn 또는 GENDB_PG_DSN 이 있다)"
+        "Config file: (not read - --dsn or GENDB_PG_DSN is set)"
     )
-    assert "찾아본 곳:" not in result.output
-    assert "PGPASSWORD=(설정됨)" not in result.output
+    assert "Searched:" not in result.output
+    assert "PGPASSWORD=(set)" not in result.output
     assert "PGPASSWORD" not in os.environ
     assert dict(os.environ) == after_processes
 
@@ -225,9 +225,9 @@ def test_status_without_a_dsn_still_reads_the_config_file(team_file):
     result = runner.invoke(app, ["status"])
 
     assert result.exit_code == 1, "붙을 리 없는 주소다"
-    assert result.output.splitlines()[0] == f"설정 파일: {team_file}"
-    assert "<-- 이것" in result.output
-    assert "PGPASSWORD=(설정됨)" in result.output
+    assert result.output.splitlines()[0] == f"Config file: {team_file}"
+    assert "<-- this one" in result.output
+    assert "PGPASSWORD=(set)" in result.output
     assert "from_file_secret" not in result.output
 
 
@@ -241,7 +241,7 @@ def test_an_unexpected_failure_becomes_one_line(capsys):
     assert caught.value.code == 1
 
     err = capsys.readouterr().err
-    assert "오류:" in err
+    assert "error:" in err
     assert "topsecret" not in err
 
 
@@ -270,7 +270,7 @@ def test_verbose_traceback_hides_the_password(monkeypatch, capsys, text):
     err = capsys.readouterr().err
     assert "topsecret" not in err
     assert "Traceback" in err
-    assert err.strip().splitlines()[-1].startswith("오류:")
+    assert err.strip().splitlines()[-1].startswith("error:")
 
 
 def _main_failing_with(monkeypatch, body):
@@ -324,7 +324,7 @@ def test_a_file_that_cannot_be_opened_fails_with_one_line(monkeypatch, capsys, e
 
     assert code == 1
     err = capsys.readouterr().err
-    assert "오류:" in err
+    assert "error:" in err
     assert "out?.csv" in err
     assert redirected == []
 
@@ -343,7 +343,7 @@ def test_a_closed_pipe_ends_quietly(monkeypatch, capsys, exc):
     code, redirected = _main_failing_with(monkeypatch, _raise(exc))
 
     assert code == 0
-    assert "오류:" not in capsys.readouterr().err
+    assert "error:" not in capsys.readouterr().err
     assert len(redirected) == 1
 
 
@@ -357,7 +357,7 @@ def test_an_invalid_windows_file_name_is_reported(monkeypatch, capsys, tmp_path)
     )
 
     assert code == 1
-    assert "오류:" in capsys.readouterr().err
+    assert "error:" in capsys.readouterr().err
     assert redirected == []
     assert not out.exists()
 
@@ -378,7 +378,7 @@ def test_processes_lists_names_and_counts(db, pg_dsn, tmp_path):
         "NAME  VERSION  DEVICE",
         "sf2p  -             2",
         "sf4u  -             1",
-        "process 2개, device 3개",
+        "2 process(es), 3 device(s)",
     ]
 
 
@@ -394,14 +394,14 @@ def test_processes_shows_each_release_of_a_name_on_its_own_line(db, pg_dsn, tmp_
         "sf2p  -                  2",
         "sf2p  S00-V1.0.0.0       3",
         "sf4u  -                  1",
-        "process 3개, device 6개",
+        "3 process(es), 6 device(s)",
     ]
 
 
 def test_processes_without_any_process_says_so(db, pg_dsn):
     result = runner.invoke(app, ["processes", "--dsn", pg_dsn])
     assert result.exit_code == 0, result.output
-    assert "process 가 없다" in result.output
+    assert "No processes." in result.output
 
 
 def test_list_with_counts_is_one_row_per_pair_in_list_pairs_order(db, pg_dsn, tmp_path):
@@ -425,7 +425,7 @@ def test_list_with_counts_is_one_row_per_pair_in_list_pairs_order(db, pg_dsn, tm
 def test_load_adds_devices_and_says_how_many(db, pg_dsn, tmp_path):
     result = runner.invoke(app, ["load", _csv(tmp_path / "in.csv"), "--dsn", pg_dsn])
     assert result.exit_code == 0, result.output
-    assert "device 3개를 새로 추가했다" in result.output
+    assert "Added 3 device(s)" in result.output
     assert ProcessRepository(db).list_with_counts() == [("sf2p", "", 2), ("sf4u", "", 1)]
 
 
@@ -436,8 +436,8 @@ def test_load_without_a_release_keeps_its_old_output(db, pg_dsn, tmp_path, extra
     result = _load(pg_dsn, _csv(tmp_path / "in.csv"), *extra)
 
     assert result.output.splitlines() == [
-        "device 3개를 새로 추가했다.",
-        "CSV 는 불러올 때마다 새로 쌓인다 - 같은 파일을 다시 넣으면 중복된다.",
+        "Added 3 device(s).",
+        "CSV import always adds new rows - importing the same file again duplicates them.",
     ]
     assert ProcessRepository(db).list_pairs() == [("sf2p", ""), ("sf4u", "")]
 
@@ -448,8 +448,8 @@ def test_load_into_a_release_says_which_release(db, pg_dsn, tmp_path, given):
     result = _load(pg_dsn, _csv(tmp_path / "sf2p.csv", V1_ROWS), "--version", given)
 
     assert result.output.splitlines() == [
-        "device 3개를 새로 추가했다 (version V1).",
-        "CSV 는 불러올 때마다 새로 쌓인다 - 같은 파일을 다시 넣으면 중복된다.",
+        "Added 3 device(s) (version V1).",
+        "CSV import always adds new rows - importing the same file again duplicates them.",
     ]
     assert ProcessRepository(db).list_with_counts() == [("sf2p", "V1", 3)]
 
@@ -518,7 +518,7 @@ def test_export_refuses_an_unknown_process(db, pg_dsn, tmp_path):
     out = tmp_path / "nope.csv"
     result = runner.invoke(app, ["export", "no_such_process", str(out), "--dsn", pg_dsn])
     assert result.exit_code == 1
-    assert result.stderr.splitlines() == ["그런 process 가 없다: no_such_process"]
+    assert result.stderr.splitlines() == ["No such process: no_such_process"]
     assert not out.exists(), "빈 파일을 만들면 나중에 왜 비었는지를 묻게 된다"
 
 
@@ -551,7 +551,7 @@ def test_export_writes_only_the_release_it_is_given(two_releases, pg_dsn, tmp_pa
     result = _export(pg_dsn, released, "sf2p", "--version", given)
 
     assert result.exit_code == 0, result.output
-    assert result.output.splitlines() == [f"device 3개를 {released} 에 썼다."]
+    assert result.output.splitlines() == [f"Wrote 3 device(s) to {released}."]
     rows = _read_csv(released)
     assert rows[0] == _read_csv(plain)[0]
     assert [r[1:3] for r in rows[1:]] == [
@@ -580,7 +580,7 @@ def test_export_of_a_name_with_only_other_releases_names_them(db, pg_dsn, tmp_pa
     result = _export(pg_dsn, out, "sf9x")
 
     assert result.exit_code == 1
-    assert result.stderr.splitlines() == ["그런 process 가 없다: sf9x", "있는 버전: V1"]
+    assert result.stderr.splitlines() == ["No such process: sf9x", "Versions: V1"]
     assert not out.exists()
 
 
@@ -593,7 +593,7 @@ def test_export_of_a_missing_release_names_the_releases_there_are(
     result = _export(pg_dsn, out, "sf2p", "--version", "V9")
 
     assert result.exit_code == 1
-    assert result.stderr.splitlines() == ["그런 process 가 없다: sf2p V9", "있는 버전: -, V1"]
+    assert result.stderr.splitlines() == ["No such process: sf2p V9", "Versions: -, V1"]
     assert not out.exists()
 
 
@@ -604,7 +604,7 @@ def test_export_of_an_unknown_name_lists_no_releases(two_releases, pg_dsn, tmp_p
     result = _export(pg_dsn, out, "sf9q", "--version", "V1")
 
     assert result.exit_code == 1
-    assert result.stderr.splitlines() == ["그런 process 가 없다: sf9q V1"]
+    assert result.stderr.splitlines() == ["No such process: sf9q V1"]
     assert not out.exists()
 
 
@@ -620,7 +620,7 @@ def test_export_of_a_pair_without_devices_names_the_pair(
     result = _export(pg_dsn, out, "empty_one", *(["--version", release] if release else []))
 
     assert result.exit_code == 1
-    assert result.stderr.splitlines() == [f"process {label} 에 device 가 없다."]
+    assert result.stderr.splitlines() == [f"Process {label} has no devices."]
     assert not out.exists()
 
 
@@ -629,9 +629,9 @@ def test_status_reports_the_schema_and_the_row_counts(db, pg_dsn, tmp_path, isol
 
     result = runner.invoke(app, ["status", "--dsn", pg_dsn])
     assert result.exit_code == 0, result.output
-    assert "접속: 됨" in result.output
-    assert "모두 있음" in result.output
-    assert "process 2개, device 3개" in result.output
+    assert "Connection: ok" in result.output
+    assert "table(s) present" in result.output
+    assert "2 process(es), 3 device(s)" in result.output
 
 
 def test_status_points_at_init_db_when_a_table_is_missing(db, pg_dsn, isolated):
@@ -687,9 +687,9 @@ def test_status_names_a_missing_column_and_points_at_init_db(db, pg_dsn, isolate
         _restore_schema(db)
 
     assert result.exit_code == 1, result.output
-    assert f"스키마: 컬럼 1개가 없다 (inst_terms.{column})" in result.output
-    assert "genviewer-init-db 를 다시 실행할 것." in result.output
-    assert "모두 있음" not in result.output
+    assert f"Schema: 1 column(s) missing (inst_terms.{column})" in result.output
+    assert "Run genviewer-init-db again." in result.output
+    assert "table(s) present" not in result.output
 
 
 def test_status_lists_every_missing_column_in_tab_config_order(db, pg_dsn, isolated):
@@ -717,7 +717,7 @@ def test_status_lists_every_missing_column_in_tab_config_order(db, pg_dsn, isola
         f"add_fgrs.{fgr_second_last}, "
         f"add_fgrs.{fgr_last}"
     )
-    assert f"스키마: 컬럼 3개가 없다 ({expected})" in result.output
+    assert f"Schema: 3 column(s) missing ({expected})" in result.output
 
 
 def test_status_reports_a_missing_table_before_any_missing_column(db, pg_dsn, isolated):
@@ -731,9 +731,9 @@ def test_status_reports_a_missing_table_before_any_missing_column(db, pg_dsn, is
         _restore_schema(db)
 
     assert result.exit_code == 1, result.output
-    assert "스키마: 테이블 1개가 없다 (inst_terms)" in result.output
-    assert "genviewer-init-db 를 먼저 실행할 것." in result.output
-    assert "컬럼" not in result.output
+    assert "Schema: 1 table(s) missing (inst_terms)" in result.output
+    assert "Run genviewer-init-db first." in result.output
+    assert "column" not in result.output
 
 
 def test_probe_finds_no_missing_column_on_a_fresh_schema(db):
@@ -828,9 +828,9 @@ def test_status_names_a_missing_process_release_and_points_at_init_db(
     result = runner.invoke(app, ["status", "--dsn", scratch_dsn])
 
     assert result.exit_code == 1, result.output
-    assert "스키마: 컬럼 1개가 없다 (process.release)" in result.output
-    assert "genviewer-init-db 를 다시 실행할 것." in result.output
-    assert "모두 있음" not in result.output
+    assert "Schema: 1 column(s) missing (process.release)" in result.output
+    assert "Run genviewer-init-db again." in result.output
+    assert "table(s) present" not in result.output
 
 
 def test_probe_does_not_count_the_columns_of_a_missing_table(db):
@@ -907,7 +907,7 @@ def test_log_shows_what_the_load_did(db, pg_dsn, tmp_path):
 def test_log_on_an_untouched_database_says_so(db, pg_dsn):
     result = runner.invoke(app, ["log", "--dsn", pg_dsn])
     assert result.exit_code == 0, result.output
-    assert "이력이 없다" in result.output
+    assert "No history." in result.output
 
 
 def test_log_filters_by_person_and_process(db, pg_dsn, tmp_path):
@@ -930,7 +930,7 @@ def test_log_can_write_a_csv(db, pg_dsn, tmp_path):
 
     with open(out, encoding="utf-8") as f:
         rows = list(csv.reader(f))
-    assert rows[0][0] == "시각"
+    assert rows[0][0] == "Time"
     assert any("sf9z" in cell for cell in rows[1])
 
 
@@ -973,7 +973,8 @@ def test_log_csv_puts_the_release_after_the_process(db, pg_dsn, tmp_path):
     assert result.exit_code == 0, result.output
     rows = _read_csv(out)
     assert rows[0] == [
-        "시각", "사람", "출처", "동작", "process", "version", "device", "테이블", "내용", "상세",
+        "Time", "Who", "Source", "Action", "process", "version", "device",
+        "Table", "Change", "Detail",
     ]
     assert rows[1][3:8] == ["process_add", "sf9z", "V1", "", ""]
 
@@ -1012,14 +1013,14 @@ def test_purge_needs_a_confirmation_and_then_empties_the_range(db, pg_dsn):
         app, ["log", "--purge-before", tomorrow, "--yes", "--dsn", pg_dsn]
     )
     assert yes.exit_code == 0, yes.output
-    assert "지웠다" in yes.output
-    assert "이력이 없다" in runner.invoke(app, ["log", "--dsn", pg_dsn]).output
+    assert "Deleted" in yes.output
+    assert "No history." in runner.invoke(app, ["log", "--dsn", pg_dsn]).output
 
 
 def test_a_bad_since_is_a_usage_error(db, pg_dsn):
     result = runner.invoke(app, ["log", "--since", "어제쯤", "--dsn", pg_dsn])
     assert result.exit_code == 2
-    assert "시각을 못 읽겠다" in result.output
+    assert "Cannot parse time" in result.output
 
 
 # --------------------------------------------------------------------------
