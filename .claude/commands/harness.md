@@ -35,6 +35,7 @@
 15. **genviewer 모듈 사이에 import를 더하는 step은 경계 가드를 먼저 본다** — 티어 표만 보고 "같은 티어라 괜찮다"고 적지 않는다. `tests/test_boundaries.py` 는 티어와 별도로 `models/`(genviewer 에서 허용 목록만)와 `net/`(자기 안만)의 import를 막는다. 허용 목록을 넓혀야 하면 그 사실과 승인(ADR)을 step 파일에 적고, 테스트 이름·docstring과 ARCHITECTURE 레이어 절도 같이 고치게 한다. 이유: phase 22 step 1 파일이 "모델은 Qt 모듈이라 경계 규칙에 걸리지 않는다"고 적었지만 models 허용 목록에 걸려서, 세션이 지시 밖에서 가드 테스트를 넓혔다.
 16. **step 파일의 "지금처럼" 서술도 코드로 확인하고 쓴다** — 승인된 변경 step이 기존 함수를 그대로 부른다면, 그 함수가 경계 입력(빈 선택, 빈 목록, 접속 전)에서 지금 실제로 무엇을 하는지 코드를 읽고 적는다. 이유: phase 23 step 4 파일이 "고른 device 가 없으면 지금처럼 `No device selected.` 경고"라고 적었지만, `get_selected_devices(fallback_to_all=True)` 라서 실제로는 표 전체를 낸다. 세션은 기존 동작을 지켰고, 테스트 이름(`test_export_menu_without_selection_warns`)만 지시를 따라 실제 동작과 어긋났다.
 17. **단추·라벨 글자를 바꾸는 step은 그 위젯의 고정 너비를 적는다** — `rg -n "setFixedWidth|setMaximumWidth" <파일>` 로 바꿀 글자를 담는 위젯을 찾아, 새 글자의 `sizeHint` 가 그 너비 안에 드는지 확인하게 한다. 넘으면 같은 값을 최소 너비로 바꾸고 재현 테스트(`tests/gui/test_toolbar_min_width.py` 방식, 테마마다)를 먼저 쓰게 한다. 이유: phase 24 step 2 파일은 배너 단추 글자만 적었고, 한국어 글자에 맞춘 `setFixedWidth(52)` 가 `Dismiss` 의 양 끝을 잘랐다. 세션이 렌더로 찾아 고쳤다.
+18. **너비 테스트에 넣을 글자는 offscreen 에서 잰 값으로 적는다** — 글자가 칸에 들어가는지 보는 레이아웃 step은 입력 글자를 Windows(맑은 고딕) 너비만으로 정하지 말고 `QT_QPA_PLATFORM=offscreen` 의 `sizeHint` 도 재서 적는다. 이유: offscreen 에는 글꼴이 없어 모든 글자가 12px 상자다. phase 25 step 파일은 Windows 값(10글자 이름 86px)만 적었고, offscreen 에서는 151px 이라 새 최소 너비 120 에 들어가지 않았다. 세션이 입력을 7글자로 바꾸고 테스트 이름까지 바꿨다.
 
 ### D. 파일 생성
 
