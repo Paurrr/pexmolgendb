@@ -84,6 +84,57 @@ def test_long_names_keep_toolbar_widgets_apart(window):
     assert _overlapping(toolbar) == []
 
 
+# -- Process / Version 콤보 너비 (phase 25) ------------------------------------------------
+# 창을 최소 너비로 줄이면 두 콤보가 각자의 최소 너비로 눌린다. process 이름은 대개 짧고 버전
+# (S00-V1.0.0.0 …)이 더 길어서 Version 콤보가 더 넓어야 한다.
+#
+# offscreen 플랫폼에는 글꼴이 없어 모든 글자가 같은 너비의 상자로 그려진다. 그래서 Windows 에서
+# 잰 글자 수(10글자 이름, 16글자 버전)가 맞지 않는다. 아래 두 값은 offscreen sizeHint 로 고른
+# 것이다. 이름은 바꾼 뒤의 Process 최소 너비에 들어가고, 버전은 바꾸기 전 Version 최소 너비에는
+# 안 들어가고 바꾼 뒤에는 들어간다. 실제 글꼴은 상자보다 좁아서 수정 뒤에는 어디서든 들어간다.
+SHORT_NAME = "sf2p_hv"
+FITTING_RELEASE = "S00-V1.0.0"
+
+
+def _shrink_to_minimum(window: MainWindow) -> None:
+    """창을 최소 너비로 줄인다. 최소보다 작게 주면 최소로 맞춰진다."""
+    _settle()
+    window.resize(1, window.height())
+    _settle()
+
+
+@pytest.mark.parametrize("theme", ["graphite", "mist"])
+def test_version_combo_is_wider_than_process_combo_at_minimum_width(window, qapp, theme):
+    toolbar = window.device_tab_view.device_tab_toolbar_view
+    toolbar.set_pairs([("sf2p", ""), ("sf2p", "S00-V1.0.0.0")])
+
+    with preserved_theme(qapp):
+        apply_theme(qapp, theme)
+        _shrink_to_minimum(window)
+        process = toolbar.process_selector.width()
+        release = toolbar.release_selector.width()
+
+    assert release > process
+
+
+@pytest.mark.parametrize("theme", ["graphite", "mist"])
+def test_a_short_name_and_a_long_version_fit_at_minimum_width(window, qapp, theme):
+    toolbar = window.device_tab_view.device_tab_toolbar_view
+    toolbar.set_pairs([(SHORT_NAME, FITTING_RELEASE)])
+    assert toolbar.current_pair() == (SHORT_NAME, FITTING_RELEASE)
+
+    with preserved_theme(qapp):
+        apply_theme(qapp, theme)
+        _shrink_to_minimum(window)
+        cut = [
+            (combo.currentText(), combo.width(), combo.sizeHint().width())
+            for combo in (toolbar.process_selector, toolbar.release_selector)
+            if combo.width() < combo.sizeHint().width()
+        ]
+
+    assert cut == []
+
+
 # -- 변경 배너 단추 (phase 24 step 2) ------------------------------------------------------
 # 배너 단추의 고정 너비는 한국어 글자(새로고침·닫기)에 맞춘 것이었다. 영어 글자가 그보다 넓으면
 # 스타일시트의 padding 안에 다 들어가지 못해 양 끝 글자가 잘린다("Dismiss" 의 D 와 끝 s).

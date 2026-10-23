@@ -2,6 +2,13 @@
   "project": "genviewer",
   "phase": "25-combo-width",
   "steps": [
-    { "step": 0, "name": "version-combo-width", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "version-combo-width",
+      "status": "completed",
+      "started_at": "2026-10-23T17:27:58+0900",
+      "summary": "툴바 콤보 최소 너비 Process 160→120, Version 120→160(views/device_tab_toolbar.py, 이유 주석 2줄). 테스트: test_version_combo_is_wider_than_process_combo_at_minimum_width[graphite|mist], test_a_short_name_and_a_long_version_fit_at_minimum_width[graphite|mist](tests/gui/test_toolbar_min_width.py). RED: 앞 테스트 assert release > process(120 > 160), 뒤 테스트 Version 잘림 [('S00-V1.0.0', 120, 151)]. 긴 버전 글자와 offscreen sizeHint: offscreen 에는 글꼴이 없어(QFontDatabase.families() 0개) 모든 글자가 12px 상자다. 그래서 버전 'S00-V1.0.0'(10글자) 151px, 이름 'sf2p_hv'(7글자) 115px 로 골랐다. 스펙의 10글자 이름은 offscreen 151px 이라 새 Process 최소 120 에 들어가지 않아 수정 뒤에도 실패한다. 그래서 7글자로 바꾸고 테스트 이름도 ten_character → short 로 바꿨다(Windows 맑은 고딕 10글자는 86px). 창 최소 너비 전/후: 1471/1471(offscreen, 테마 없음·graphite·mist 모두). 변이: 두 값을 160/120 으로 손으로 되돌리면 새 테스트 4개 실패, 기존 5개 통과. UI_GUIDE Version 콤보 줄에 너비 문장 추가. 전체 1308 passed / 10 skipped(DB 붙음)."
+    }
+  ],
+  "created_at": "2026-10-23T17:27:58+0900"
 }

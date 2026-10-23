@@ -38,9 +38,11 @@ class DeviceTabToolBar(QWidget):
         self.process_selector_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         layout.addWidget(self.process_selector_label)
 
+        # process 이름은 대개 10글자 안이고 버전(S00-V1.0.0.0 …)이 더 길어서 Version 이 더 넓다.
+        # 두 최소 너비의 합은 그대로라 창 최소 너비가 같다.
         self.process_selector = QComboBox()
         self.process_selector.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self.process_selector.setMinimumWidth(160)
+        self.process_selector.setMinimumWidth(120)
         self.process_selector.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToContents
         )
@@ -50,7 +52,7 @@ class DeviceTabToolBar(QWidget):
 
         self.release_selector = QComboBox()
         self.release_selector.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        self.release_selector.setMinimumWidth(120)
+        self.release_selector.setMinimumWidth(160)
         self.release_selector.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToContents
         )
