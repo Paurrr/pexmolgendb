@@ -83,7 +83,7 @@ _PG_PROCESS_DDL = sql.SQL("""
 # 다음과 같다. PostgreSQL 10 에서는 DEFAULT 가 있는 ADD COLUMN 이 테이블을 다시
 # 쓴다(11+ 는 즉시). process 는 몇 줄뿐이다.
 _PG_PROCESS_MOVE_TO_RELEASE = sql.SQL("""
-    -- process 에 release 를 더하고 UNIQUE 를 (name, release) 로 바꾼다
+    -- add release to process and change UNIQUE to (name, release)
     DO $$
     DECLARE con text;
     BEGIN
@@ -142,15 +142,15 @@ _PG_DEVICE_DDL = sql.SQL("""
 # format('... %I', ...) 가 들어 있으면 이 DDL 을 파라미터와 함께 쓰려는 순간 깨진다.
 # quote_ident 로 붙이면 그 함정이 없다.
 _PG_DEVICE_DROP_NAME_UNIQUE = sql.SQL("""
-    -- device 의 옛 UNIQUE (process_id, name) 을 뗀다
+    -- drop the old UNIQUE (process_id, name) from device
     DO $$
     DECLARE con text;
     BEGIN
         FOR con IN
             SELECT c.conname FROM pg_constraint c
             WHERE c.conrelid = 'device'::regclass AND c.contype = 'u'
-              -- attname 은 name 타입이다. text[] 와 그냥 비교하면
-              -- "operator does not exist: name[] = text[]" 로 죽는다.
+              -- attname is of type name. Comparing it to text[] directly
+              -- fails with "operator does not exist: name[] = text[]".
               AND (SELECT array_agg(a.attname::text ORDER BY a.attname::text)
                    FROM pg_attribute a
                    WHERE a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey))
@@ -279,7 +279,7 @@ def pg_child_add_columns_ddl(table: str, columns: list[str]) -> sql.Composed:
         for c in columns
     )
     return sql.SQL(
-        "-- {tbl} 에 빠진 컬럼을 더한다\n"
+        "-- add missing columns to {tbl}\n"
         "    DO $$\n"
         "    BEGIN\n"
         "{checks}\n"

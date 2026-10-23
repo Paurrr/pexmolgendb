@@ -45,7 +45,9 @@
     {
       "step": 5,
       "name": "init-db-text",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-23T12:32:06+0900",
+      "summary": "init_db 출력·argparse·getpass 영어화, schema.py SQL 안 한국어 주석(라벨 3개 포함) 영어화. init_db.py: 'skip  X (already exists)', 설명 'PostgreSQL provisioning', 옵션 help 5(cli.py 처럼 대문자 시작·마침표: Create a LOGIN role with this name. / Create a database with this name. / Owner of the database to create. / Grant table DML privileges to this role (the login everyone shares). / Only print the steps to run. Does not connect.), ap.error 2('--dsn or GENDB_PG_DSN is required', 'a password is required to create the role'), getpass \"Password for role 'X': \". schema.py: 라벨 '-- add release to process and change UNIQUE to (name, release)', '-- drop the old UNIQUE (process_id, name) from device', '-- add missing columns to {tbl}'(dry-run 에는 \"change_log\" 처럼 따옴표 붙은 이름), device 문 안 주석 2줄(attname is of type name ... fails with \"operator does not exist: name[] = text[]\"). % 없음, Python 주석·docstring 그대로, README 예시(~377)는 phase 마무리 몫. 확인: HEAD 의 postgres_all_ddl() 과 비교해 53문 그대로, '--' 줄을 뺀 본문이 모두 같고 다른 것은 주석 줄뿐인 17문(process 옮기기, device 제약 떼기, change_log·탭 14 컬럼 더하기). --dry-run 은 DSN 없이 돈다(53 steps, 라벨 영어). --help·DSN 없는 오류(exit 2) ASCII. 라벨 제약 그대로. 고친 테스트: 없음(test_init_db 는 성질만 보고 글자를 박은 테스트가 없다, test_cli 는 init_db 출력을 안 본다, tests 의 '이미 있음' 은 initdb.sh 몫 test_initdb_sh 라 step 6). 변이: process 라벨·'(already exists)' 를 한국어로 되돌리면 test_init_db/py39/schema/cli 165개 모두 통과(글자 고정 없음, step 7 가드 몫). 성질 변이: 탭 라벨에서 {tbl} 을 빼면 test_add_column_steps_sit_between... 와 test_process_and_change_log_moves_have_their_own_labels 실패, process 라벨에서 release 를 빼면 뒤의 것 실패. DB 테스트: 1249 passed / 10 skipped(Windows 권한만)"
     },
     {
       "step": 6,

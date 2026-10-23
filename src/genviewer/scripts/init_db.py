@@ -217,7 +217,7 @@ def run_plan(steps: list[Step], dsn: str, target_db: str, password: str) -> int:
             with con.cursor() as cur:
                 for st in server_steps:
                     if st.skip_if is not None and st.skip_if(cur):
-                        print(f"skip  {st.label} (이미 있음)")
+                        print(f"skip  {st.label} (already exists)")
                         continue
                     if st.params:
                         cur.execute(_with_password(st.sql, password))
@@ -244,20 +244,20 @@ def run_plan(steps: list[Step], dsn: str, target_db: str, password: str) -> int:
 
 def main() -> int:
     survive_console_encoding()
-    ap = argparse.ArgumentParser(description="PostgreSQL 프로비저닝")
+    ap = argparse.ArgumentParser(description="PostgreSQL provisioning")
     ap.add_argument("--dsn", default=os.environ.get("GENDB_PG_DSN", ""))
-    ap.add_argument("--create-role", default="", help="이 이름으로 LOGIN role 생성")
-    ap.add_argument("--create-database", default="", help="이 이름으로 database 생성")
-    ap.add_argument("--owner", default="", help="생성할 database 의 owner")
+    ap.add_argument("--create-role", default="", help="Create a LOGIN role with this name.")
+    ap.add_argument("--create-database", default="", help="Create a database with this name.")
+    ap.add_argument("--owner", default="", help="Owner of the database to create.")
     ap.add_argument(
         "--app-role",
         default="",
-        help="이 role 에게 테이블 DML 권한을 준다 (모두가 공유하는 접속 계정)",
+        help="Grant table DML privileges to this role (the login everyone shares).",
     )
     ap.add_argument(
         "--dry-run",
         action="store_true",
-        help="실행할 단계만 출력한다. 접속하지 않는다.",
+        help="Only print the steps to run. Does not connect.",
     )
     args = ap.parse_args()
 
@@ -270,15 +270,15 @@ def main() -> int:
         return 0
 
     if not args.dsn:
-        ap.error("--dsn 또는 GENDB_PG_DSN 이 필요하다")
+        ap.error("--dsn or GENDB_PG_DSN is required")
 
     password = ""
     if args.create_role:
         password = os.environ.get("GENDB_INIT_PASSWORD", "")
         if not password:
-            password = getpass.getpass(f"'{args.create_role}' role 의 비밀번호: ")
+            password = getpass.getpass(f"Password for role '{args.create_role}': ")
         if not password:
-            ap.error("role 을 만들려면 비밀번호가 필요하다")
+            ap.error("a password is required to create the role")
 
     return run_plan(steps, args.dsn, args.create_database, password)
 
