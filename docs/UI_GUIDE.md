@@ -10,7 +10,7 @@
 5. 오류는 메시지 박스와 파일 로그 양쪽에 남긴다(`utils/reporting.report`/`report_error`). 화면 문구는 `user_message(exc)` 로 만든다. `str(exc)` 금지(비밀번호가 샌다).
 
 ## 스타일과 색
-- `QApplication.setStyle("Fusion")` + `utils/palette.apply_theme`. 기본 테마는 **Graphite**(어두움), 툴바 버튼으로 **Mist**(밝음)와 전환한다. 글꼴은 9pt.
+- `QApplication.setStyle("Fusion")` + `utils/palette.apply_theme`. 기본 테마는 **Graphite**(어두움), 메뉴 View → `Dark Theme`(체크 = Graphite, 끄면 **Mist**(밝음))로 전환한다. 테마를 바꾸는 길은 이것 하나라 체크 상태와 `MainWindowController.theme_name` 이 늘 같다. 저장하지 않는다. 글꼴은 9pt.
 - Graphite 의 색은 pexqa `gui/theme.py` 토큰과 같다. Mist 는 phase 22 전 그대로다(ADR-019, `tests/gui/test_theme_colors.py` 가 dict·스타일시트 해시·팔레트로 고정).
 - 색은 `palette.THEMES` 의 키(`window`, `panel`, `base`, `text`, `muted`, `border`, `accent`, `good`, `bad`, `selection`, `dirty`, `unknown_name` …)만 쓴다. 위젯·모델에 색을 직접 박지 않는다. 모델은 `palette.current_colors()` 로 지금 테마의 키를 읽는다(테마 이름으로 분기하지 않는다).
 
@@ -25,16 +25,25 @@
 
 ## 레이아웃
 ```
-┌ 메뉴: Database(Connect… / Save / Load CSV) ────────────────────────────────┐
-│ 툴바: (빈칸) Theme | Server [    ] Port [   ] Connect | 상태               │  ← Virtuoso 소켓, DB 아님
+┌ 메뉴: Database | Edit | View ──────────────────────────────────────────────┐
+│ 툴바: (빈칸) **Virtuoso** Server [    ] Port [   ] Connect | 상태          │  ← Virtuoso 소켓, DB 아님
 ├──────────┬─────────────────────────────────────────────────────────────────┤
 │ Device   │ DeviceTabToolBar: Process [▾] Version [▾] +/- | Load Virtuoso | … │
 │ Socket   │ RefreshBanner (숨김: "이 process 가 X 님에 의해 변경되었습니다.")   │
 │(History) │ QSplitter: [Device List][Filtered List] | Device Info | 파라미터 탭 │
 ├──────────┴─────────────────────────────────────────────────────────────────┤
 │ 로그 패널 ([HH:mm:ss] 줄 단위, Clear)                                      │
-└ 상태 표시줄 ───────────────────────────────────────────────────────────────┘
+└ 상태 표시줄 (2초 문구) ─────────────────── DB: host=… dbname=… user=… ┘
 ```
+- 메뉴(phase 23)
+  - Database: `Connect...`, ─, `Save`, ─, `Load CSV...`, `Export Selected Devices...`
+  - Edit: `Undo` / `Redo`. 창 동작(단축키)과 **같은 QAction** 이라 메뉴에서 눌러도 포커스 쪽(device 표 / 탭)을 되돌린다.
+  - View: 체크 가능한 `Dark Theme`
+  - 메뉴 `Save` 에는 단축키를 보이지 않는다. 메뉴 Save 는 device 표와 탭을 전부(`save_db`), Ctrl+S 는 포커스 쪽만 저장한다.
+  - `Export Selected Devices...` 는 device 표 오른쪽 클릭 Export 와 같은 `export_selected_devices` 다. 고른 행이 없으면 표의 모든 device 를 낸다(`get_selected_devices` 의 `fallback_to_all`). 표가 비면 `Export` / `No device selected.` 경고다.
+  - 메뉴 동작에는 활성/비활성 조건이 없다. 각 함수가 안 될 때 스스로 알린다.
+- 위 툴바의 Server·Port·Connect 앞에 굵은 `Virtuoso` 라벨이 있고, Connect 툴팁은 `Connect to the Virtuoso socket` 이다(메뉴 Database → Connect... 는 DB 접속).
+- 상태 표시줄 오른쪽 영구 라벨(`DbStatus`)이 지금 붙은 DB 를 늘 보인다. 글자는 `DB: <diagnostics.target_summary(dsn)>`(host·port·dbname·user 화이트리스트. DSN 을 직접 자르거나 쓰지 않는다) 또는 `DB: not connected` 다. 색은 Virtuoso 상태 라벨과 같은 `connected` 속성 + good/bad 다. `MainWindowController` 가 `dbChanged` 로 갱신한다(재접속이 실패하면 옛 대상 그대로).
 - 왼쪽 목록이 `QStackedWidget` 페이지를 고른다. History는 `--history` 로 띄웠을 때만 있다.
 - 파라미터 탭 순서: `Summary`, `tab_config.json` 의 순서대로 14개, 마지막 `+`(숨긴 탭 다시 열기).
 - "Device List"·"Filtered List" 는 Virtuoso 목록을 받은 뒤에만 보인다.
@@ -80,7 +89,7 @@
 | 키 | 어디서 | 동작 |
 |---|---|---|
 | Ctrl+S | 창 전체 (포커스에 따라 device 표 / 탭) | 저장 |
-| `QKeySequence.Undo` / `.Redo` (Ctrl+Z / Windows Ctrl+Y, Linux Ctrl+Shift+Z) | 창 전체 (포커스에 따라) | undo / redo |
+| `QKeySequence.Undo` / `.Redo` (Ctrl+Z / Windows Ctrl+Y, Linux Ctrl+Shift+Z) | 창 전체 (포커스에 따라) | undo / redo (Edit 메뉴와 같은 동작) |
 | Ctrl+C / Ctrl+V | device 표, 탭 표 | 행 복사 / 붙여넣기 |
 | Ctrl+I / Ctrl+E / Ctrl+D, Delete | device 표, 탭 표 | 삽입 / 편집 / 삭제 |
 
@@ -90,7 +99,7 @@
 - Virtuoso 로 보내기(Run Selected / Run All)는 저장하지 않은 device 가 있으면 보내지 않고 경고한다(`Unsaved Devices`).
 - device 표 내보내기는 고른 파일의 확장자(.csv / .xlsx)로 형식을 정한다. 둘 다 아니면 메뉴에서 고른 형식이다.
 - 재접속(Database → Connect…)은 device 표나 탭에, CSV 불러오기는 device 표에 저장 안 한 편집이 있으면 새로고침과 같은 `Refresh` 질문을 먼저 한다. 아니오면 아무것도 하지 않는다.
-- Remove Process(`-`)는 지금 (이름, 버전) 쌍 하나만 지운다(확인 문구에 `sf2p V2` 처럼 버전이 붙는다). 확인하면 지운 쌍의 저장 안 한 편집은 묻지 않고 버린다(`Save Changes` 도 충돌 대화상자도 없다).
+- Remove Process(`-`)는 지금 (이름, 버전) 쌍 하나만 지운다. 확인은 controller 의 `Remove Process` 질문 한 번이다(device 수를 알리고, 문구에 `sf2p V2` 처럼 버전이 붙는다. phase 23 전에는 view 가 `Confirm Delete` 를 먼저 물었다). 확인하면 지운 쌍의 저장 안 한 편집은 묻지 않고 버린다(`Save Changes` 도 충돌 대화상자도 없다).
 - Add Process(`+`)는 `Add Process` 창(Process 편집 콤보, Version 칸, Copy from 콤보 — 기본 `(복사 안 함)`)을 연다. 이름이 비었거나, 버전이 `(없음)` 이거나, 이미 있는 쌍이면 OK 가 꺼지고 뒤의 둘은 창 안에 이유 한 줄을 보인다(메시지 상자 없음). 저장 안 한 편집이 있으면 만들기 전에 `Save Changes` 를 묻고, 저장이 취소·실패하면 아무것도 만들지 않는다.
 - Load CSV 는 파일을 고른 뒤 `Load CSV` 질문으로 버전을 묻는다(있는 버전 목록 + 직접 입력, 처음 값은 지금 버전, `(없음)`·빈칸은 버전 없음). 불러온 뒤에도 지금 쌍에 머문다.
 - 이름·버전을 치는 편집 가능 콤보(Add Process 의 Process 칸, Load CSV 의 버전 칸)는 Qt 기본 completer 를 끈다(`setCompleter(None)`). 친 글자 그대로이고 Enter 도 대소문자까지 같은 항목만 고른다(K56, phase 20). 정적 `QInputDialog.getItem(editable=True)` 은 completer 를 끌 수 없어서 쓰지 않는다.

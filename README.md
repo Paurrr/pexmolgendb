@@ -129,11 +129,26 @@ Connect 창의 **연결 테스트** 결과에는 실제 원인(비밀번호 틀�
 `127.0.0.1` 은 **그 앱이 도는 장비 자신**이다. 데스크톱에서 서버에 붙으려면 서버
 주소를 적어야 한다. 내 PC 의 개발 클러스터에 붙을 때만 `127.0.0.1` 이다.
 
-> 메인 툴바의 `Server` / `Port` / `Connect` 는 **Virtuoso 소켓**이지 데이터베이스가
-> 아니다. `--host` 도 그쪽이다. 둘은 별개다.
+> 메인 툴바의 `Virtuoso` 묶음(`Server` / `Port` / `Connect`)은 **Virtuoso 소켓**이지
+> 데이터베이스가 아니다. `--host` 도 그쪽이다. 둘은 별개다.
 > Virtuoso 쪽이 연결을 끊으면 상태 표시가 Disconnected로 바뀐다(Socket 탭에는 지금처럼
 > `ERROR: recv failed - Server connection closed` 가 보인다).
 > 상대 호스트가 응답하지 않아 접속 시간이 다 되면 상태 표시는 `Error: Connection timed out` 이다.
+
+### 창의 메뉴와 DB 표시
+
+- 창 아래 상태 표시줄 오른쪽에 지금 붙은 DB 가 늘 보인다(`DB: host=… port=… dbname=… user=…`,
+  붙지 않았으면 `DB: not connected`). 비밀번호는 보이지 않는다. 다른 데 붙다가 실패하면
+  옛 DB 가 그대로 보인다.
+- 메뉴 줄은 `Database | Edit | View` 다.
+  - **Database**: `Connect...`, `Save`, `Load CSV...`, `Export Selected Devices...`.
+    `Export Selected Devices...` 는 device 표 오른쪽 클릭 Export 와 같다. 고른 device 를
+    내고, **고른 것이 없으면 표의 모든 device 를 낸다.** 형식은 고른 파일의 확장자를 따른다.
+  - **Edit**: `Undo` / `Redo`. Ctrl+Z / Ctrl+Y(Linux 는 Ctrl+Shift+Z)와 같은 동작이고,
+    포커스가 있는 표(device 표나 탭)를 되돌린다.
+  - **View**: `Dark Theme`. 켜면 어두운 테마(시작 값), 끄면 밝은 테마다. 저장되지 않는다.
+- 메뉴 `Save` 는 device 표와 탭을 모두 저장한다. Ctrl+S 는 포커스가 있는 쪽만 저장해서
+  메뉴 Save 에는 단축키를 적지 않았다.
 
 ## 명령줄
 
@@ -470,8 +485,9 @@ process 의 화면 문구·CLI 출력·이력은 예전과 같다. 빈 버전은
   내용을 한 시점 그대로 새 쌍에 복사한다(원본은 그대로). 저장하지 않은 편집이 있으면
   만들기 전에 `Save Changes` 를 묻고, 저장을 취소했거나 실패하면 아무것도 만들지
   않는다. 이미 있는 쌍이면 `Duplicate` 를 알리고 그 쌍으로 옮긴다.
-- `-` 는 지금 쌍 하나만 지운다. 같은 이름의 다른 버전은 그대로다.
-- **Database → Load CSV** 는 파일을 고른 뒤 버전을 묻는다(있는 버전 목록에서 고르거나
+- `-` 는 지금 쌍 하나만 지운다. 같은 이름의 다른 버전은 그대로다. 확인은 device 수를
+  알려 주는 `Remove Process` 질문 한 번이다.
+- **Database → Load CSV...** 는 파일을 고른 뒤 버전을 묻는다(있는 버전 목록에서 고르거나
   친다. `(없음)`·빈칸은 버전 없음). 모든 행이 (CdsLibName, 그 버전) 쌍에 들어가고 지금
   보던 쌍은 그대로다. CSV 형식에는 버전 칸이 없다.
 - device 표 내보내기의 제안 파일 이름은 molgen 이 찾는 이름이다:
