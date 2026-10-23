@@ -43,7 +43,7 @@ tag=$2
 url=${3:-}
 
 command -v uv >/dev/null 2>&1 || {
-    echo "error: uv 가 PATH 에 없다. 배포할 때 필요하고, 결과를 쓸 때는 필요 없다." >&2
+    echo "error: uv is not on PATH. It is needed to deploy, not to use the result." >&2
     exit 1
 }
 
@@ -56,7 +56,7 @@ root=$(cd -- "$root" && pwd)
 
 if [ ! -d "$root/src/.git" ]; then
     [ -n "$url" ] || {
-        echo "error: $root/src 가 아직 없다. 저장소 URL 을 세 번째 인자로 줄 것." >&2
+        echo "error: $root/src does not exist yet. Give the repository URL as the third argument." >&2
         exit 1
     }
     git clone "$url" "$root/src"
@@ -111,7 +111,7 @@ else
 fi
 
 [ -n "$commands" ] || {
-    echo "error: console_scripts 를 찾지 못했다. DEPLOY_COMMANDS 로 직접 줄 것." >&2
+    echo "error: no console_scripts found. Name the commands in DEPLOY_COMMANDS." >&2
     exit 1
 }
 
@@ -120,7 +120,7 @@ fi
 # 지우기 전이라 실패한 배포는 bin/ 을 건드리지 않는다.
 for cmd in $commands; do
     [ -f "$root/venv/bin/$cmd" ] || {
-        echo "error: $root/venv/bin/$cmd 가 없다. DEPLOY_COMMANDS 의 이름이 프로젝트의 console_scripts 와 맞는지 볼 것." >&2
+        echo "error: $root/venv/bin/$cmd does not exist. Check that the names in DEPLOY_COMMANDS match the project's console_scripts." >&2
         exit 1
     }
 done
@@ -162,10 +162,10 @@ for cmd in $commands; do
 # $marker. 고치지 말 것 - 배포할 때마다 덮어쓴다.
 here=\$(cd -- "\$(dirname -- "\$(readlink -f -- "\$0")")" && pwd)
 if [ ! -x "\$here/../venv/bin/python" ]; then
-    echo "error: \$here/../venv 에 가상환경이 없다." >&2
-    echo "       이 런처는 자기 실제 경로로 환경을 찾는다. 복사본은 엉뚱한 데를" >&2
-    echo "       본다. 복사하지 말고 링크할 것:" >&2
-    echo "         ln -s $root/bin/$cmd <PATH 에 있는 디렉터리>/$cmd" >&2
+    echo "error: no virtual environment at \$here/../venv." >&2
+    echo "       This launcher finds the environment from its own real path. A copy looks" >&2
+    echo "       in the wrong place. Link it instead of copying it:" >&2
+    echo "         ln -s $root/bin/$cmd <directory on PATH>/$cmd" >&2
     # 127 = '명령을 실행할 수 없음'. 배포 끝의 확인이 이 값을 본다.
     exit 127
 fi
@@ -184,11 +184,11 @@ if [ ! -e "$root/genviewer.env" ]; then
         cp "$root/src/genviewer.env.example" "$root/genviewer.env"
         chmod 640 "$root/genviewer.env"
         echo
-        echo "$root/genviewer.env 를 만들었다. 값을 채우고 팀 그룹 소유로 둘 것:"
+        echo "Created $root/genviewer.env. Fill in the values and give it to the team group:"
         echo "  vi $root/genviewer.env"
-        echo "  chgrp <팀그룹> $root/genviewer.env"
+        echo "  chgrp <team-group> $root/genviewer.env"
     else
-        echo "note: genviewer.env.example 이 없어 설정 파일을 만들지 못했다." >&2
+        echo "note: genviewer.env.example is missing, so no config file was created." >&2
     fi
 fi
 
@@ -223,8 +223,8 @@ fi
 
 if [ -n "${DEPLOY_LINK_DIR:-}" ]; then
     [ -d "$DEPLOY_LINK_DIR" ] || {
-        echo "error: DEPLOY_LINK_DIR=$DEPLOY_LINK_DIR 가 없다." >&2
-        echo "       사용자들이 이미 PATH 에 두고 있는 디렉터리여야 한다." >&2
+        echo "error: DEPLOY_LINK_DIR=$DEPLOY_LINK_DIR does not exist." >&2
+        echo "       It must be a directory that users already have on PATH." >&2
         exit 1
     }
 
@@ -239,7 +239,7 @@ if [ -n "${DEPLOY_LINK_DIR:-}" ]; then
     for cmd in $commands; do
         link=$DEPLOY_LINK_DIR/$cmd
         if [ -e "$link" ] || [ -L "$link" ]; then
-            echo "error: $link 가 이미 있고 우리가 만든 것이 아니다. 직접 치울 것." >&2
+            echo "error: $link already exists and was not made by this script. Remove it yourself." >&2
             exit 1
         fi
         ln -s "$root/bin/$cmd" "$link"
@@ -254,9 +254,9 @@ case "$interp" in
     "$root"/*) ;;
     "${HOME:-/nonexistent}"/*)
         echo >&2
-        echo "warning: venv 의 인터프리터가 $interp 다." >&2
-        echo "         내 홈 안이라 다른 사용자가 실행할 수 없다." >&2
-        echo "         uv 가 관리하는 CPython 을 거기 두었다. $root 아래에 둘 것:" >&2
+        echo "warning: the venv interpreter is $interp." >&2
+        echo "         It is inside your home directory, so other users cannot run it." >&2
+        echo "         uv put its managed CPython there. Put it under $root instead:" >&2
         echo >&2
         echo "           rm -rf $root/venv" >&2
         echo "           UV_PYTHON_INSTALL_DIR=$root/python uv python install 3.13" >&2
@@ -275,7 +275,7 @@ check_exec() {
     "$1" --help >/dev/null 2>&1 || rc=$?
     rc=${rc:-0}
     if [ "$rc" -eq 126 ] || [ "$rc" -eq 127 ]; then
-        echo "error: $1 가 실행되지 않았다 (status $rc)" >&2
+        echo "error: $1 did not run (status $rc)" >&2
         exit 1
     fi
     unset rc
@@ -294,9 +294,9 @@ echo
 echo "Deployed $tag: $commands"
 echo
 if [ -n "${DEPLOY_LINK_DIR:-}" ]; then
-    echo "$DEPLOY_LINK_DIR 에 링크했다. 사용자들은 이미 그것을 PATH 에 두고 있다."
-    echo "따로 바꿀 것이 없다."
+    echo "Linked into $DEPLOY_LINK_DIR. Users already have it on PATH."
+    echo "Nothing else to change."
 else
-    echo "사용자는 셸 프로파일에 이 한 줄을 넣는다:"
+    echo "Users add this line to their shell profile:"
     echo "  export PATH=\"$root/bin:\$PATH\""
 fi

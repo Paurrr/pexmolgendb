@@ -131,7 +131,8 @@ def test_a_second_run_on_a_running_cluster_succeeds(pg):
     assert first.returncode == 0, first.stderr
     second = run_initdb(pg)
     assert second.returncode == 0, second.stderr
-    assert "이미 있음" in second.stdout
+    # 줄 전체로 본다. 두 번째 실행은 "Cluster already exists: …" 도 찍는다.
+    assert "   already exists" in second.stdout.splitlines()
     assert len(starts(pg)) == 1
     assert len(calls(pg, "initdb")) == 1
 
@@ -139,7 +140,7 @@ def test_a_second_run_on_a_running_cluster_succeeds(pg):
 def test_a_second_run_says_start_was_skipped(pg):
     run_initdb(pg)
     second = run_initdb(pg)
-    assert "==> start 건너뜀 (이미 떠 있다)" in second.stdout
+    assert "==> skipping start (already running)" in second.stdout
 
 
 def test_a_failing_start_still_stops_the_script(pg):
@@ -152,7 +153,7 @@ def test_a_failing_start_still_stops_the_script(pg):
 
 def test_skip_start_does_not_call_pg_ctl(pg):
     result = run_initdb(pg, SKIP_START=1)
-    assert "start 건너뜀 (SKIP_START=1)" in result.stdout
+    assert "skipping start (SKIP_START=1)" in result.stdout
     assert calls(pg, "pg_ctl") == []
 
 
@@ -179,17 +180,17 @@ def test_a_commented_out_hba_line_does_not_count_as_present(pg):
     result = run_initdb(pg, **HBA_ENV)
     assert result.returncode == 0, result.stderr
     assert hba_lines(pg).count(HBA_LINE) == 1
-    assert "pg_hba.conf 에 추가" in result.stdout
+    assert "added to pg_hba.conf" in result.stdout
 
 
 def test_an_existing_hba_line_is_not_added_again(pg):
     first = run_initdb(pg, **HBA_ENV)
     assert first.returncode == 0, first.stderr
-    assert "pg_hba.conf 에 추가" in first.stdout
+    assert "added to pg_hba.conf" in first.stdout
     second = run_initdb(pg, **HBA_ENV)
     assert second.returncode == 0, second.stderr
     assert hba_lines(pg).count(HBA_LINE) == 1
-    assert "추가" not in second.stdout
+    assert "added to pg_hba.conf" not in second.stdout
 
 
 # K26: PGHBA_CIDR 를 주면서 PGAUTH_HOST 를 정하지 않으면 기본값 trust 가 그 대역 전체를

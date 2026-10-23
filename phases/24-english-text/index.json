@@ -53,7 +53,10 @@
     {
       "step": 6,
       "name": "shell-text",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-23T12:42:17+0900",
+      "summary": "tools/initdb.sh·deploy.sh 출력 영어화(marker·주석 그대로, LF·100755 유지). initdb.sh 10줄: K26 거부 2줄(접두어 오류: -> error:, 이어지는 줄 들여쓰기 7칸), Cluster already exists: $PGDATA (skipping initdb), ==> added to pg_hba.conf: $hba_line, ==> skipping start (SKIP_START=1)/(already running), createdb 결과 3줄(   created /    already exists /    failed: $err), Done. Environment:. deploy.sh 21줄: error/warning/note 접두어 그대로 뒤 문장만(uv 없음, src 없음, console_scripts 없음, venv/bin/$cmd 없음(nosuch 이름 그대로 실림), DEPLOY_LINK_DIR 없음 2줄, 남의 링크, 홈 안 인터프리터 경고 3줄, did not run (status $rc), env.example 없음), 생성 런처 실행 줄 4(heredoc 의 \\$here 이스케이프 그대로, <directory on PATH>), 안내 줄(Created ... team group:, chgrp <team-group>, Linked into ... / Nothing else to change., Users add this line to their shell profile:). git diff 로 바뀐 줄이 모두 echo 이고 marker·주석·동작 줄은 그대로임을 확인. 남은 한글은 marker 와 initdb.sh 36-37 의 줄 끝 주석(PGHBA_DB/PGHBA_USER) 뿐이라 step 7 셸 검사는 줄 끝 주석도 빼야 한다. 고친 테스트: test_initdb_sh(134 는 '   already exists' 를 splitlines 로 줄 전체 비교. 두 번째 실행은 'Cluster already exists:' 도 찍어서 포함 검사면 createdb 줄이 깨져도 통과한다, 142·155·182·188, 192 없음 단언은 'added to pg_hba.conf' not in). test_deploy_sh 는 출력 글자를 보는 단언이 없어 고칠 것 없음(364 의 nosuch 는 새 문구에도 있다, marker 단언 없음). 변이: initdb.sh 의 already exists·already running·SKIP_START·added to pg_hba.conf 4개를 하나씩 한국어로 되돌리면 각각 고친 테스트가 실패, 192 는 echo 만 if 밖으로 옮기면 그 테스트만 실패(줄 수는 1 그대로). 손 확인: 임시 저장소+가짜 uv 로 deploy.sh 실행(rc 0, 영어 안내), 복사한 런처 실행은 영어 오류 4줄·rc 127, src 없음·nosuch·DEPLOY_LINK_DIR 없음 오류 영어. 고정 테스트가 없는 것(K26 거부 2줄(PGAUTH_HOST·trust 포함만 봄), Cluster already exists, created, failed, Done, deploy.sh 출력 전부)은 step 7 가드 몫. sh -n 두 파일 따로 통과, 셸 테스트 32 passed / 7 skipped(posix_only), DB 테스트: 1249 passed / 10 skipped(Windows 권한만)",
+      "completed_at": "2026-10-23T12:49:32+0900"
     },
     {
       "step": 7,

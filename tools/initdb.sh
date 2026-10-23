@@ -18,8 +18,8 @@ set -eu
 # 연다. 그래서 기본값을 채우기 전의 원래 값으로 보고, 비어 있으면 initdb·설정 파일
 # 수정보다 먼저 멈춘다. PGAUTH_HOST=trust 로 명시한 것은 사용자의 선택이라 받는다.
 if [ -n "${PGHBA_CIDR:-}" ] && [ -z "${PGAUTH_HOST:-}" ]; then
-    echo "오류: PGHBA_CIDR 를 주면 PGAUTH_HOST 도 정해야 한다(예: PGAUTH_HOST=scram-sha-256)." >&2
-    echo "      기본값 trust 는 그 대역 전체를 인증 없이 연다. 정말 그러려면 PGAUTH_HOST=trust 로 명시할 것." >&2
+    echo "error: PGHBA_CIDR needs PGAUTH_HOST too (e.g. PGAUTH_HOST=scram-sha-256)." >&2
+    echo "       The default trust opens that whole range without authentication. To really do that, set PGAUTH_HOST=trust." >&2
     exit 1
 fi
 
@@ -43,7 +43,7 @@ else
 fi
 
 if [ -s "$PGDATA/PG_VERSION" ]; then
-    echo "이미 클러스터가 있다: $PGDATA (initdb 건너뜀)"
+    echo "Cluster already exists: $PGDATA (skipping initdb)"
 else
     echo "==> initdb $PGDATA"
     # locale=C: 정렬 규칙이 OS/로캘에 따라 달라지지 않게 고정 (fmserver 와 동일).
@@ -79,19 +79,19 @@ if [ -n "$PGHBA_CIDR" ]; then
     # 주석 처리된 같은 줄을 있음으로 보지 않게 줄 전체를 비교한다.
     if ! grep -qxF "$hba_line" "$PGDATA/pg_hba.conf"; then
         echo "$hba_line" >> "$PGDATA/pg_hba.conf"
-        echo "==> pg_hba.conf 에 추가: $hba_line"
+        echo "==> added to pg_hba.conf: $hba_line"
     fi
 fi
 
 if [ "$SKIP_START" = "1" ]; then
-    echo "==> start 건너뜀 (SKIP_START=1)"
+    echo "==> skipping start (SKIP_START=1)"
 # 이미 떠 있으면(이 스크립트로 띄웠든 systemd 로 띄웠든) start 하지 않는다. 떠 있는
 # 서버에 start 하면 pg_ctl 이 exit 1 이라 다시 돌린 실행이 createdb 전에 죽는다.
 # pg_ctl status 의 종료 코드: 0 떠 있음, 3 안 떠 있음, 4 데이터 디렉터리가 없거나 잘못됨.
 # 0 이 아니면 지금처럼 start 한다. start 를 '|| true' 로 넘기지 않는 이유: 포트 충돌·
 # 권한·잘못된 설정으로 진짜 못 띄운 경우는 여기서 멈춰야 한다.
 elif "$pg_ctl" -D "$PGDATA" status >/dev/null 2>&1; then
-    echo "==> start 건너뜀 (이미 떠 있다)"
+    echo "==> skipping start (already running)"
 else
     echo "==> start (port $PGPORT)"
     "$pg_ctl" -D "$PGDATA" -o "-p $PGPORT" -l "$PGDATA/server.log" -w start
@@ -111,14 +111,14 @@ echo "==> create database $PGDB"
 # 으로 떨어져서, DB 가 안 만들어졌는데도 성공한 것처럼 끝났다. -w 는 보이지도 않는
 # 비밀번호 프롬프트에서 멈추는 것을 막는다.
 if err=$("$createdb" -p "$PGPORT" -U "$PGUSER" -O "$PGUSER" -w --maintenance-db=postgres "$PGDB" 2>&1); then
-    echo "   생성함"
+    echo "   created"
 elif printf '%s' "$err" | grep -q "already exists"; then
-    echo "   이미 있음"
+    echo "   already exists"
 else
-    echo "   실패: $err" >&2
+    echo "   failed: $err" >&2
     exit 1
 fi
 
 echo
-echo "완료. 환경변수:"
+echo "Done. Environment:"
 echo "  GENDB_PG_DSN=postgresql://$PGUSER@127.0.0.1:$PGPORT/$PGDB"
