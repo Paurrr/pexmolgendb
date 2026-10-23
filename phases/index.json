@@ -107,7 +107,8 @@
     },
     {
       "dir": "25-combo-width",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-10-23T17:38:57+0900"
     }
   ]
 }
