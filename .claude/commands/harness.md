@@ -33,6 +33,7 @@
 13. **운영 환경에서만 드러나는 동작은 개발 PC에서 도는 근사 검사를 AC에 넣는다** — `tools/*.sh` 는 stub 명령으로 실제 실행하는 테스트(`tests/test_deploy_sh.py` 방식), RHEL 8 설치 가능성은 lock 휠 태그 확인(`uv pip compile pyproject.toml --python-version 3.13 --python-platform x86_64-manylinux_2_28`), `init_db` 의 Python 3.9 호환은 `tests/test_py39_compat.py`(import를 따라가는 정적 검사), 권한 비트는 `posix_only` 테스트로 고정하고, 그래도 남는 것은 README 서버 절에 적게 한다.
 14. **구조를 바꾸는 step은 기존 테스트가 아직 그 성질을 지키는지 적는다** — step이 객체 배치나 시그널 연결을 바꾸면 그 경로를 지키던 기존 테스트가 여전히 이름의 성질을 검사하는지 확인하고, 검사 대상이 사라졌으면 새 입력으로 다시 세우게 한다. 창 닫기·`shutdown`·첫 접속 시점처럼 fixture의 정리·준비 순서에 걸리는 것을 바꾸면 그 fixture도 대상이다. pytest-qt는 fixture 정리보다 먼저 등록한 창을 닫는다(phase 4 step 5가 `main_window` fixture를 고쳤다).
 15. **genviewer 모듈 사이에 import를 더하는 step은 경계 가드를 먼저 본다** — 티어 표만 보고 "같은 티어라 괜찮다"고 적지 않는다. `tests/test_boundaries.py` 는 티어와 별도로 `models/`(genviewer 에서 허용 목록만)와 `net/`(자기 안만)의 import를 막는다. 허용 목록을 넓혀야 하면 그 사실과 승인(ADR)을 step 파일에 적고, 테스트 이름·docstring과 ARCHITECTURE 레이어 절도 같이 고치게 한다. 이유: phase 22 step 1 파일이 "모델은 Qt 모듈이라 경계 규칙에 걸리지 않는다"고 적었지만 models 허용 목록에 걸려서, 세션이 지시 밖에서 가드 테스트를 넓혔다.
+16. **step 파일의 "지금처럼" 서술도 코드로 확인하고 쓴다** — 승인된 변경 step이 기존 함수를 그대로 부른다면, 그 함수가 경계 입력(빈 선택, 빈 목록, 접속 전)에서 지금 실제로 무엇을 하는지 코드를 읽고 적는다. 이유: phase 23 step 4 파일이 "고른 device 가 없으면 지금처럼 `No device selected.` 경고"라고 적었지만, `get_selected_devices(fallback_to_all=True)` 라서 실제로는 표 전체를 낸다. 세션은 기존 동작을 지켰고, 테스트 이름(`test_export_menu_without_selection_warns`)만 지시를 따라 실제 동작과 어긋났다.
 
 ### D. 파일 생성
 
