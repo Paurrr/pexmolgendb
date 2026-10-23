@@ -12,11 +12,11 @@ from PySide6.QtWidgets import (
 from genviewer.service.repo.audit import process_label
 
 # 빈 버전 "" 의 표시 글자(툴바 version 콤보). 값이 아니라서 버전 이름으로 받지 않는다.
-NO_RELEASE_TEXT = "(없음)"
-NO_COPY_TEXT = "(복사 안 함)"
+NO_RELEASE_TEXT = "(none)"
+NO_COPY_TEXT = "(no copy)"
 
-_EXISTS = "이미 있는 process 다."
-_NO_RELEASE = f"{NO_RELEASE_TEXT} 은 버전 이름으로 쓸 수 없다."
+_EXISTS = "This process already exists."
+_NO_RELEASE = f"{NO_RELEASE_TEXT} cannot be used as a version name."
 
 
 class AddProcessDialog(QDialog):
@@ -42,7 +42,7 @@ class AddProcessDialog(QDialog):
 
         self.release_edit = QLineEdit()
 
-        # 처음 값은 "(복사 안 함)" 이다. 지금 쌍이면 새 process 를 만들려던 사람이 모르고
+        # 처음 값은 NO_COPY_TEXT 이다. 지금 쌍이면 새 process 를 만들려던 사람이 모르고
         # device 를 복사한다.
         self.source_box = QComboBox()
         self.source_box.addItems([NO_COPY_TEXT] + [process_label(*p) for p in self._pairs])

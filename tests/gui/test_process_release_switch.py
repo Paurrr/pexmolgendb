@@ -159,7 +159,7 @@ def test_choosing_no_release_again_keeps_the_old_log_line(device_tab_ctrl, store
 
     qtbot.waitUntil(lambda: device_names(ctrl) == ["nfet_a", "nfet_b"])
     assert current(ctrl) == ("sf2p", "", pid(store, "sf2p"))
-    assert shown_pair(ctrl) == ("sf2p", "(없음)")
+    assert shown_pair(ctrl) == ("sf2p", "(none)")
     assert changes == [("sf2p", "")]
     assert "Selected process: sf2p." in logs
 
@@ -204,7 +204,7 @@ def test_choosing_a_name_without_the_release_takes_its_first_release(
 
     qtbot.waitUntil(lambda: device_names(ctrl) == ["pfet_a"])
     assert current(ctrl) == ("sf4u", "", pid(store, "sf4u"))
-    assert shown_pair(ctrl) == ("sf4u", "(없음)")
+    assert shown_pair(ctrl) == ("sf4u", "(none)")
     assert changes == [("sf4u", "")]
 
 
@@ -304,7 +304,7 @@ def test_a_deleted_release_is_not_restored_after_a_cancel(device_tab_ctrl, store
     qtbot.waitUntil(lambda: len(store.calls_of("upsert_devices")) == 1)
     qtbot.waitUntil(lambda: device_names(ctrl) == ["nfet_a", "nfet_b"])
     assert toolbar(ctrl).pairs() == [("sf2p", ""), ("sf4u", "")]
-    assert shown_pair(ctrl) == ("sf2p", "(없음)")
+    assert shown_pair(ctrl) == ("sf2p", "(none)")
     assert current(ctrl) == ("sf2p", "", pid(store, "sf2p"))
     assert ctrl.device_table.is_dirty() is False
     assert changes == [("sf2p", "")]
@@ -331,7 +331,7 @@ def test_when_the_current_release_is_deleted_the_first_release_of_the_name_is_se
 
     qtbot.waitUntil(lambda: device_names(ctrl) == ["pfet_a"])
     assert current(ctrl) == ("sf4u", "", pid(store, "sf4u"))
-    assert shown_pair(ctrl) == ("sf4u", "(없음)")
+    assert shown_pair(ctrl) == ("sf4u", "(none)")
     assert changes == [("sf4u", "")]
     assert lookups_since(store, since) == [("sf4u", "")]
 
@@ -374,7 +374,7 @@ def test_first_connect_selects_the_first_pair_once(device_tab_ctrl, store):
     ctrl = device_tab_ctrl
 
     assert current(ctrl) == ("sf2p", "", pid(store, "sf2p"))
-    assert shown_pair(ctrl) == ("sf2p", "(없음)")
+    assert shown_pair(ctrl) == ("sf2p", "(none)")
     assert lookups_since(store, 0) == [("sf2p", "")]
     assert "list_pairs" in call_names(store)
     # History 를 만들지 않았다. 툴바는 이름 목록(list_all)을 읽지 않는다.
@@ -422,7 +422,7 @@ def test_removing_the_current_release_moves_to_the_other_release_without_asking(
 
     qtbot.waitUntil(lambda: device_names(ctrl) == ["nfet_a", "nfet_b"])
     assert current(ctrl) == ("sf2p", "", pid(store, "sf2p"))
-    assert shown_pair(ctrl) == ("sf2p", "(없음)")
+    assert shown_pair(ctrl) == ("sf2p", "(none)")
     assert ctrl.device_table.is_dirty() is False
     assert changes == [("sf2p", "")]
     assert sorted(d["name"] for d in store.devices.values()) == ["nfet_a", "nfet_b", "pfet_a"]

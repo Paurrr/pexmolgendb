@@ -239,7 +239,7 @@ def test_the_release_question_lists_each_release_once_with_no_release_first(
     assert seen == {
         "title": "Load CSV",
         "label": "불러올 버전 (비우면 버전 없음):",
-        "items": ["(없음)", "V1", "V2"],
+        "items": ["(none)", "V1", "V2"],
         "text": "V1",
         "editable": True,
         # 기본 completer 가 친 글자를 기존 버전으로 바꾼다(K56).
@@ -256,12 +256,12 @@ def test_the_release_question_starts_on_no_release_when_the_current_pair_has_non
     store.add_process("sf4u", release="V2")
     ctrl.device_tab_toolbar.refresh_processes()
     assert toolbar(ctrl).current_pair() == ("sf2p", "")
-    asked = answer_exec(monkeypatch, "(없음)")
+    asked = answer_exec(monkeypatch, "(none)")
 
     assert ctrl.ui._ask_release() == ""
 
     (seen,) = asked
-    assert (seen["items"], seen["text"]) == (["(없음)", "V2"], "(없음)")
+    assert (seen["items"], seen["text"]) == (["(none)", "V2"], "(none)")
 
 
 def test_the_release_question_is_asked_even_without_any_pair(qtbot, monkeypatch):
@@ -290,8 +290,8 @@ def test_an_unanswered_release_question_is_blocked_by_the_fixture(qtbot, dialogs
 @pytest.mark.parametrize(
     ("answer", "expected"),
     [
-        (("(없음)", True), ""),
-        ((" (없음) ", True), ""),
+        (("(none)", True), ""),
+        ((" (none) ", True), ""),
         (("", True), ""),
         (("   ", True), ""),
         (("V2", True), "V2"),

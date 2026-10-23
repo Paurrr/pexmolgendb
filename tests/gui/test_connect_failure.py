@@ -309,7 +309,7 @@ def test_the_connection_test_shows_the_real_cause(dialog, monkeypatch):
     dialog._on_test()
 
     text = dialog.status_label.text()
-    assert text.startswith("실패: ")
+    assert text.startswith("Failed: ")
     assert CAUSE_KEY in text
     assert PASSWORD not in text
     assert dialog.test_btn.isEnabled()
@@ -325,7 +325,7 @@ def test_an_unexpected_connection_test_error_hides_the_password(dialog, monkeypa
     dialog._on_test()
 
     text = dialog.status_label.text()
-    assert text.startswith("실패: ")
+    assert text.startswith("Failed: ")
     assert PASSWORD not in text
     assert dialog.test_btn.isEnabled()
 
@@ -335,7 +335,7 @@ def test_a_successful_connection_test_says_so(dialog, monkeypatch):
 
     dialog._on_test()
 
-    assert dialog.status_label.text() == "연결 성공"
+    assert dialog.status_label.text() == "Connected."
     assert dialog.test_btn.isEnabled()
     assert [PASSWORD in db.cfg.dsn for db in made] == [True]
     assert [db.close_count for db in made] == [1]

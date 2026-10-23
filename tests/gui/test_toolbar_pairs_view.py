@@ -2,7 +2,7 @@
 
 process 행 하나가 (이름, 버전) 쌍이다. view 는 두 콤보를 묶어 쌍을 다루고, 사용자 동작 한 번이나
 실제로 바뀐 선택 한 번에 `selectionChanged(이름, 버전)` 을 정확히 한 번 낸다. 빈 버전은
-`(없음)` 으로 보이지만 값은 `""` 이다. 컨트롤러가 쌍으로 옮긴 뒤(step 8) 옛 이름 API
+`(none)` 으로 보이지만 값은 `""` 이다. 컨트롤러가 쌍으로 옮긴 뒤(step 8) 옛 이름 API
 (`set_processes`, `select_process`, `select_process_silently`)는 없다. Remove 는 지금 쌍을
 묻고 낸다.
 """
@@ -65,7 +65,7 @@ def test_set_pairs_fills_the_names_and_the_releases_of_the_first_name(view):
     view.set_pairs(PAIRS)
 
     assert items(view.process_selector) == ["sf2p", "sf4u"]
-    assert items(view.release_selector) == ["(없음)", "V1"]
+    assert items(view.release_selector) == ["(none)", "V1"]
     assert view.current_pair() == ("sf2p", "")
     assert got == [("sf2p", "")]
 
@@ -87,7 +87,7 @@ def test_set_pairs_keeps_the_current_pair_when_it_is_still_there(view):
 
     assert got == []
     assert view.current_pair() == ("sf2p", "V1")
-    assert shown(view) == (["sf2p", "sf4u", "sf9x"], "sf2p", ["(없음)", "V1"], "V1")
+    assert shown(view) == (["sf2p", "sf4u", "sf9x"], "sf2p", ["(none)", "V1"], "V1")
 
 
 def test_a_dropped_release_falls_back_to_the_first_release_of_the_name(view):
@@ -97,7 +97,7 @@ def test_a_dropped_release_falls_back_to_the_first_release_of_the_name(view):
 
     assert got == [("sf4u", "")]
     assert view.current_pair() == ("sf4u", "")
-    assert items(view.release_selector) == ["(없음)", "U0"]
+    assert items(view.release_selector) == ["(none)", "U0"]
 
 
 def test_a_dropped_release_of_the_spec_example_goes_to_no_release(view):
@@ -151,7 +151,7 @@ def test_choosing_a_name_that_has_the_release_keeps_the_release(view):
 
     assert got == [("sf4u", "V1")]
     assert view.current_pair() == ("sf4u", "V1")
-    assert shown(view) == (["sf2p", "sf4u", "sf9x"], "sf4u", ["(없음)", "U0", "V1"], "V1")
+    assert shown(view) == (["sf2p", "sf4u", "sf9x"], "sf4u", ["(none)", "U0", "V1"], "V1")
 
 
 def test_choosing_a_name_without_the_release_takes_its_first_release(view):
@@ -180,7 +180,7 @@ def test_select_silently_changes_the_pair_without_a_signal(view):
 
     assert got == []
     assert view.current_pair() == ("sf4u", "")
-    assert shown(view) == (["sf2p", "sf4u"], "sf4u", ["(없음)"], "(없음)")
+    assert shown(view) == (["sf2p", "sf4u"], "sf4u", ["(none)"], "(none)")
 
     # 조용히 고른 쌍이 다음 비교의 기준이다. 사용자가 원래 쌍으로 돌아가면 그것도 바뀐 것이다.
     view.process_selector.setCurrentIndex(0)
@@ -211,14 +211,14 @@ def test_select_pair_gives_the_pair_only_when_it_changes(view):
 
     assert got == [("sf4u", "V1"), ("sf4u", "U0")]
     assert view.current_pair() == ("sf4u", "U0")
-    assert items(view.release_selector) == ["(없음)", "U0", "V1"]
+    assert items(view.release_selector) == ["(none)", "U0", "V1"]
 
 
 def test_no_release_shows_as_its_text_but_reads_as_an_empty_string(view):
     got = record(view)
     view.set_pairs([("sf2p", ""), ("sf2p", "V1")])
 
-    assert view.release_selector.currentText() == "(없음)"
+    assert view.release_selector.currentText() == "(none)"
     assert view.current_pair() == ("sf2p", "")
     assert got == [("sf2p", "")]
 

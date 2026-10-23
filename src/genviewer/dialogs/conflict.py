@@ -37,7 +37,7 @@ class ConflictDialog(QDialog):
         self.setMinimumWidth(460)
         self._choice = CANCEL
 
-        header = QLabel("다른 사용자가 편집 중인 데이터를 먼저 변경했다.")
+        header = QLabel("Another user changed this data first.")
         header.setWordWrap(True)
 
         listing = QListWidget()
@@ -45,13 +45,13 @@ class ConflictDialog(QDialog):
             listing.addItem(conflict.describe())
         listing.setMaximumHeight(160)
 
-        reload_btn = QPushButton("다시 읽기")
-        reload_btn.setToolTip("서버 내용으로 되돌린다. 내가 편집한 내용은 버려진다.")
+        reload_btn = QPushButton("Reload")
+        reload_btn.setToolTip("Reload from the server. Your unsaved changes are discarded.")
         reload_btn.setDefault(True)
         reload_btn.clicked.connect(lambda: self._done(RELOAD))
 
-        cancel_btn = QPushButton("취소")
-        cancel_btn.setToolTip("아무것도 저장하지 않는다. 편집 내용은 그대로 남는다.")
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setToolTip("Save nothing. Your changes stay as they are.")
         cancel_btn.clicked.connect(lambda: self._done(CANCEL))
 
         row = QHBoxLayout()
@@ -59,8 +59,8 @@ class ConflictDialog(QDialog):
         # 덮어쓸 행이 없으면 만들지 않는다(can_overwrite). 고르면 편집이 조용히 사라지거나
         # (device 저장) 같은 충돌이 다시 난다(탭 저장).
         if allow_overwrite:
-            overwrite_btn = QPushButton("내 변경으로 덮어쓰기")
-            overwrite_btn.setToolTip("상대의 변경을 내 내용으로 덮어쓴다.")
+            overwrite_btn = QPushButton("Overwrite with Mine")
+            overwrite_btn.setToolTip("Replace the other user's change with yours.")
             overwrite_btn.clicked.connect(lambda: self._done(OVERWRITE))
             row.addWidget(overwrite_btn)
         row.addStretch()

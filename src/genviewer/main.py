@@ -32,8 +32,8 @@ def _show_unexpected(exc: BaseException) -> None:
     _reporting = True
     try:
         where = logs.active_path()
-        tail = f"\n\n자세한 내용: {where}" if where else ""
-        QMessageBox.critical(None, "예기치 못한 오류", f"{user_message(exc)}{tail}")
+        tail = f"\n\nDetails: {where}" if where else ""
+        QMessageBox.critical(None, "Unexpected Error", f"{user_message(exc)}{tail}")
     except Exception:
         log.exception("오류 상자를 띄우지 못했다")
     finally:

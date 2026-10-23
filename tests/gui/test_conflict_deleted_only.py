@@ -30,9 +30,9 @@ TABLE = "inst_terms"
 COLUMN = "cds_inst_term_name"
 EDITED_TAB = "dd"
 EDITED = "edited by tester"
-RELOAD_BUTTON = "다시 읽기"
-OVERWRITE_BUTTON = "내 변경으로 덮어쓰기"
-CANCEL_BUTTON = "취소"
+RELOAD_BUTTON = "Reload"
+OVERWRITE_BUTTON = "Overwrite with Mine"
+CANCEL_BUTTON = "Cancel"
 BOTH = (RELOAD, CANCEL)
 ALL_THREE = (RELOAD, OVERWRITE, CANCEL)
 

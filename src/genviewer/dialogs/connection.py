@@ -83,7 +83,7 @@ class ConnectionDialog(QDialog):
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
 
-        self.test_btn = QPushButton("연결 테스트")
+        self.test_btn = QPushButton("Test Connection")
         self.test_btn.clicked.connect(self._on_test)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -98,8 +98,8 @@ class ConnectionDialog(QDialog):
         layout = QVBoxLayout()
         layout.addWidget(
             QLabel(
-                f"기본값은 지금 적용된 설정({env_file.SITE_NAME})이다. "
-                "여기서 고친 값은 이번 접속에만 쓰이고 저장되지 않는다."
+                f"Defaults are the current settings ({env_file.SITE_NAME}). "
+                "Changes here are used for this connection only and are not saved."
             )
         )
         layout.addLayout(form)
@@ -136,15 +136,15 @@ class ConnectionDialog(QDialog):
             finally:
                 db.close()
 
-        self.status_label.setText("연결 중...")
+        self.status_label.setText("Connecting...")
         self.test_btn.setEnabled(False)
         try:
             # 죽은 호스트를 찍었을 때 이 창까지 같이 얼지 않게 워커에서 돈다.
             run_blocking(probe, self)
         except Exception as e:
             # str(e) 를 쓰면 안 된다. psycopg 의 접속 실패 문자열에는 conninfo(비밀번호)가 있다.
-            self.status_label.setText(f"실패: {user_message(e)}")
+            self.status_label.setText(f"Failed: {user_message(e)}")
             return
         finally:
             self.test_btn.setEnabled(True)
-        self.status_label.setText("연결 성공")
+        self.status_label.setText("Connected.")

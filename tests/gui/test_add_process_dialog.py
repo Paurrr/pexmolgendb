@@ -13,8 +13,8 @@ from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QLin
 from genviewer.dialogs.add_process import AddProcessDialog
 
 PAIRS = [("sf2p", ""), ("sf2p", "V1"), ("sf4u", "")]
-EXISTS = "이미 있는 process 다."
-NO_RELEASE = "(없음) 은 버전 이름으로 쓸 수 없다."
+EXISTS = "This process already exists."
+NO_RELEASE = "(none) cannot be used as a version name."
 
 
 @pytest.fixture
@@ -50,8 +50,8 @@ def test_it_starts_on_the_current_name_with_a_blank_version_and_no_copy(dialog):
     assert items(dialog.name_box) == ["sf2p", "sf4u"]
     assert dialog.name_box.currentText() == "sf2p"
     assert dialog.release_edit.text() == ""
-    assert items(dialog.source_box) == ["(복사 안 함)", "sf2p", "sf2p V1", "sf4u"]
-    # 지금 쌍이 아니라 "(복사 안 함)" 이 기본이다. 모르고 device 를 복사하지 않게.
+    assert items(dialog.source_box) == ["(no copy)", "sf2p", "sf2p V1", "sf4u"]
+    # 지금 쌍이 아니라 "(no copy)" 이 기본이다. 모르고 device 를 복사하지 않게.
     assert dialog.source_box.currentIndex() == 0
     assert dialog.values() == ("sf2p", "", None)
 
@@ -88,7 +88,7 @@ def test_a_blank_name_disables_ok(dialog, name):
     assert not ok_enabled(dialog)
 
 
-@pytest.mark.parametrize("release", ["(없음)", "  (없음) "])
+@pytest.mark.parametrize("release", ["(none)", "  (none) "])
 def test_the_no_release_text_cannot_be_a_version(dialog, release):
     fill(dialog, "sf9x", release)
 
@@ -146,7 +146,7 @@ def test_without_any_process_it_starts_empty_and_ok_is_off(qtbot):
 
     assert items(dlg.name_box) == []
     assert dlg.name_box.currentText() == ""
-    assert items(dlg.source_box) == ["(복사 안 함)"]
+    assert items(dlg.source_box) == ["(no copy)"]
     assert not ok_enabled(dlg)
 
     fill(dlg, "sf2p", "")
@@ -157,7 +157,7 @@ def test_without_any_process_it_starts_empty_and_ok_is_off(qtbot):
 
 def test_the_window_shows_no_message_box(dialog, dialogs):
     fill(dialog, "sf2p", "")
-    fill(dialog, "sf9x", "(없음)")
+    fill(dialog, "sf9x", "(none)")
     fill(dialog, "", "")
 
     assert dialogs.shown == []

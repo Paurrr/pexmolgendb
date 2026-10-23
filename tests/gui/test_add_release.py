@@ -499,7 +499,7 @@ def test_the_window_gets_the_pairs_and_the_current_pair(qtbot, monkeypatch):
             "Add Process",
             ["sf2p", "sf4u"],
             "sf2p",
-            ["(복사 안 함)", "sf2p", "sf2p V1", "sf4u"],
+            ["(no copy)", "sf2p", "sf2p V1", "sf4u"],
         )
     ]
 
