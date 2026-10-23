@@ -104,6 +104,10 @@
       "dir": "24-english-text",
       "status": "completed",
       "completed_at": "2026-10-23T13:05:22+0900"
+    },
+    {
+      "dir": "25-combo-width",
+      "status": "pending"
     }
   ]
 }

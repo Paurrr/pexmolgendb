@@ -1,0 +1,7 @@
+{
+  "project": "genviewer",
+  "phase": "25-combo-width",
+  "steps": [
+    { "step": 0, "name": "version-combo-width", "status": "pending" }
+  ]
+}
