@@ -24,7 +24,7 @@ molgen(Cadence SKILL 스위트 `genMOLDB`)이 입력으로 받는 CSV의 내용�
 - 사용자에게 보이는 문구(GUI·CLI·`tools/*.sh` 출력)는 영어다(ADR-020, 2026-10-22 승인). 문장 규칙과 용어는 UI_GUIDE "문구" 를 따른다.
   - 한국어로 두는 것: 주석, docstring, 문서, 로그 파일에만 가는 문구, 이력 요약(`change_log.summary`).
   - typer 명령 docstring은 예외다. `--help` 문구라서 영어로 쓴다.
-  - 아직 한국어인 화면 문구는 phase 24(`24-english-text`)의 step이 옮긴다. 다른 step은 번역하지 않는다. 이유: 그 문구를 고정한 테스트 수정이 섞인다.
+  - `tests/test_english_text.py` 가 지킨다(src 의 문자열·f-string, `tools/*.sh` 의 주석 밖 줄). 로그 호출은 로거 변수 이름(`log`·`logger`·`root`·`logging`)으로만 알아본다. 다른 이름의 로거나 typer 명령을 더하면 그 테스트의 `LOGGER_NAMES`·명령 집합도 고친다(테스트가 어긋남을 잡는다). 이유: 이름이 어긋나면 로그 파일 문구가 화면 문구로 잡히거나 `--help` 를 놓친다.
   - 버그 수정 중에 기존 문구를 바꾸지 않는다.
 
 ## 개발 프로세스
