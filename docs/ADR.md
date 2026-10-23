@@ -144,6 +144,11 @@
 - 빈 버전 표시는 화면 `(none)`, CLI `-` 다.
 - 문장 규칙과 용어표는 UI_GUIDE "문구" 에 있다.
 - 2026-10-22 승인(phase 24). 회귀는 `tests/test_english_text.py` 가 막는다.
+  - `src/genviewer` 의 문자열 상수·f-string 과 `tools/*.sh` 의 주석 밖 줄에 한글이 있으면 실패한다.
+  - 빼는 것은 docstring(typer 명령 것은 본다), 로거 이름(`log`·`logger`·`root`·`logging`)으로 부르는 로그 호출, 이력 요약 함수 7개, 셸 주석, `marker=` 줄이다.
+  - `init_db` 의 DDL 라벨 주석(`-- add release to process …`)도 `--dry-run` 에 보이므로 영어다. SQL 본문은 그대로다.
+- 한국어 글자에 맞춰 둔 고정 너비는 영어 글자를 자른다. 변경 배너의 `Reload`/`Dismiss` 단추는 같은 값을 최소 너비로 바꿨다(phase 24 step 2).
+- `utils/logs.py` 의 "로그 파일을 열지 못했다" 경고는 로그 호출이라 한국어로 두었다. 로그 파일이 없을 때라 실제로는 stderr 로만 나간다.
 
 **이유**
 - 사용자가 요청했다.

@@ -5,7 +5,7 @@
 ## 원칙
 1. 업무용 도구다. 정보 밀도가 우선이고 장식은 없다.
 2. 편집 중인 내용을 말없이 버리지 않는다. 버려질 상황(다른 process·device로 이동, 다시 읽기, 창 닫기, 덮어쓰기)이면 먼저 묻는다.
-3. 자동으로 다시 읽지 않는다. 남이 바꾼 것은 배너로 알리고 사용자가 [새로고침]을 누른다.
+3. 자동으로 다시 읽지 않는다. 남이 바꾼 것은 배너로 알리고 사용자가 [Reload]를 누른다.
 4. 실패를 성공처럼 알리지 않는다. 저장이 취소되거나 일부만 됐으면 "Saved" 를 띄우지 않는다.
 5. 오류는 메시지 박스와 파일 로그 양쪽에 남긴다(`utils/reporting.report`/`report_error`). 화면 문구는 `user_message(exc)` 로 만든다. `str(exc)` 금지(비밀번호가 샌다).
 
@@ -29,7 +29,7 @@
 │ 툴바: (빈칸) **Virtuoso** Server [    ] Port [   ] Connect | 상태          │  ← Virtuoso 소켓, DB 아님
 ├──────────┬─────────────────────────────────────────────────────────────────┤
 │ Device   │ DeviceTabToolBar: Process [▾] Version [▾] +/- | Load Virtuoso | … │
-│ Socket   │ RefreshBanner (숨김: "이 process 가 X 님에 의해 변경되었습니다.")   │
+│ Socket   │ RefreshBanner (숨김: "This process was changed by X.")              │
 │(History) │ QSplitter: [Device List][Filtered List] | Device Info | 파라미터 탭 │
 ├──────────┴─────────────────────────────────────────────────────────────────┤
 │ 로그 패널 ([HH:mm:ss] 줄 단위, Clear)                                      │
@@ -47,13 +47,14 @@
 - 왼쪽 목록이 `QStackedWidget` 페이지를 고른다. History는 `--history` 로 띄웠을 때만 있다.
 - 파라미터 탭 순서: `Summary`, `tab_config.json` 의 순서대로 14개, 마지막 `+`(숨긴 탭 다시 열기).
 - "Device List"·"Filtered List" 는 Virtuoso 목록을 받은 뒤에만 보인다.
-- Version 콤보는 지금 이름의 버전만 보인다. 빈 버전은 `(없음)` 으로 보이고 맨 앞이다(ADR-018). 이름을 바꾸면 같은 버전 문자열이 있으면 그것을, 없으면 그 이름의 첫 버전을 고른다.
+- Version 콤보는 지금 이름의 버전만 보인다. 빈 버전은 `(none)` 으로 보이고 맨 앞이다(ADR-018). 이름을 바꾸면 같은 버전 문자열이 있으면 그것을, 없으면 그 이름의 첫 버전을 고른다.
 - 창은 DeviceTabToolBar 의 최소 너비보다 좁아지지 않는다(툴바 가로 정책 `Preferred`. `Ignored` 면 고정 너비 단추·콤보가 겹친다, K57 phase 21). 화면이 그보다 좁으면 창 오른쪽이 화면 밖으로 나간다. `»` 넘침 메뉴·가로 스크롤·두 줄 배치는 쓰지 않는다.
 
 ## 문구
 - 사용자에게 보이는 문구는 **영어**다(ADR-020). GUI, CLI, `tools/*.sh` 출력이 모두 그렇다.
   - 한국어로 두는 것: 주석, docstring(typer 명령 docstring 은 `--help` 라 영어), 로그 파일에만 가는 문구, 이력 요약(`change_log.summary`).
-  - 아직 한국어인 화면 문구는 phase 24 의 step 이 옮긴다. 다른 step 은 번역하지 않는다.
+  - 화면 문구는 phase 24 가 모두 옮겼다. 새 문구는 처음부터 영어로 쓴다. `tests/test_english_text.py` 가 한글 문구를 막는다.
+  - 한국어 글자에 맞춰 둔 고정 너비(`setFixedWidth`)는 영어 글자를 자를 수 있다. 단추 글자를 바꾸면 `sizeHint` 보다 좁지 않은지 본다(phase 24 의 변경 배너 단추).
   - 버그 수정 중에 기존 문구를 번역하거나 다듬지 않는다.
 - 문장 규칙
   - 제목, 단추, 메뉴는 Title Case 다(`Save Conflict`, `Load CSV...`).
@@ -82,8 +83,8 @@
 | CLI 의 `오류:` / `중단했다.` | `error:` / `Aborted.` |
 - 알림은 controller가 `notifyRequested(severity, title, text)` 로 올리고 `MainWindow.notify` 가 띄운다. severity는 `info` / `warn` / `critical` / 그 밖(error)이다. 로그 패널은 `logRequested`, 상태 표시줄은 `statusMessageRequested`.
 - 예/아니오 질문은 `utils/dialogs.question(parent, title, message) -> bool`(Yes/No 두 개뿐, 취소 없음).
-- 저장 충돌은 `dialogs/conflict.ask_conflict` 의 세 갈래: **다시 읽기**(RELOAD) / **덮어쓰기**(OVERWRITE, force) / **취소**(CANCEL, 창 닫기 포함). 충돌 목록은 `Conflict.describe()`("이름: X 님이 수정 (YYYY-MM-DD HH:MM)"). 내가 지운 행을 뺀 나머지 충돌이 전부 삭제면 덮어쓰기 버튼을 만들지 않는다(다시 읽기/취소만, 다른 문구는 그대로).
-- CSV 불러오기 뒤에는 만든 device 수와 "불러올 때마다 새로 쌓인다" 를 반드시 보여준다.
+- 저장 충돌은 `dialogs/conflict.ask_conflict` 의 세 갈래: **Reload**(RELOAD) / **Overwrite with Mine**(OVERWRITE, force) / **Cancel**(CANCEL, 창 닫기 포함). 충돌 목록은 `Conflict.describe()`("name: modified by X (YYYY-MM-DD HH:MM)"). 내가 지운 행을 뺀 나머지 충돌이 전부 삭제면 Overwrite with Mine 단추를 만들지 않는다(Reload/Cancel 만, 다른 문구는 그대로).
+- CSV 불러오기 뒤에는 만든 device 수와 "CSV import always adds new rows" 를 반드시 보여준다.
 
 ## 입력과 단축키
 | 키 | 어디서 | 동작 |
@@ -100,8 +101,8 @@
 - device 표 내보내기는 고른 파일의 확장자(.csv / .xlsx)로 형식을 정한다. 둘 다 아니면 메뉴에서 고른 형식이다.
 - 재접속(Database → Connect…)은 device 표나 탭에, CSV 불러오기는 device 표에 저장 안 한 편집이 있으면 새로고침과 같은 `Refresh` 질문을 먼저 한다. 아니오면 아무것도 하지 않는다.
 - Remove Process(`-`)는 지금 (이름, 버전) 쌍 하나만 지운다. 확인은 controller 의 `Remove Process` 질문 한 번이다(device 수를 알리고, 문구에 `sf2p V2` 처럼 버전이 붙는다. phase 23 전에는 view 가 `Confirm Delete` 를 먼저 물었다). 확인하면 지운 쌍의 저장 안 한 편집은 묻지 않고 버린다(`Save Changes` 도 충돌 대화상자도 없다).
-- Add Process(`+`)는 `Add Process` 창(Process 편집 콤보, Version 칸, Copy from 콤보 — 기본 `(복사 안 함)`)을 연다. 이름이 비었거나, 버전이 `(없음)` 이거나, 이미 있는 쌍이면 OK 가 꺼지고 뒤의 둘은 창 안에 이유 한 줄을 보인다(메시지 상자 없음). 저장 안 한 편집이 있으면 만들기 전에 `Save Changes` 를 묻고, 저장이 취소·실패하면 아무것도 만들지 않는다.
-- Load CSV 는 파일을 고른 뒤 `Load CSV` 질문으로 버전을 묻는다(있는 버전 목록 + 직접 입력, 처음 값은 지금 버전, `(없음)`·빈칸은 버전 없음). 불러온 뒤에도 지금 쌍에 머문다.
+- Add Process(`+`)는 `Add Process` 창(Process 편집 콤보, Version 칸, Copy from 콤보 — 기본 `(no copy)`)을 연다. 이름이 비었거나, 버전이 `(none)` 이거나, 이미 있는 쌍이면 OK 가 꺼지고 뒤의 둘은 창 안에 이유 한 줄을 보인다(메시지 상자 없음). 저장 안 한 편집이 있으면 만들기 전에 `Save Changes` 를 묻고, 저장이 취소·실패하면 아무것도 만들지 않는다.
+- Load CSV 는 파일을 고른 뒤 `Load CSV` 질문으로 버전을 묻는다(있는 버전 목록 + 직접 입력, 처음 값은 지금 버전, `(none)`·빈칸은 버전 없음). 불러온 뒤에도 지금 쌍에 머문다.
 - 이름·버전을 치는 편집 가능 콤보(Add Process 의 Process 칸, Load CSV 의 버전 칸)는 Qt 기본 completer 를 끈다(`setCompleter(None)`). 친 글자 그대로이고 Enter 도 대소문자까지 같은 항목만 고른다(K56, phase 20). 정적 `QInputDialog.getItem(editable=True)` 은 completer 를 끌 수 없어서 쓰지 않는다.
 - device 표 내보내기의 제안 파일 이름은 버전이 있으면 molgen 이 찾는 `<proc>_<cid>-<ver 점 제거>.csv` 다(예: `sf2p S00-V1.0.0.0` → `sf2p_S00-V1000.csv`).
 - CellType이 `delegate_config` 목록에 없는 device는 저장하지 않는다. 그런 행을 편집했으면 저장 뒤 경고(`Save Skipped`)로 이름을 알린다.

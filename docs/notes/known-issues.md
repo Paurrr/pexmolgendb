@@ -67,7 +67,7 @@ phase 5 뒤에 다시 보니 아래 항목이 모두 코드에 남아 있었다.
 | K51 | History 다시 읽기 중에 필터나 DB가 바뀌어 보류된 다시 읽기는 앞 작업이 정리될 때 띄운다. 그 순간 `run_blocking`(저장·접속·CSV 불러오기)이 돌고 있으면(`is_busy()`) 건너뛰고 보류만 남는다. 자동 갱신이 켜져 있으면 다음 틱(10초)이, 꺼져 있으면 사용자의 다음 필터 변경·새로고침이 읽는다 | `controllers/history_tab.py` `_clear_task`, `reload` | 2026-10-18 phase 12 step 2가 남긴 것이고 재현하지 않았다. 보기 전용이고 History는 `--history` 로 띄웠을 때만 있다 |
 | K53 | 내 목록에 없는 쌍을 남이 먼저 만든 뒤 내가 편집을 남긴 채 `+` 로 같은 쌍을 만들고 `Save Changes` 에 아니오로 답하면, `Duplicate` 뒤 그 쌍으로 옮길 때 같은 질문을 한 번 더 한다 | `controllers/device_tab_toolbar.py` `add_process`(Duplicate 경로), `controllers/device_tab.py` `on_process_changed` | 2026-10-22 phase 19 리뷰가 코드로 본 것이고 재현하지 않았다. 만들지 못했으므로 편집을 버리지 않는 것이 step 9 의 판단이다. 창은 내 목록에 있는 쌍을 막으므로 동시에 만들 때만 닿는다 |
 | K54 | `+` 로 쌍을 만든 직후 목록 다시 읽기(`list_pairs`)가 실패하면 "Process Add Failed" 가 뜨지만 쌍은 만들어졌고, `processAdded` 가 이미 dirty 를 풀고 탭을 비웠다. 아니오로 답했던 device 편집값이 표에 보이는데 dirty 가 아니다 | `controllers/device_tab_toolbar.py` `add_process` | 2026-10-22 phase 19 리뷰가 코드로 본 것이고 재현하지 않았다. K49 와 같은 종류다(만들기는 성공하고 바로 뒤의 목록 조회만 실패해야 닿는다) |
-| K55 | 버전 이름 `(없음)` 을 CLI 는 막지 않는다(`load --version "(없음)"`). 그러면 Version 콤보에 `(없음)` 이 둘 보이고, 창의 Load CSV 는 `(없음)` 을 빈 버전으로 읽어서 그 버전으로는 불러올 수 없다 | `cli.py` `load`, `views/device_tab.py` `_ask_release` | 2026-10-22 phase 19 리뷰가 코드로 본 것이고 재현하지 않았다. 추가 창은 그 이름을 막는다 |
+| K55 | 버전 이름 `(none)` 을 CLI 는 막지 않는다(`load --version "(none)"`). 그러면 Version 콤보에 `(none)` 이 둘 보이고, 창의 Load CSV 는 `(none)` 을 빈 버전으로 읽어서 그 버전으로는 불러올 수 없다 | `cli.py` `load`, `views/device_tab.py` `_ask_release` | 2026-10-22 phase 19 리뷰가 코드로 본 것이고 재현하지 않았다. 추가 창은 그 이름을 막는다. 빈 버전 표시 글자가 phase 24 에 `(없음)` 에서 `(none)` 으로 바뀌어 이제 `(none)` 이 그 이름이다. 그 전에 `(없음)` 으로 만든 버전은 평범한 버전 이름이 됐다 |
 
 ## 운영 스크립트
 

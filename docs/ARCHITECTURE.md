@@ -29,7 +29,7 @@ src/genviewer/
     config.py               #   DbConfig(frozen), resolve_dsn/load_config: --dsn > GENDB_PG_DSN > 설정 파일 > PG*
     env_file.py             #   genviewer.env 찾기(파일 하나만)·파싱·권한 검사·os.environ.setdefault
     pool.py                 #   Database: psycopg_pool.ConnectionPool(open=False, dict_row, lock/statement timeout)
-    errors.py               #   Conflict, StaleWriteError, DbUnavailableError, user_message(SQLSTATE → 한국어)
+    errors.py               #   Conflict, StaleWriteError, DbUnavailableError, user_message(SQLSTATE → 영어 문장)
     schema.py               #   tab_config → DDL, TABLE_COLUMNS 허용 목록 (Python 3.9 호환)
     diagnostics.py          #   --check-config / status 진단 (값 노출 없이)
     virtuoso_protocol.py    #   Virtuoso 메시지 파싱·명령 문자열 (순수 함수)
@@ -43,7 +43,7 @@ src/genviewer/
   models/                   # QAbstractTableModel: device_table(dirty·undo), generic_table(탭), device_state, parameter_summary, sorting_proxy
   views/                    # QWidget. 위젯을 만들고 의도 시그널을 낸다. main_window, device_tab, device_table, parameter_tab, tab_section, history_tab, socket_tab …
   controllers/              # QObject. view 시그널 ↔ repo 호출. main_window, device_tab(접속·폴링), device_table(저장·충돌), parameter_tab, tab_section(device별 모델 캐시), device_tab_toolbar, history_tab, socket_tab
-  dialogs/                  # conflict(다시 읽기/덮어쓰기/취소), connection(Connect…), add_process(새 쌍·복사 원본), insert, tab_selector
+  dialogs/                  # conflict(Reload/Overwrite with Mine/Cancel), connection(Connect…), add_process(새 쌍·복사 원본), insert, tab_selector
   delegates/combo_box.py    # delegate_config 기반 콤보
   net/                      # Virtuoso 소켓: controller(ConnectionController: GUI 스레드의 QTcpSocket 하나, 4바이트 길이 + UTF-8 프레임)
   utils/                    # background(run_blocking, Task, is_busy), logs(파일 로그, scrub), reporting(report 데코레이터),
@@ -70,7 +70,7 @@ docs/                       # 이 문서들. notes/ 는 주입 제외
 | 4 | `controllers/`, `main.py` | 전부 |
 
 - models는 genviewer 에서 `utils.validators` 와 `utils.palette`(테마 색 `current_colors()`, ADR-019)만 안다. `net/` 은 자기 안에서 닫혀 있다.
-- 강제: `tests/test_boundaries.py` 가 Qt 금지 구역(티어 0~2, 함수 안까지 보는 정적 스캔 + 새 인터프리터 import, 예외는 `cli.py` 의 `root` 안 `genviewer.main` 뿐)과 models·net 의 import 범위를 지킨다. `tests/test_py39_compat.py` 가 init_db 에서 닿는 모듈을 import를 따라가며 찾아(함수 안 import·부모 패키지 포함) 3.9 문법·런타임 `X | Y`·3.10+ 키워드와 이름·PEP 701 f-string을 정적으로 검사한다(3.9 인터프리터로 import해 보지는 않는다).
+- 강제: `tests/test_boundaries.py` 가 Qt 금지 구역(티어 0~2, 함수 안까지 보는 정적 스캔 + 새 인터프리터 import, 예외는 `cli.py` 의 `root` 안 `genviewer.main` 뿐)과 models·net 의 import 범위를 지킨다. `tests/test_py39_compat.py` 가 init_db 에서 닿는 모듈을 import를 따라가며 찾아(함수 안 import·부모 패키지 포함) 3.9 문법·런타임 `X | Y`·3.10+ 키워드와 이름·PEP 701 f-string을 정적으로 검사한다(3.9 인터프리터로 import해 보지는 않는다). `tests/test_english_text.py` 가 사용자에게 보이는 문구가 영어인지 AST(src)와 텍스트(`tools/*.sh`)로 검사한다(ADR-020. docstring·로그 호출·이력 요약 함수·셸 주석·`marker=` 는 뺀다).
 
 ### 현재 어긋난 곳 (따라 하지 않는다)
 - `dialogs/connection.py` 가 `service.pool.Database` 를 직접 만들어 연결 테스트(`connection()` 으로 `SELECT 1`)를 한다(view 쪽에서 서비스 호출).
@@ -116,7 +116,7 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 - 순서값: `save_all` 은 보통 화면 순서대로 `order = 0..n-1` 을 매긴다. 마지막 `refresh_devices` 가 Virtuoso 목록으로 숨긴 행이 있었으면, 보내는 행끼리 그때 읽은 자기들의 옛 순서값을 화면 순서대로 나눠 갖는다(`_filtered_orders`, 숨은 행은 보내지 않는다).
 - version 동기화: 탭 저장이 올린 version은 `deviceVersionChanged` 로 device 표에, device 저장이 올린 version은 `deviceVersionBumped` 로 탭에 간다. 탭은 정확히 +1일 때만 받는다(덮어쓰기로 남의 변경 위에 썼으면 다음 탭 저장이 충돌로 묻는다).
 
-**process 쌍 고르기** (`views/device_tab_toolbar.py`, `controllers/device_tab_toolbar.py`, `controllers/device_tab.py`): 툴바는 `Process [▾] Version [▾] [+][-]` 이다. view 가 두 콤보를 묶어 `selectionChanged(name, release)` 를 쌍이 바뀔 때만 한 번 낸다. 이름을 바꾸면 지금 버전 문자열이 그 이름에도 있으면 그것, 없으면 그 이름의 첫 버전을 고른다. 빈 버전은 `(없음)` 으로 보이고 값은 index 로 읽는다. 목록은 `list_pairs()`(이름, 버전 `COLLATE "C"` 순)이고 `set_pairs` 가 지금 쌍 → 그 이름의 첫 버전 → 첫 쌍 순으로 고른다. `DeviceTableController` 는 `current_process`(이름, Virtuoso·내보내기에 쓴다), `current_release`, `current_process_id` 를 들고, 저장·폴링·etag 는 그대로 `process_id` 로 묶인다.
+**process 쌍 고르기** (`views/device_tab_toolbar.py`, `controllers/device_tab_toolbar.py`, `controllers/device_tab.py`): 툴바는 `Process [▾] Version [▾] [+][-]` 이다. view 가 두 콤보를 묶어 `selectionChanged(name, release)` 를 쌍이 바뀔 때만 한 번 낸다. 이름을 바꾸면 지금 버전 문자열이 그 이름에도 있으면 그것, 없으면 그 이름의 첫 버전을 고른다. 빈 버전은 `(none)` 으로 보이고 값은 index 로 읽는다. 목록은 `list_pairs()`(이름, 버전 `COLLATE "C"` 순)이고 `set_pairs` 가 지금 쌍 → 그 이름의 첫 버전 → 첫 쌍 순으로 고른다. `DeviceTableController` 는 `current_process`(이름, Virtuoso·내보내기에 쓴다), `current_release`, `current_process_id` 를 들고, 저장·폴링·etag 는 그대로 `process_id` 로 묶인다.
 
 **CSV** (`repo/io.py`, `utils/exporter.py`): 헤더는 `CellType, CdsLibName, InstCellName, Description` 다음에 탭마다 자식 행 수만큼 같은 이름을 반복한다(molgen 규약, 버전 칸 없음). 불러오기는 CSV 행 하나마다 새 device 를 만들고, `Description` 칸이 있으면 description 에 넣는다. 모든 행이 (CdsLibName, 받은 버전) 쌍에 들어간다(CLI `load --version`, 창은 파일을 고른 뒤 버전을 묻는다). 창의 내보내기 제안 파일 이름은 `export_file_name` 이 molgen 규칙(`<proc>_<cid>-<ver 점 제거>.<fmt>`, 빈 버전이면 `<proc>.<fmt>`)으로 만든다. 내보내기 행의 celltype·process·name·description 은 넘겨받은 device_info 의 값(창에서는 화면 값)이고 탭 값만 DB 에서 읽는다. `write_csv` 는 Description 열의 `,` 를 `;` 로, 줄바꿈을 공백으로 바꿔 쓴다(molgen 로더가 `,` 로만 나눈다, ADR-017). Virtuoso 보내기(`send_device_data`)도 `fetch_export_data` 를 쓰고, 고정 컬럼을 이름으로 골라 Description 은 뺀다.
 
@@ -144,7 +144,7 @@ pg_advisory_xact_lock(process) → SELECT … FOR UPDATE ORDER BY id (= audit be
 ```
 
 ## 용어
-- **process**: molgen의 공정/라이브러리 단위(`CdsLibName`) 이름과 버전(release)의 쌍. device를 묶는다. 버전은 자유 문자열이고 빈 버전 `''` 은 "버전 없음"이다(화면 `(없음)`, CLI `-`). 사람이 읽는 표시는 `audit.process_label(name, release)`(빈 버전이면 이름만, 아니면 `이름 버전`).
+- **process**: molgen의 공정/라이브러리 단위(`CdsLibName`) 이름과 버전(release)의 쌍. device를 묶는다. 버전은 자유 문자열이고 빈 버전 `''` 은 "버전 없음"이다(화면 `(none)`, CLI `-`). 사람이 읽는 표시는 `audit.process_label(name, release)`(빈 버전이면 이름만, 아니면 `이름 버전`).
 - **release**: process 의 버전. 화면 라벨은 `Version`, CLI 옵션은 `--version` 이지만 코드·DB 이름은 `release` 다. `version` 은 `device.version`(낙관적 잠금)이다.
 - **device**: CSV 한 행. 이름은 표시용이고 중복될 수 있으며, 식별은 `id` 로 한다.
 - **탭 / 자식 테이블**: CSV 컬럼 하나. device마다 여러 행.

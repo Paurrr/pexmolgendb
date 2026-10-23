@@ -118,7 +118,7 @@ uv run genviewer --dsn "postgresql://molgen_app@<서버IP>:55433/molgen"
 
 시작할 때의 접속은 창이 뜬 뒤에 돈다. 접속에 실패하면 아래 로그 패널에
 `Database connect failed: …` 가 남고, 첫 조회가 실패하면 알림이 뜬다. 그 줄과
-Connect 창의 **연결 테스트** 결과에는 실제 원인(비밀번호 틀림, DB 없음 등. 비밀번호는
+Connect 창의 **Test Connection** 결과에는 실제 원인(비밀번호 틀림, DB 없음 등. 비밀번호는
 가려진다)이 나온다. 로그 패널의 `Database connected: …` 줄에는 비밀번호가 가려져 나온다.
 
 `--dsn` 을 주면 `genviewer.env` 를 읽지 않으므로 거기 적힌 `PGPASSWORD` 도 쓰이지
@@ -173,28 +173,28 @@ NAME  VERSION       DEVICE
 sf2p  -                  2
 sf2p  S00-V1.0.0.0       3
 sf4u  -                  1
-process 3개, device 6개
+3 process(es), 6 device(s)
 ```
 
 ```
 $ genviewer status
-설정 파일: /opt/genviewer/genviewer.env
-찾아본 곳:
+Config file: /opt/genviewer/genviewer.env
+Searched:
   /home/pdh99/.genviewer.env
-  /opt/genviewer/genviewer.env <-- 이것
-적용된 값:
+  /opt/genviewer/genviewer.env <-- this one
+Values:
   PGHOST=10.1.2.3
   PGPORT=55433
   PGDATABASE=molgen
   PGUSER=molgen_app
-  PGPASSWORD=(설정됨)
-로그 파일: /home/pdh99/.genviewer/genviewer.log  (GENDB_LOG 로 바꿀 수 있다)
-접속 대상: host=10.1.2.3 port=55433 dbname=molgen user=molgen_app
-접속: 됨 (0.04초)
-서버: PostgreSQL 15.10
-계정: molgen_app@molgen
-스키마: 테이블 17개 모두 있음
-내용: process 2개, device 128개
+  PGPASSWORD=(set)
+Log file: /home/pdh99/.genviewer/genviewer.log  (set GENDB_LOG to change)
+Target: host=10.1.2.3 port=55433 dbname=molgen user=molgen_app
+Connection: ok (0.04s)
+Server: PostgreSQL 15.10
+Account: molgen_app@molgen
+Schema: all 17 table(s) present
+Contents: 2 process(es), 128 device(s)
 ```
 
 **device 를 더하고 지우는 것, 탭 내용을 고치는 것은 창에서만 한다.** 그쪽은
@@ -210,8 +210,8 @@ $ genviewer status
   `-` 로 찍는다. 앞뒤 공백은 다듬는다(아래 'process 버전').
 - `load --version V` 는 파일의 모든 행을 (CdsLibName, V) 쌍에 넣는다. 그 쌍이 없으면
   만든다. 첫 줄 끝에 `(version V)` 가 붙는다.
-- `export` 는 그 (이름, 버전) 하나만 낸다. 없으면 `그런 process 가 없다: sf2p V9` 다음에
-  같은 이름의 다른 버전이 있을 때 `있는 버전: -, V1` 을 보인다.
+- `export` 는 그 (이름, 버전) 하나만 낸다. 없으면 `No such process: sf2p V9` 다음에
+  같은 이름의 다른 버전이 있을 때 `Versions: -, V1` 을 보인다.
 - `export` 는 process 를 통째로 낸다. device 를 골라서 내보내는 것은 창 쪽이다.
   device 가 하나도 없으면 빈 파일을 만들지 않고 그렇다고 말한다. `.xlsx` 로 낼 때
   `=` 로 시작하는 값은 수식이 아니라 글자 그대로 들어간다(창의 내보내기도 같다).
@@ -258,6 +258,11 @@ $ genviewer log
 2026-09-16 14:11:40  jyk           sf4u                          process 삭제  sf4u  device 86개가 함께 사라짐
 ```
 
+화면과 CLI 의 문구는 영어지만 마지막 칸의 요약(`CSV 불러오기 …`, `device 수정 …`)은
+한국어다. DB 에 저장된 데이터라서 옛 줄과 새 줄이 같은 말로 남고 `--find` 와 History
+찾기 칸도 그 한국어로 찾는다(ADR-020). `--out` CSV 의 머리글은 영어다
+(`Time,Who,Source,Action,process,version,device,Table,Change,Detail`).
+
 `--follow` 는 늦게 커밋된 줄도 뒤늦게 찍는다. 그래서 줄이 시각·id 순서에서 조금
 어긋날 수 있다.
 
@@ -287,7 +292,7 @@ CSV 불러오기로 새로 생긴 process 는 'process 추가' 줄이 따로 남
   끝난 뒤 새 필터로 한 번 더 읽는다.
 
 > **이 기능을 넣은 뒤에는 `genviewer-init-db` 를 먼저 돌려야 한다.** `change_log`
-> 가 없으면 모든 저장이 "테이블이 없다" 로 죽는다. 새 테이블은 옛 코드에 무해하니
+> 가 없으면 모든 저장이 "Tables are missing" 으로 죽는다. 새 테이블은 옛 코드에 무해하니
 > **① init-db → ② deploy.sh** 순서로 하면 멈추는 시간이 없다. `genviewer status`
 > 가 테이블 수로 알려준다.
 
@@ -342,7 +347,7 @@ DEPLOY_LINK_DIR=/usr/local/bin ./tools/deploy.sh /opt/genviewer v0.3.0
   아니라 런처다. 권한이나 경로가 틀렸으면 내일 남의 터미널이 아니라 여기서 드러나야
   한다. `DEPLOY_LINK_DIR` 을 썼으면 링크로도 한 번 더 본다.
 - 그 확인은 `--help` 만 돌리므로 설정 문제는 거기서 드러나지 않는다. 배포한 뒤
-  `genviewer --check-config` 를 돌리면 "설정 파일:" 이 `<루트>/genviewer.env` 다.
+  `genviewer --check-config` 를 돌리면 "Config file:" 이 `<루트>/genviewer.env` 다.
   그 계정에 `~/.genviewer.env` 가 있으면 그 파일이 대신 찍힌다('찾는 순서' 4번).
 - venv 인터프리터가 **배포한 사람 홈 안**이면 경고한다. uv 가 관리하는 CPython 을
   쓰면 그렇게 되는데, 그러면 배포한 사람만 실행되고 나머지는 `Permission denied` 를
@@ -374,11 +379,11 @@ process 버전(위 'process 버전')이 든 태그를 처음 올릴 때는 **멈
    돌린다(아래 '서버' 4번). 처음 한 번은 `process`·`change_log` 에 ACCESS EXCLUSIVE 를
    잡고 `process.release`·`change_log.process_release` 를 더하고 `UNIQUE (name)` 을
    `UNIQUE (name, release)` 로 바꾼다. 데이터는 그대로이고 모든 process 가 빈 버전이
-   된다(`--dry-run` 의 2번 단계 `-- process 에 release 를 더하고 UNIQUE 를 (name, release)
-   로 바꾼다`). 다시 돌려도 아무것도 바꾸지 않는다.
+   된다(`--dry-run` 의 2번 단계 `-- add release to process and change UNIQUE to
+   (name, release)`). 다시 돌려도 아무것도 바꾸지 않는다.
 3. `tools/deploy.sh` 로 새 태그를 깐다.
-4. `genviewer status` 가 `스키마: 테이블 17개 모두 있음` 인지 본다. init-db 를 빠뜨렸으면
-   새 앱의 `status` 가 `스키마: 컬럼 2개가 없다 (process.release, change_log.process_release)`
+4. `genviewer status` 가 `Schema: all 17 table(s) present` 인지 본다. init-db 를 빠뜨렸으면
+   새 앱의 `status` 가 `Schema: 2 column(s) missing (process.release, change_log.process_release)`
    로 1 을 낸다.
 5. 다시 띄운다. **옛 창이 하나도 남지 않은 것을 확인한 뒤에** 첫 버전을 만든다.
 
@@ -459,7 +464,7 @@ device 의 설명은 탭이 아니라 device 컬럼이고, CSV 에서는 `InstCe
 표시용 값이다. 식별은 `id` 가 하고, 참조하는 쪽도 전부 `id` 를 쓴다.
 
 **그래서 CSV 는 불러올 때마다 새로 쌓인다.** 같은 파일을 두 번 넣으면 device 가
-두 배가 된다. 불러오기가 끝나면 *"device N개를 새로 추가했다"* 를 보여주므로 그
+두 배가 된다. 불러오기가 끝나면 *"Added N device(s)."* 를 보여주므로 그
 숫자로 알아챌 수 있다. 되돌리려면 그 device 들을 지운다.
 
 **이미 쓰고 있는 데이터베이스에는 `genviewer-init-db` 를 한 번 더 돌려야 옛 제약이
@@ -472,7 +477,7 @@ DDL 이 제약 이름을 카탈로그에서 찾아 떼어내므로 손으로 만
 process 는 이름과 버전의 쌍이다. `sf2p` 의 `S00-V1.0.0.0` 과 `sf2p` 의 `S00-V2.0.0.0` 은
 device 데이터를 따로 갖는다. 버전은 자유 문자열이고 앞뒤 공백만 다듬는다(형식은 보지
 않는다). 버전을 넣기 전부터 있던 process 는 모두 "버전 없음"(빈 버전)이 되고, 그
-process 의 화면 문구·CLI 출력·이력은 예전과 같다. 빈 버전은 창에서 `(없음)`, CLI 에서
+process 의 화면 문구·CLI 출력·이력에는 버전 흔적이 없다. 빈 버전은 창에서 `(none)`, CLI 에서
 `-` 로 보인다.
 
 - Device 탭 툴바는 `Process [▾] Version [▾] [+] [-]` 다. Version 콤보에는 고른 이름의
@@ -481,14 +486,14 @@ process 의 화면 문구·CLI 출력·이력은 예전과 같다. 빈 버전은
 - 창은 이 툴바보다 좁아지지 않는다(윈도우 9pt 글꼴에서 약 1260px). 그래서 툴바의 단추와
   콤보는 서로 겹치지 않는다. 화면이 그보다 좁으면 창 오른쪽이 화면 밖으로 나간다.
 - `+` 는 `Add Process` 창을 연다. Process(이름, 고르거나 친다), Version(비우면 버전
-  없음), Copy from(기본 `(복사 안 함)`)을 정한다. 원본을 고르면 그 쌍의 device 와 탭
+  없음), Copy from(기본 `(no copy)`)을 정한다. 원본을 고르면 그 쌍의 device 와 탭
   내용을 한 시점 그대로 새 쌍에 복사한다(원본은 그대로). 저장하지 않은 편집이 있으면
   만들기 전에 `Save Changes` 를 묻고, 저장을 취소했거나 실패하면 아무것도 만들지
   않는다. 이미 있는 쌍이면 `Duplicate` 를 알리고 그 쌍으로 옮긴다.
 - `-` 는 지금 쌍 하나만 지운다. 같은 이름의 다른 버전은 그대로다. 확인은 device 수를
   알려 주는 `Remove Process` 질문 한 번이다.
 - **Database → Load CSV...** 는 파일을 고른 뒤 버전을 묻는다(있는 버전 목록에서 고르거나
-  친다. `(없음)`·빈칸은 버전 없음). 모든 행이 (CdsLibName, 그 버전) 쌍에 들어가고 지금
+  친다. `(none)`·빈칸은 버전 없음). 모든 행이 (CdsLibName, 그 버전) 쌍에 들어가고 지금
   보던 쌍은 그대로다. CSV 형식에는 버전 칸이 없다.
 - device 표 내보내기의 제안 파일 이름은 molgen 이 찾는 이름이다:
   `sf2p` + `S00-V1.0.0.0` → `sf2p_S00-V1000.csv`(버전을 `-` 로 나눠 첫 조각은 그대로,
@@ -501,13 +506,13 @@ process 의 화면 문구·CLI 출력·이력은 예전과 같다. 빈 버전은
 ## 동시 편집
 
 여러 명이 같은 DB 를 동시에 편집한다. 저장할 때 다른 사람이 먼저 바꾼 것이
-있으면 **다시 읽기 / 덮어쓰기 / 취소** 를 묻는다. 내가 화면에 안 들고 있는
+있으면 **Reload / Overwrite with Mine / Cancel** 을 묻는다. 내가 화면에 안 들고 있는
 device 는 절대 지워지지 않는다 — 명시적으로 지운 것만 삭제된다.
 
 10초마다 지금 보고 있는 process 가 바뀌었는지 확인한다. 바뀌었으면 device
 목록 위에 줄이 하나 뜬다. 이 창에서 저장한 것으로는 뜨지 않는다.
 
-> 이 process 가 dh991 님에 의해 변경되었습니다.  [새로고침] [닫기]
+> This process was changed by dh991.  [Reload] [Dismiss]
 
 **자동으로 다시 읽지 않는다.** 편집 중인 내용이 말없이 사라지는 것은 이번
 작업에서 없애려던 바로 그 동작이다. 언제 읽을지는 사용자가 정한다.
@@ -516,10 +521,10 @@ device 는 절대 지워지지 않는다 — 명시적으로 지운 것만 삭�
 
 - **Database → Save** 는 device 표와 탭을 둘 다 저장한다. 둘 다 저장됐을 때만
   "All changes have been saved." 가 뜬다. Ctrl+S 의 상태 표시줄 문구도 저장했을 때만 나온다.
-- 충돌에서 **취소** 하면 편집이 그대로 남는다. 다른 process·device 로 옮기던 중이면
-  옮기지 않고 그 자리에 머문다. **다시 읽기** 를 고르면 편집을 버리고 옮긴다.
+- 충돌에서 **Cancel** 하면 편집이 그대로 남는다. 다른 process·device 로 옮기던 중이면
+  옮기지 않고 그 자리에 머문다. **Reload** 를 고르면 편집을 버리고 옮긴다.
 - 충돌이 다른 사람이 지운 device 뿐이면(나도 지운 device 는 빼고 본다) 덮어쓸 것이
-  없으므로 **다시 읽기 / 취소** 만 나온다.
+  없으므로 **Reload / Cancel** 만 나온다.
 - 다른 process 를 고르면 device 표나 탭에 저장하지 않은 편집이 있는지 한 번 묻는다.
   목록을 다시 채워도(CSV 불러오기, process 추가, 재접속) 고른 process 는 그대로다.
 - 다시 접속(Database → Connect…)할 때 device 표나 탭에, CSV 를 불러올 때 device 표에
@@ -529,7 +534,7 @@ device 는 절대 지워지지 않는다 — 명시적으로 지운 것만 삭�
   버린다. 저장할 곳이 없다.
 - 내가 device 를 저장한 뒤 같은 행을 다시 눌러도 저장하지 않은 탭 편집은 그대로 남는다.
 - 내가 device 를 저장한 뒤 같은 device 의 탭을 저장해도 나 자신과 충돌하지 않는다.
-  다만 **덮어쓰기** 로 남의 저장 위에 쓴 뒤에는 탭 저장이 한 번 더 충돌을 묻는다(그 사이
+  다만 **Overwrite with Mine** 으로 남의 저장 위에 쓴 뒤에는 탭 저장이 한 번 더 충돌을 묻는다(그 사이
   남의 변경이 끼어 있다).
 - CellType 이 목록에 없는 device 는 저장하지 않는다. 그런 행을 고쳤으면 저장 뒤
   `Save Skipped` 경고로 이름을 알린다(그 편집은 다시 읽으면서 사라진다).
@@ -570,14 +575,15 @@ DB 에러는 **메시지 박스로 보여주고 같은 내용을 파일에도 �
 | 경로 확인 | `genviewer --check-config` 가 찍어준다 |
 
 자주 보는 것은 타임아웃 둘이다. 풀이 `lock_timeout` 5초와
-`statement_timeout` 15초를 **일부러** 걸어 두므로, 사람이 몰리면 "다른 사용자가
-저장하는 중이다" 나 "처리가 너무 오래 걸려 서버가 취소했다" 가 나온다. 둘 다
+`statement_timeout` 15초를 **일부러** 걸어 두므로, 사람이 몰리면 "Another user is
+saving" 이나 "The server canceled the operation because it took too long" 이 나온다. 둘 다
 다시 시도하면 된다.
 
-접속에 실패하면 "데이터베이스에 접속할 수 없다" 아래에 서버나 libpq 가 준 실제
+접속에 실패하면 "Cannot connect to the database" 아래에 서버나 libpq 가 준 실제
 이유(비밀번호가 틀렸다, 데이터베이스가 없다 등, 원문 첫 줄)가 나온다. 그 이유를
 알아내려고 한 번 더 붙어 보므로 실패가 최대 `connect_timeout`(기본 5초)만큼 늦게
-뜬다. 창의 시작·재접속 알림은 아직 이전 문구다.
+뜬다. 창의 시작·재접속 알림(`Connect Failed`)은 이유 없이 "Could not connect to the
+database." 만 보이고, 이유는 로그 패널의 `Database connect failed: …` 줄에 있다.
 
 **비밀번호는 로그에 남지 않는다.** `password=` / `PGPASSWORD=` 와 접속 URL 안의
 비밀번호는 기록되기 직전에 가려진다 — 트레이스백 안에 있어도 마찬가지다.
@@ -630,7 +636,7 @@ SKIP_START=1 PGBIN="/c/Program Files/PostgreSQL/18/bin" ./tools/initdb.sh
 `PostgreSQL/18` 은 개발 PC 에 깔린 경로일 뿐 요구 버전이 아니다.
 
 `SKIP_START=1` 로 처음 돌리면 클러스터는 만들어지지만 서버가 아직 안 떠 있어서
-마지막 `createdb` 가 "실패" 로 끝난다. 서버를 띄운 뒤 **같은 명령을 한 번 더**
+마지막 `createdb` 가 "failed" 로 끝난다. 서버를 띄운 뒤 **같은 명령을 한 번 더**
 돌리면 initdb 는 건너뛰고 데이터베이스만 만든다. 이미 떠 있는 클러스터에 다시
 돌리면(`pg_ctl status` 가 떠 있다고 하면) start 도 건너뛰고 데이터베이스만 확인한다.
 
@@ -655,9 +661,9 @@ uv run pytest tests/gui -q   # GUI 테스트만 (pytest-qt, 화면 없이 offscr
 GENDB_TEST_PG_DSN="postgresql://<user>@127.0.0.1:55433/postgres" uv run pytest
 ```
 
-DB 없이 돌리면 지금 기준 Git Bash 에서 1016 passed / 241 skipped 다(`sh` 가 없는
-PowerShell 에서는 셸 스크립트 테스트 32개까지 skip 되어 984 / 273). DB 를 붙이면
-1247 passed / 10 skipped(윈도우에서 뜻이 없는 권한 테스트만)다. skip 되는 DB 테스트가
+DB 없이 돌리면 지금 기준 Git Bash 에서 1073 passed / 241 skipped 다(`sh` 가 없는
+PowerShell 에서는 셸 스크립트 테스트 32개까지 skip 되어 1041 / 273). DB 를 붙이면
+1304 passed / 10 skipped(윈도우에서 뜻이 없는 권한 테스트만)다. skip 되는 DB 테스트가
 저장·충돌·이력을 지키는 테스트이므로 고친 뒤에는 DB 를 붙여 한 번은 전부 돌린다.
 
 `uv run pytest` 가 `uv trampoline failed to canonicalize script path` 로 죽으면 venv 를
