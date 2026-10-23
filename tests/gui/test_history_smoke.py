@@ -11,7 +11,7 @@ def _reload(qtbot, ctrl, store) -> None:
 
 
 def test_reload_shows_the_newest_line_first(qtbot, history_ctrl, store):
-    assert history_ctrl.ui.count_label.text() == "조건에 맞는 이력이 없다."  # 첫 다시 읽기
+    assert history_ctrl.ui.count_label.text() == "No history matches."  # 첫 다시 읽기
 
     store.add_audit("kim", audit.process_add("sf9x"))
     store.add_audit(
@@ -24,9 +24,9 @@ def test_reload_shows_the_newest_line_first(qtbot, history_ctrl, store):
         ("lee", "sf2p/nfet_a", "device 추가  nfet_a (NFET)"),
         ("kim", "sf9x", "process 추가  sf9x"),
     ]
-    assert history_ctrl.ui.count_label.text() == "2줄"
+    assert history_ctrl.ui.count_label.text() == "2 row(s)"
     combo = history_ctrl.ui.process_cb
-    assert [combo.itemText(i) for i in range(combo.count())] == ["(전체)", "sf2p", "sf4u"]
+    assert [combo.itemText(i) for i in range(combo.count())] == ["(all)", "sf2p", "sf4u"]
 
 
 def test_the_who_filter_goes_to_recent_as_actor(qtbot, history_ctrl, store):
@@ -40,7 +40,7 @@ def test_the_who_filter_goes_to_recent_as_actor(qtbot, history_ctrl, store):
         lambda: history_ctrl._task is None and len(store.calls_of("recent")) == n + 1
     )
 
-    # 기간은 fixture 가 "전체" 로 두었다
+    # 기간은 fixture 가 "All" 로 두었다
     assert store.calls_of("recent")[-1] == {
         "limit": PAGE,
         "since": None,
@@ -53,4 +53,4 @@ def test_the_who_filter_goes_to_recent_as_actor(qtbot, history_ctrl, store):
         "release": None,
     }
     assert [r["summary"] for r in history_ctrl.model.get_data()] == ["process 추가  sf9x"]
-    assert history_ctrl.ui.count_label.text() == "1줄"
+    assert history_ctrl.ui.count_label.text() == "1 row(s)"

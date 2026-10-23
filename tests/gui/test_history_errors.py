@@ -13,8 +13,8 @@ from genviewer.service.errors import _BY_SQLSTATE, user_message
 from genviewer.service.repo import audit
 
 PASSWORD = "s3cret"
-COUNT_FAILED = "이력을 읽지 못했다: "
-AUTO_STOPPED = "이력 자동 갱신을 중단했다: "
+COUNT_FAILED = "Could not read history: "
+AUTO_STOPPED = "Stopped history auto refresh: "
 
 
 def reload_and_wait(qtbot, ctrl, store) -> None:
@@ -108,8 +108,8 @@ def test_a_reload_after_a_failure_shows_the_line_count_again(qtbot, history_ctrl
     assert count_text(history_ctrl).startswith(COUNT_FAILED)
 
     reload_and_wait(qtbot, history_ctrl, store)
-    assert count_text(history_ctrl) == "조건에 맞는 이력이 없다."
+    assert count_text(history_ctrl) == "No history matches."
 
     store.add_audit("kim", audit.process_add("sf9x"))
     reload_and_wait(qtbot, history_ctrl, store)
-    assert count_text(history_ctrl) == "1줄"
+    assert count_text(history_ctrl) == "1 row(s)"

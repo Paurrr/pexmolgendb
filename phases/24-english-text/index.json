@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "history-text",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-23T12:05:19+0900",
+      "summary": "History 화면 틀 문구 영어화(기간 Last 1 day/Last 7 days/Last 30 days/All, 열 Time/Who/Source/process / device/Change, 자리표시 3(상세 'Select a row to see the changed values here.', 사람 'Who', 찾기 'Find text (searches changed values too)'), Refresh·Auto·툴팁 'Reloads every 10 seconds.'·Period, process 콤보 (all) 두 곳(addItem 과 selected_process 비교), (unknown) 두 곳(표·상세), 'Not connected to the database.', 'No history matches.', N row(s), 줄 고른 동안·PAGE 이상 덧붙임, 'Could not read history: '·로그 패널 'Stopped history auto refresh: '). 기간 data(1d/7d/30d/'')·기본값(index 1)·find 동작 그대로. 요약 칸·상세 칸의 데이터(audit.where_of·format_detail·summary)는 한국어 그대로, audit.py 손대지 않음. 주석·docstring 의 라벨 인용만 따라 고침(views '# Last 7 days', conftest history_ctrl docstring, smoke 주석). 고친 테스트: gui/test_history_errors(접두어 2·결과 없음·1 row(s)), test_history_reload(COUNT_FAILED 없음 단언 2곳 포함·접속 안 됨·결과 없음·1/2 row(s)), test_history_smoke(2/1 row(s)·결과 없음·['(all)', …]), conftest(docstring). 이력 요약 기대값('device 추가  nfet_a (NFET)' 등)은 그대로. Refresh 단추의 setFixedWidth(84)는 Windows sizeHint 55 라 잘리지 않아 그대로 둠(offscreen 은 글꼴 차이로 100). 변이: (all) addItem·(all) 비교·접속 안 됨·결과 없음·N row(s)·Could not read·Stopped auto refresh 7개를 하나씩 한국어로 되돌리면 고친 테스트가 모두 실패. 고정 테스트가 없는 것(기간 항목, 열 이름, 자리표시 3, Refresh·Auto·툴팁·Period, (unknown) 2, 줄 고른 동안·PAGE 덧붙임)은 step 7 가드 몫. DB 테스트: 1249 passed / 10 skipped(Windows 권한만), tests/gui 784 passed",
+      "completed_at": "2026-10-23T12:11:43+0900"
     },
     {
       "step": 4,

@@ -26,13 +26,13 @@ from PySide6.QtWidgets import (
 
 # (보여줄 이름, 얼마나 거슬러 볼까). 빈 문자열은 전체.
 RANGES = (
-    ("최근 1일", "1d"),
-    ("최근 7일", "7d"),
-    ("최근 30일", "30d"),
-    ("전체", ""),
+    ("Last 1 day", "1d"),
+    ("Last 7 days", "7d"),
+    ("Last 30 days", "30d"),
+    ("All", ""),
 )
 
-HEADERS = ["시각", "사람", "출처", "process / device", "내용"]
+HEADERS = ["Time", "Who", "Source", "process / device", "Change"]
 COLUMNS = ["at", "actor", "source", "where", "summary"]
 
 
@@ -55,7 +55,7 @@ class HistoryTab(QWidget):
 
         self.detail_te = QTextEdit()
         self.detail_te.setReadOnly(True)
-        self.detail_te.setPlaceholderText("줄을 고르면 바뀐 값이 여기 나온다.")
+        self.detail_te.setPlaceholderText("Select a row to see the changed values here.")
 
         splitter = QSplitter(Qt.Vertical)
         splitter.addWidget(self.table)
@@ -76,10 +76,10 @@ class HistoryTab(QWidget):
         self.range_cb = QComboBox()
         for label, value in RANGES:
             self.range_cb.addItem(label, value)
-        self.range_cb.setCurrentIndex(1)  # 최근 7일
+        self.range_cb.setCurrentIndex(1)  # Last 7 days
 
         self.who_field = QLineEdit()
-        self.who_field.setPlaceholderText("사람")
+        self.who_field.setPlaceholderText("Who")
         self.who_field.setFixedWidth(110)
 
         self.process_cb = QComboBox()
@@ -87,16 +87,16 @@ class HistoryTab(QWidget):
         self.process_cb.setMinimumWidth(120)
 
         self.find_field = QLineEdit()
-        self.find_field.setPlaceholderText("찾을 글자 (바뀐 값까지 뒤진다)")
+        self.find_field.setPlaceholderText("Find text (searches changed values too)")
 
-        self.refresh_btn = QPushButton("새로고침")
+        self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.setFixedWidth(84)
 
-        self.auto_cb = QCheckBox("자동")
+        self.auto_cb = QCheckBox("Auto")
         self.auto_cb.setChecked(True)
-        self.auto_cb.setToolTip("10초마다 다시 읽는다.")
+        self.auto_cb.setToolTip("Reloads every 10 seconds.")
 
-        row.addWidget(QLabel("기간"))
+        row.addWidget(QLabel("Period"))
         row.addWidget(self.range_cb)
         row.addWidget(self.who_field)
         row.addWidget(QLabel("process"))
@@ -119,7 +119,7 @@ class HistoryTab(QWidget):
         current = self.process_cb.currentText()
         self.process_cb.blockSignals(True)
         self.process_cb.clear()
-        self.process_cb.addItem("(전체)")
+        self.process_cb.addItem("(all)")
         self.process_cb.addItems(names)
         index = self.process_cb.findText(current)
         self.process_cb.setCurrentIndex(index if index >= 0 else 0)
@@ -127,7 +127,7 @@ class HistoryTab(QWidget):
 
     def selected_process(self) -> str:
         name = self.process_cb.currentText()
-        return "" if name == "(전체)" else name
+        return "" if name == "(all)" else name
 
     def show_detail(self, text: str) -> None:
         self.detail_te.setPlainText(text)

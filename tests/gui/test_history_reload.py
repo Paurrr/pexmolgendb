@@ -17,9 +17,9 @@ from gui_support.fakes import FakeDatabase
 from genviewer.service.errors import DbUnavailableError
 from genviewer.service.repo import audit
 
-COUNT_FAILED = "이력을 읽지 못했다"
-NOT_CONNECTED = "데이터베이스에 붙어 있지 않다."
-NO_LINES = "조건에 맞는 이력이 없다."
+COUNT_FAILED = "Could not read history"
+NOT_CONNECTED = "Not connected to the database."
+NO_LINES = "No history matches."
 
 
 def recent_calls(store) -> int:
@@ -63,7 +63,7 @@ def test_a_filter_changed_while_reloading_is_read_when_it_finishes(
     )
     qtbot.waitUntil(lambda: ctrl._task is None and recent_calls(store) == before + 2)
     assert [r["summary"] for r in ctrl.model.get_data()] == ["process 추가  sf9x"]
-    assert ui.count_label.text() == "1줄"
+    assert ui.count_label.text() == "1 row(s)"
     # 보류는 타이머와 무관하다. 자동 갱신 상태를 바꾸지 않는다.
     assert ctrl._timer.isActive() is auto
 
@@ -172,7 +172,7 @@ def test_an_auto_reload_tick_while_reloading_keeps_the_running_result(
 
     qtbot.waitUntil(lambda: ctrl._task is None and recent_calls(store) >= before + 1)
     assert recent_calls(store) == before + 1
-    assert ui.count_label.text() == "2줄"
+    assert ui.count_label.text() == "2 row(s)"
 
 
 def test_shutdown_while_reloading_waits_and_does_not_read_again(qtbot, history_ctrl, store):
@@ -240,8 +240,8 @@ def test_a_task_finishing_after_shutdown_leaves_a_newer_task_running(
     qtbot.waitUntil(lambda: not shiboken6.isValid(first))
     assert shiboken6.isValid(second) and second.isRunning()
     assert ctrl._task is second
-    assert ui.count_label.text() == NO_LINES  # 앞 작업의 결과(2줄)를 쓰지 않았다
+    assert ui.count_label.text() == NO_LINES  # 앞 작업의 결과(2 row(s))를 쓰지 않았다
 
     second_release.set()
     qtbot.waitUntil(lambda: ctrl._task is None)
-    assert ui.count_label.text() == "2줄"
+    assert ui.count_label.text() == "2 row(s)"

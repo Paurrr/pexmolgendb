@@ -124,7 +124,7 @@ def main_window(qtbot, monkeypatch, store, dialogs) -> Iterator[MainWindowContro
 def history_ctrl(qtbot, monkeypatch, store) -> Iterator[HistoryTabController]:
     """store 에 붙은 실제 HistoryTabController. `.ui` 가 HistoryTab 이고, 첫 다시 읽기가 끝나 있다.
 
-    기간은 "전체" 로 둔다. 기본값(최근 7일)은 벽시계 기준이라 store 시계(2026-10-17)로 넣은
+    기간은 "All" 로 둔다. 기본값(Last 7 days)은 벽시계 기준이라 store 시계(2026-10-17)로 넣은
     줄이 날짜가 지나면 걸러진다. 이력 줄은 `store.add_audit` 로 넣고 `reload()` 한다.
     자동 갱신 타이머(10초)는 켜진 채다.
     """

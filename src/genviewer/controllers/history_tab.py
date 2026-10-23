@@ -33,7 +33,7 @@ PAGE = 500
 def _display(row: dict) -> dict:
     return {
         "at": row["at"].strftime("%Y-%m-%d %H:%M:%S"),
-        "actor": row["actor"] or "(모름)",
+        "actor": row["actor"] or "(unknown)",
         "source": row["source"],
         "where": audit.where_of(row),
         "summary": row["summary"],
@@ -90,7 +90,7 @@ class HistoryTabController(QObject):
             self._rows = []
             self.model.set_data([])
             self.ui.show_detail("")
-            self.ui.show_count("데이터베이스에 붙어 있지 않다.")
+            self.ui.show_count("Not connected to the database.")
             return
 
         self.repo = AuditRepository(db)
@@ -123,7 +123,7 @@ class HistoryTabController(QObject):
         """
         if self._selected_row() is not None:
             self.ui.show_count(
-                f"{len(self._rows)}줄  (줄을 고른 동안은 자동 갱신을 멈춘다)"
+                f"{len(self._rows)} row(s)  (auto refresh paused while a row is selected)"
             )
             return
         # 도는 작업이 이미 지금 필터로 읽고 있다. 보류로 만들면 10초보다 오래 걸리는 서버에서
@@ -199,11 +199,11 @@ class HistoryTabController(QObject):
         self.model.set_data([_display(r) for r in self._rows])
         self.ui.show_detail("")
         if not self._rows:
-            self.ui.show_count("조건에 맞는 이력이 없다.")
+            self.ui.show_count("No history matches.")
         elif len(self._rows) >= PAGE:
-            self.ui.show_count(f"{len(self._rows)}줄  (더 있다. 기간을 좁힐 것)")
+            self.ui.show_count(f"{len(self._rows)} row(s)  (more exist; narrow the period)")
         else:
-            self.ui.show_count(f"{len(self._rows)}줄")
+            self.ui.show_count(f"{len(self._rows)} row(s)")
 
     @Slot(object)
     def _on_failed(self, exc: Exception) -> None:
@@ -213,10 +213,10 @@ class HistoryTabController(QObject):
         # 개수 칸은 한 줄짜리 라벨이고, 로그 패널은 scrub 포매터를 지나지 않고(ADR-013)
         # 줄 단위다. user_message 는 여러 줄일 수 있다.
         reason = " ".join(user_message(exc).split())
-        self.ui.show_count(f"이력을 읽지 못했다: {reason}")
+        self.ui.show_count(f"Could not read history: {reason}")
         if self._failures >= POLL_FAILURE_LIMIT:
             self._timer.stop()
-            self.logRequested.emit(f"이력 자동 갱신을 중단했다: {reason}")
+            self.logRequested.emit(f"Stopped history auto refresh: {reason}")
 
     # ------------------------------------------------------------------
     # 선택
@@ -235,7 +235,7 @@ class HistoryTabController(QObject):
 
         row = self._rows[index]
         when = row["at"].strftime("%Y-%m-%d %H:%M:%S")
-        who = row["actor"] or "(모름)"
+        who = row["actor"] or "(unknown)"
         head = [f"{when}  {who}  {audit.where_of(row)}", row["summary"]]
         body = audit.format_detail(row, indent="")
         self.ui.show_detail("\n".join(head + ([""] + body if body else [])))
