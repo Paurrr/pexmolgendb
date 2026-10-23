@@ -61,7 +61,9 @@
     {
       "step": 7,
       "name": "english-guard",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-23T12:52:51+0900",
+      "summary": "tests/test_english_text.py(AST 문구 검사 + tools/*.sh 출력 검사 + 스캐너 자체 검사, 허용: audit 요약 함수 device_insert·device_update·device_delete·tab_change·csv_import·process_add·process_delete((모듈, 함수) 쌍, 도우미 _short·_quoted·process_label·_TAB_LABEL 은 한글이 없어 넣지 않음)·로그 호출(log/logger/logging/root 의 debug~log, 이름은 src 의 getLogger 대입과 같음을 테스트가 맞춤, self.log(...) 같은 속성은 로그 패널이라 검사)·docstring 과 식 문장 문자열(typer 명령 6개 root/status/processes/load/export/log 의 docstring 은 검사)·셸 주석(줄 전체, 따옴표 밖 공백 뒤 # 의 줄 끝 주석: initdb.sh 36-37)·marker= 줄). 남은 문구 0개 옮김(step 0~6 이 다 옮겨 audit 요약 밖에는 한글도 비ASCII 문자열도 없었다, 빠뜨린 step 없음). 판단만 남김: utils/logs.py:115 root.warning('로그 파일을 열지 못했다 (%s): %s') 는 로그 호출이라 뺐지만, 로그 파일을 못 연 경우라 실제로는 stderr 핸들러로만 간다(옮기지 않음). 낡음 방지: 허용 항목마다 그 함수에 한글이 남았는지, cli.py 의 typer 명령 집합이 그 6개인지 검사. 변이: add_process.py _EXISTS·initdb.sh 'created' echo·cli status docstring·device_tab 로그 패널 f-string(Stopped change polling)·device_table 'Save Complete' 제목 5개를 하나씩 한국어로 바꾸면 해당 검사가 '파일:행: 문자열' 로 실패, 되돌린 뒤 git diff 없음(initdb.sh LF·100755 유지). PySide6 import 없음(scoped_imports 로 확인). 새 테스트 55개. DB 테스트: 1304 passed / 10 skipped(Windows 권한만)"
     }
   ],
   "created_at": "2026-10-23T11:29:13+0900"
