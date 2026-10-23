@@ -191,7 +191,7 @@ def test_cloning_a_release_copies_the_devices_and_their_tab_rows(
         for table in (TABLE, "inst_sch_params"):
             assert store.tab_rows[table][copies[name]] == store.tab_rows[table][original]
     assert notices(dialogs, "Success") == [
-        ("info", "Success", "Process 'sf2p V2' added.\nsf2p 에서 device 2개를 복사했다.")
+        ("info", "Success", "Process 'sf2p V2' added.\nCopied 2 device(s) from sf2p.")
     ]
     assert "Process added: sf2p V2 (from sf2p, device 2)." in logs
 
@@ -215,7 +215,7 @@ def test_cloning_from_a_release_names_it(device_tab_ctrl, store, dialogs, qtbot)
     assert toolbar(ctrl).current_pair() == ("sf9x", "")
     assert device_names(ctrl) == ["nfet_v2"]
     assert notices(dialogs, "Success") == [
-        ("info", "Success", "Process 'sf9x' added.\nsf2p V2 에서 device 1개를 복사했다.")
+        ("info", "Success", "Process 'sf9x' added.\nCopied 1 device(s) from sf2p V2.")
     ]
     assert "Process added: sf9x (from sf2p V2, device 1)." in logs
 
@@ -249,7 +249,7 @@ def test_without_a_database_nothing_is_asked_or_made(qtbot, dialogs):
 
     ctrl.add_process("sf2p", V2, ("sf2p", ""))
 
-    assert dialogs.shown == [("warning", "Database Not Loaded", "먼저 DB를 Load 해야 합니다.")]
+    assert dialogs.shown == [("warning", "Database Not Loaded", "Connect to the database first.")]
     assert asked == []
 
 

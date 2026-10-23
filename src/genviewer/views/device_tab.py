@@ -44,14 +44,16 @@ class RefreshBanner(QFrame):
         self.label.setObjectName("RefreshBannerText")
         self.label.setWordWrap(True)
 
-        refresh_btn = QPushButton("새로고침")
-        refresh_btn.setToolTip("서버 내용을 다시 읽는다. 저장하지 않은 편집은 사라진다.")
-        refresh_btn.setFixedWidth(76)
+        # 너비는 최소값이다. 고정 너비는 한국어 글자에 맞춘 것이라 영어 글자의 양 끝이 잘렸다
+        # (phase 24 step 2). 글자가 들어가면 예전 너비 그대로다.
+        refresh_btn = QPushButton("Reload")
+        refresh_btn.setToolTip("Reload from the server. Unsaved changes are discarded.")
+        refresh_btn.setMinimumWidth(76)
         refresh_btn.clicked.connect(self.refreshRequested)
 
-        close_btn = QPushButton("닫기")
-        close_btn.setToolTip("알림만 숨긴다. 서버 내용은 여전히 다르다.")
-        close_btn.setFixedWidth(52)
+        close_btn = QPushButton("Dismiss")
+        close_btn.setToolTip("Hide this notice only. The server still differs.")
+        close_btn.setMinimumWidth(52)
         close_btn.clicked.connect(self.hide)
 
         layout = QHBoxLayout(self)
@@ -63,8 +65,8 @@ class RefreshBanner(QFrame):
         self.hide()
 
     def show_change(self, who: str) -> None:
-        actor = who or "다른 사용자"
-        self.label.setText(f"이 process 가 {actor} 님에 의해 변경되었습니다.")
+        actor = who or "another user"
+        self.label.setText(f"This process was changed by {actor}.")
         self.show()
 
 
@@ -167,7 +169,7 @@ class DeviceTab(QWidget):
         dialog = QInputDialog(self)
         try:
             dialog.setWindowTitle("Load CSV")
-            dialog.setLabelText("불러올 버전 (비우면 버전 없음):")
+            dialog.setLabelText("Version to import (empty = no version):")
             dialog.setComboBoxItems(items)
             dialog.setTextValue(items[start] if items else "")
             dialog.setComboBoxEditable(True)

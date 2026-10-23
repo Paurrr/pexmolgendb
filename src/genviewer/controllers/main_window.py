@@ -4,7 +4,7 @@ from PySide6.QtCore import QEvent, QObject, Signal, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
 
-from genviewer.controllers.device_tab import DeviceTabController
+from genviewer.controllers.device_tab import REFRESH_QUESTION, DeviceTabController
 from genviewer.controllers.socket_tab import SocketTabController
 from genviewer.net.controller import ConnectionController
 from genviewer.service import virtuoso_protocol
@@ -196,10 +196,7 @@ class MainWindowController(QObject):
             # 다시 읽으면 device 표의 저장 안 한 편집이 사라진다. 탭 편집은 남으므로 device 표만
             # 본다. 아니오면 표는 그대로 두고, 새 목록은 다음 다시 읽기(저장 뒤 등)에 반영된다.
             if not self.device_tab.device_table.is_dirty() or question(
-                self.ui,
-                "Refresh",
-                "저장하지 않은 편집이 있습니다.\n"
-                "서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?",
+                self.ui, "Refresh", REFRESH_QUESTION
             ):
                 self.device_tab.device_table.refresh_devices()
             self.ui.append_log(f"Received Virtuoso device list: {len(device_state_data)} item(s).")

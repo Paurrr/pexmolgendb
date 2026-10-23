@@ -13,7 +13,7 @@ from PySide6.QtCore import QItemSelectionModel
 UNSAVED = (
     "warning",
     "Unsaved Devices",
-    "저장하지 않은 device 가 있어 보내지 않았다. 먼저 저장할 것.",
+    "Not sent: some devices are unsaved. Save first.",
 )
 
 

@@ -31,7 +31,7 @@ SAVE_CHANGES = ("question", "Save Changes", "You have unsaved changes. Do you wa
 REFRESH = (
     "question",
     "Refresh",
-    "저장하지 않은 편집이 있습니다.\n서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?",
+    "You have unsaved changes.\nReloading from the server discards them. Continue?",
 )
 DEVICE_LIST = "[DeviceList]nfet_a,O,O,lib"
 NEW_STATE = {"nfet_a": {"S": "O", "L": "O", "library_name": "lib"}}

@@ -21,7 +21,7 @@ EDITED_TAB = "dd"  # 시드 nfet_a 의 InstTerm 0행 값은 "d"
 REFRESH = (
     "question",
     "Refresh",
-    "저장하지 않은 편집이 있습니다.\n서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?",
+    "You have unsaved changes.\nReloading from the server discards them. Continue?",
 )
 CSV_TEXT = (
     "CellType,CdsLibName,InstCellName,InstTerm\n"
@@ -130,7 +130,7 @@ def test_accepting_a_reconnect_drops_device_and_tab_edits(
 
     assert dialogs.shown[shown:] == [
         REFRESH,
-        ("info", "Connected", "데이터베이스에 연결했다."),
+        ("info", "Connected", "Connected to the database."),
     ]
     assert ctrl.db is not db1
     assert ctrl.device_table.repo.db is ctrl.db
@@ -153,7 +153,7 @@ def test_a_failed_reconnect_after_accepting_keeps_the_edits(device_tab_ctrl, sto
 
     assert dialogs.shown[shown:] == [
         REFRESH,
-        ("error", "Connect Failed", "데이터베이스에 연결하지 못했다."),
+        ("error", "Connect Failed", "Could not connect to the database."),
     ]
     assert len(store.calls_of("open_database")) == 2  # 첫 접속 + 실패한 재접속
     assert ctrl.db is db1
@@ -169,7 +169,7 @@ def test_a_reconnect_without_edits_does_not_ask(device_tab_ctrl, store, dialogs)
 
     reconnect(ctrl)
 
-    assert dialogs.shown[shown:] == [("info", "Connected", "데이터베이스에 연결했다.")]
+    assert dialogs.shown[shown:] == [("info", "Connected", "Connected to the database.")]
     assert ctrl.db is not db1
 
 
@@ -252,6 +252,6 @@ def test_a_csv_load_without_a_database_warns_before_asking(
     ctrl.on_load_csv_requested(path)
 
     assert dialogs.shown[shown:] == [
-        ("warning", "Database Not Loaded", "먼저 DB를 Load 해야 합니다.")
+        ("warning", "Database Not Loaded", "Connect to the database first.")
     ]
     assert store.calls[since:] == []

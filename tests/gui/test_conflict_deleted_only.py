@@ -209,7 +209,7 @@ def test_reloading_a_device_save_after_another_user_deleted_the_edited_device(
     assert dialogs.conflict_choices[-1] == BOTH
     assert screen_names(ctrl) == ["nfet_b"]
     assert not ctrl.device_table.is_dirty()
-    assert "Save conflict: 서버 내용으로 다시 읽었다." in logs
+    assert "Save conflict: reloaded from the server." in logs
     assert save_complete(dialogs) == []
     assert [c["force"] for c in store.calls_of("upsert_devices")] == [False]
 
@@ -229,7 +229,7 @@ def test_cancelling_a_device_save_after_another_user_deleted_the_edited_device(
     assert screen_names(ctrl) == ["nfet_a", "nfet_b"]
     assert screen_description(ctrl, 0) == EDITED
     assert ctrl.device_table.is_dirty()
-    assert "Save conflict: 저장을 취소했다." in logs
+    assert "Save conflict: save canceled." in logs
     assert save_complete(dialogs) == []
     assert [c["force"] for c in store.calls_of("upsert_devices")] == [False]
 
@@ -303,7 +303,7 @@ def test_reloading_a_tab_save_after_another_user_deleted_the_device(
     assert dialogs.conflict_choices[-1] == BOTH
     assert tab_rows(ctrl) == []
     assert not ctrl.parameter_tab.is_dirty()
-    assert "Tab conflict: 서버 내용으로 다시 읽었다." in logs
+    assert "Tab conflict: reloaded from the server." in logs
     assert saved(dialogs) == []
     assert [c["force"] for c in store.calls_of("replace_many_for_device")] == [False]
 
@@ -322,7 +322,7 @@ def test_cancelling_a_tab_save_after_another_user_deleted_the_device(
     assert dialogs.conflict_choices[-1] == BOTH
     assert tab_rows(ctrl)[0][COLUMN] == EDITED_TAB
     assert ctrl.parameter_tab.is_dirty()
-    assert "Tab conflict: 저장을 취소했다." in logs
+    assert "Tab conflict: save canceled." in logs
     assert saved(dialogs) == []
     assert [c["force"] for c in store.calls_of("replace_many_for_device")] == [False]
 

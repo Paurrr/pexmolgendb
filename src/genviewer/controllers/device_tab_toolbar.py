@@ -62,7 +62,7 @@ class DeviceTabToolBarController(QObject):
     def _require_repo(self) -> bool:
         if not self.repo:
             self.notifyRequested.emit(
-                "warn", "Database Not Loaded", "먼저 DB를 Load 해야 합니다."
+                "warn", "Database Not Loaded", "Connect to the database first."
             )
             return False
         return True
@@ -138,7 +138,7 @@ class DeviceTabToolBarController(QObject):
         text, line = f"Process '{label}' added.", f"Process added: {label}."
         if source is not None:
             src_label = process_label(*source)
-            text += f"\n{src_label} 에서 device {copied}개를 복사했다."
+            text += f"\nCopied {copied} device(s) from {src_label}."
             line = f"Process added: {label} (from {src_label}, device {copied})."
         self.notifyRequested.emit("info", "Success", text)
         self.logRequested.emit(line)
@@ -159,8 +159,8 @@ class DeviceTabToolBarController(QObject):
         if not question(
             self.ui,
             "Remove Process",
-            f"Process '{label}' 을(를) 삭제하면 device {n}개와 그 파라미터가\n"
-            "모두 함께 삭제됩니다. 계속할까요?",
+            f"Removing process '{label}' also deletes {n} device(s) and their parameters.\n"
+            "Continue?",
         ):
             return
 

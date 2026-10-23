@@ -449,8 +449,8 @@ def test_the_remove_question_names_the_release(
         (
             "question",
             "Remove Process",
-            f"Process '{label}' 을(를) 삭제하면 device {n}개와 그 파라미터가\n"
-            "모두 함께 삭제됩니다. 계속할까요?",
+            f"Removing process '{label}' also deletes {n} device(s) and their parameters.\n"
+            "Continue?",
         )
     ]
     (counted,) = store.calls_of("count_devices")
@@ -498,8 +498,8 @@ def test_the_minus_button_confirms_and_removes_the_current_pair(
         (
             "question",
             "Remove Process",
-            "Process 'sf2p V2' 을(를) 삭제하면 device 1개와 그 파라미터가\n"
-            "모두 함께 삭제됩니다. 계속할까요?",
+            "Removing process 'sf2p V2' also deletes 1 device(s) and their parameters.\n"
+            "Continue?",
         )
     ]
     (call,) = store.calls_of("delete")
@@ -522,8 +522,8 @@ def test_the_minus_button_question_without_a_release_is_the_old_one(
         (
             "question",
             "Remove Process",
-            "Process 'sf2p' 을(를) 삭제하면 device 2개와 그 파라미터가\n"
-            "모두 함께 삭제됩니다. 계속할까요?",
+            "Removing process 'sf2p' also deletes 2 device(s) and their parameters.\n"
+            "Continue?",
         )
     ]
     assert store.calls_of("delete") == []

@@ -208,7 +208,7 @@ def test_a_failed_reconnect_logs_the_real_cause(main_window, dialogs, monkeypatc
     assert "Database connect failed:" in log
     assert CAUSE_KEY in log
     assert PASSWORD not in log
-    assert dialogs.shown == [("error", "Connect Failed", "데이터베이스에 연결하지 못했다.")]
+    assert dialogs.shown == [("error", "Connect Failed", "Could not connect to the database.")]
     # 지금 DB 를 그대로 쓴다(phase 4).
     assert tab.db is db1
     assert db1.closed is False
@@ -290,7 +290,7 @@ def test_failed_reconnects_close_every_database_they_opened(main_window, dialogs
     assert len(made) == 2
     assert [db.close_count for db in made] == [1, 1]
     assert [db.closed for db in made] == [True, True]
-    assert dialogs.shown == [("error", "Connect Failed", "데이터베이스에 연결하지 못했다.")] * 2
+    assert dialogs.shown == [("error", "Connect Failed", "Could not connect to the database.")] * 2
     # 지금 DB 는 닫지 않고 그대로 쓴다(phase 4 G13).
     assert tab.db is db1
     assert db1.close_count == 0

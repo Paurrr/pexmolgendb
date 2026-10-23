@@ -1,4 +1,4 @@
-"""device 표 머리글 메뉴의 "오름차순 정렬"/"내림차순 정렬" (phase 4 step 3).
+"""device 표 머리글 메뉴의 "Sort Ascending"/"Sort Descending" (phase 4 step 3).
 
 정렬은 끌어 옮기기(moveRows)와 같은 "저장 안 한 변경" 이다. 모델의 모든 행을 정렬하고(필터에
 가려진 device 도), 기준점(서버에서 읽은 상태)은 그대로 둔다. 그래서 저장 전에 지운 device 는

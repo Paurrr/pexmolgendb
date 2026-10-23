@@ -83,8 +83,8 @@ def test_an_edited_row_with_an_off_list_celltype_is_skipped_with_a_warning(
         (
             "warn",
             "Save Skipped",
-            "CellType 이 목록에 없어 다음 device 의 편집은 저장하지 않았다"
-            "(다시 읽으면서 사라졌다).\n - nfet_a",
+            "These devices were not saved because their CellType is not in the list "
+            "(the edits were discarded on reload):\n - nfet_a",
         )
     ]
     # 건너뛴 행은 다시 읽으면서 DB 값으로 돌아갔다(경고가 그것을 알린다)
@@ -200,8 +200,9 @@ def test_pasting_with_unsaved_device_edits_is_refused_with_a_warning(device_tab_
         (
             "warn",
             "Unsaved Changes",
-            "저장하지 않은 device 편집이 있어 붙여넣지 않았다.\n"
-            "붙여넣기는 바로 저장하고 목록을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+            "Not pasted: there are unsaved device changes.\n"
+            "Pasting saves immediately and reloads the list, which would discard them. "
+            "Save first.",
         )
     ]
     assert store.calls_of("upsert_device") == []
@@ -252,8 +253,9 @@ def test_pasting_with_unsaved_tab_edits_is_refused_with_a_warning(
         (
             "warn",
             "Unsaved Changes",
-            "저장하지 않은 탭 편집이 있어 붙여넣지 않았다.\n"
-            "붙여넣기는 바로 저장하고 탭을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+            "Not pasted: there are unsaved tab changes.\n"
+            "Pasting saves immediately and reloads the tabs, which would discard them. "
+            "Save first.",
         )
     ]
     assert model_of(ctrl).rowCount() == 2
@@ -279,8 +281,9 @@ def test_pasting_with_unsaved_device_and_tab_edits_warns_only_about_device_edits
         (
             "warn",
             "Unsaved Changes",
-            "저장하지 않은 device 편집이 있어 붙여넣지 않았다.\n"
-            "붙여넣기는 바로 저장하고 목록을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+            "Not pasted: there are unsaved device changes.\n"
+            "Pasting saves immediately and reloads the list, which would discard them. "
+            "Save first.",
         )
     ]
     assert store.calls_of("upsert_device") == []

@@ -89,13 +89,13 @@ class ParameterTabController(QObject):
             if choice == RELOAD:
                 for sec in self._sections.values():
                     sec.update_model()
-                self.logRequested.emit("Tab conflict: 서버 내용으로 다시 읽었다.")
+                self.logRequested.emit("Tab conflict: reloaded from the server.")
                 return False
             if choice == OVERWRITE:
                 self._apply(payload, force=True)
-                self.logRequested.emit("Tab conflict: 내 변경으로 덮어썼다.")
+                self.logRequested.emit("Tab conflict: overwrote with my changes.")
                 return True
-            self.logRequested.emit("Tab conflict: 저장을 취소했다.")
+            self.logRequested.emit("Tab conflict: save canceled.")
             return False
 
     def _apply(self, payload: dict, *, force: bool = False) -> None:

@@ -15,7 +15,7 @@ from genviewer.service.errors import user_message
 
 PASSWORD = "s3cret"
 LOOKUP_TITLE = "Process Lookup Failed"
-POLL_STOPPED = "변경 감지 폴링을 중단했다: "
+POLL_STOPPED = "Stopped change polling: "
 
 
 def lookup_texts(dialogs) -> list[str]:

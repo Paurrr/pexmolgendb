@@ -20,7 +20,7 @@ from PySide6.QtCore import QCoreApplication
 
 from genviewer.controllers.device_tab import POLL_FAILURE_LIMIT
 
-POLL_STOPPED = "변경 감지 폴링을 중단했다: "
+POLL_STOPPED = "Stopped change polling: "
 
 
 def etag_calls(store, process_id: int) -> int:

@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "device-screen-text",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-10-23T11:50:35+0900",
+      "summary": "Device 화면 controller·view 문구 영어화(REFRESH_QUESTION, 배너 Reload/Dismiss·툴팁 2·'This process was changed by X.'(없으면 another user), 정렬 메뉴 Sort Ascending/Descending, 붙여넣기 경고 2(device/tab 본문 다름)·Save Skipped 머리말·Save/Tab conflict 로그 6, 접속 성공·실패, 폴링 중단 접두어 'Stopped change polling: ', 'Reloaded from the server.', Unsaved Devices 본문, 'Connect to the database first.' 3곳, Add Process 복사 덧붙임, Remove Process 질문, Load CSV 안내(ASCII '-')·로그 줄 2(빈 버전은 version 낱말 없음)·버전 라벨). main_window 의 Virtuoso 목록 Refresh 질문은 사본 대신 REFRESH_QUESTION 을 import 해 재접속·배너·CSV·Virtuoso 네 곳이 같은 글자. 제목·severity·질문 조건 그대로, log.* 파일 로그 문구·주석·docstring 그대로. 추가 수정 1: 배너 단추 setFixedWidth(76/52) 를 setMinimumWidth 로. 한국어 글자에 맞춘 고정 너비라 'Dismiss'(Windows sizeHint 57 > 52, offscreen 은 Reload 88 > 76 도)의 양 끝이 잘렸다(렌더로 확인). Windows 에서 Reload 는 76 그대로, Dismiss 만 57. 재현 테스트 test_toolbar_min_width::test_refresh_banner_buttons_are_not_narrower_than_their_text[graphite|mist] 를 먼저 RED 로 확인. 고친 테스트: gui/test_reload_guard, test_window_guards, test_send_device_data, test_device_save_guards, test_add_release, test_conflict_deleted_only, test_load_csv_release, test_poll_binding, test_user_message_sites, test_process_release_switch(- 단추 둘 포함, 빈 버전은 'sf2p'), test_connect_failure, test_device_sort(docstring 의 메뉴 이름). 배너 글 테스트는 actor('kim') 포함만 보므로 고칠 것 없음. 변이: 20개(REFRESH_QUESTION, 접속 성공·실패, 폴링 중단, Unsaved Devices, Load CSV 안내·로그 2·라벨, Load CSV 와 툴바의 Connect first, 복사 덧붙임, Remove Process, 붙여넣기 2, Save Skipped, Save/Tab conflict 의 reload·cancel 4)를 하나씩 한국어로 되돌리면 고친 테스트가 모두 실패. 고정 테스트가 없는 것(배너 단추·툴팁·글, 정렬 메뉴, 'Reloaded from the server.', conflict 'overwrote' 로그 2, 행 선택 때의 Connect first 상자)은 step 7 가드 몫. DB 테스트: 1249 passed / 10 skipped(Windows 권한만, +2 는 배너 너비 테스트), tests/gui 784 passed"
     },
     {
       "step": 3,

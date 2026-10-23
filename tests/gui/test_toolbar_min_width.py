@@ -10,9 +10,12 @@
 """
 
 import pytest
+from gui_support.theme import preserved_theme
 from PySide6.QtCore import QCoreApplication, QEvent
-from PySide6.QtWidgets import QAbstractButton, QComboBox, QLabel, QWidget
+from PySide6.QtWidgets import QAbstractButton, QComboBox, QLabel, QPushButton, QWidget
 
+from genviewer.utils.palette import apply_theme
+from genviewer.views.device_tab import RefreshBanner
 from genviewer.views.device_tab_toolbar import DeviceTabToolBar
 from genviewer.views.main_window import MainWindow
 
@@ -79,3 +82,27 @@ def test_long_names_keep_toolbar_widgets_apart(window):
     _settle()
 
     assert _overlapping(toolbar) == []
+
+
+# -- 변경 배너 단추 (phase 24 step 2) ------------------------------------------------------
+# 배너 단추의 고정 너비는 한국어 글자(새로고침·닫기)에 맞춘 것이었다. 영어 글자가 그보다 넓으면
+# 스타일시트의 padding 안에 다 들어가지 못해 양 끝 글자가 잘린다("Dismiss" 의 D 와 끝 s).
+
+
+@pytest.mark.parametrize("theme", ["graphite", "mist"])
+def test_refresh_banner_buttons_are_not_narrower_than_their_text(qtbot, qapp, theme):
+    with preserved_theme(qapp):
+        apply_theme(qapp, theme)
+        banner = RefreshBanner()
+        qtbot.addWidget(banner)
+        banner.show_change("kim")
+        qtbot.waitExposed(banner)
+        _settle()
+
+        narrow = [
+            (button.text(), button.width(), button.sizeHint().width())
+            for button in banner.findChildren(QPushButton)
+            if button.width() < button.sizeHint().width()
+        ]
+
+    assert narrow == []

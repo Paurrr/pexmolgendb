@@ -138,8 +138,8 @@ class DeviceTableController(QObject):
 
     def _on_header_menu(self, logical_index: int, global_pos: QPoint):
         menu = QMenu(self.ui)
-        asc_action = QAction("오름차순 정렬", self.ui)
-        desc_action = QAction("내림차순 정렬", self.ui)
+        asc_action = QAction("Sort Ascending", self.ui)
+        desc_action = QAction("Sort Descending", self.ui)
 
         asc_action.triggered.connect(
             lambda: self.sort_and_commit(logical_index, Qt.AscendingOrder)
@@ -220,8 +220,9 @@ class DeviceTableController(QObject):
             self.notifyRequested.emit(
                 "warn",
                 "Unsaved Changes",
-                "저장하지 않은 device 편집이 있어 붙여넣지 않았다.\n"
-                "붙여넣기는 바로 저장하고 목록을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+                "Not pasted: there are unsaved device changes.\n"
+                "Pasting saves immediately and reloads the list, which would discard them. "
+                "Save first.",
             )
             return
         if self._has_unsaved_tabs():
@@ -229,8 +230,9 @@ class DeviceTableController(QObject):
             self.notifyRequested.emit(
                 "warn",
                 "Unsaved Changes",
-                "저장하지 않은 탭 편집이 있어 붙여넣지 않았다.\n"
-                "붙여넣기는 바로 저장하고 탭을 다시 읽으므로 그 편집이 사라진다. 먼저 저장할 것.",
+                "Not pasted: there are unsaved tab changes.\n"
+                "Pasting saves immediately and reloads the tabs, which would discard them. "
+                "Save first.",
             )
             return
 
@@ -449,8 +451,8 @@ class DeviceTableController(QObject):
             self.notifyRequested.emit(
                 "warn",
                 "Save Skipped",
-                "CellType 이 목록에 없어 다음 device 의 편집은 저장하지 않았다"
-                "(다시 읽으면서 사라졌다).\n"
+                "These devices were not saved because their CellType is not in the list "
+                "(the edits were discarded on reload):\n"
                 + "\n".join(f" - {name}" for name in skipped_edits),
             )
             return False
@@ -498,13 +500,13 @@ class DeviceTableController(QObject):
             choice = ask_conflict(self.ui, e.conflicts, my_deletions=deleted.keys())
             if choice == RELOAD:
                 self.refresh_devices()
-                self.logRequested.emit("Save conflict: 서버 내용으로 다시 읽었다.")
+                self.logRequested.emit("Save conflict: reloaded from the server.")
                 return None
             if choice == OVERWRITE:
                 forced = run_blocking(lambda: write(True), self)
-                self.logRequested.emit("Save conflict: 내 변경으로 덮어썼다.")
+                self.logRequested.emit("Save conflict: overwrote with my changes.")
                 return forced
-            self.logRequested.emit("Save conflict: 저장을 취소했다.")
+            self.logRequested.emit("Save conflict: save canceled.")
             return None
 
     def set_device_version(self, device_id: int, version: int) -> None:

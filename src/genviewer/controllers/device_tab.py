@@ -35,8 +35,8 @@ POLL_FAILURE_LIMIT = 3
 
 # 다시 읽으면 저장 안 한 편집이 사라지는 곳(새로고침, 재접속, CSV 불러오기)의 "Refresh" 질문.
 REFRESH_QUESTION = (
-    "저장하지 않은 편집이 있습니다.\n"
-    "서버 내용으로 다시 읽으면 그 편집은 사라집니다. 계속할까요?"
+    "You have unsaved changes.\n"
+    "Reloading from the server discards them. Continue?"
 )
 
 # Virtuoso 로 보낼 때 스칼라로 보내는 고정 컬럼. 위치가 아니라 이름으로 고른다.
@@ -134,10 +134,10 @@ class DeviceTabController(QObject):
         ) and not question(self.ui, "Refresh", REFRESH_QUESTION):
             return
         if self.connect_db(dsn):
-            self.notifyRequested.emit("info", "Connected", "데이터베이스에 연결했다.")
+            self.notifyRequested.emit("info", "Connected", "Connected to the database.")
         else:
             self.notifyRequested.emit(
-                "error", "Connect Failed", "데이터베이스에 연결하지 못했다."
+                "error", "Connect Failed", "Could not connect to the database."
             )
 
     def save_db(self) -> bool:
@@ -301,7 +301,7 @@ class DeviceTabController(QObject):
             # 로그 패널은 scrub 포매터를 지나지 않고(ADR-013) 줄 단위다.
             # user_message 는 여러 줄일 수 있다.
             reason = " ".join(user_message(exc).split())
-            self.logRequested.emit(f"변경 감지 폴링을 중단했다: {reason}")
+            self.logRequested.emit(f"Stopped change polling: {reason}")
 
     @Slot()
     def _on_refresh_requested(self) -> None:
@@ -312,7 +312,7 @@ class DeviceTabController(QObject):
             return
         self.device_table.refresh_devices()
         self.parameter_tab._clear_tabs()
-        self.logRequested.emit("서버 내용으로 다시 읽었다.")
+        self.logRequested.emit("Reloaded from the server.")
 
     def close_db(self) -> None:
         """커넥션 풀을 닫는다.
@@ -369,7 +369,7 @@ class DeviceTabController(QObject):
             self.notifyRequested.emit(
                 "warn",
                 "Unsaved Devices",
-                "저장하지 않은 device 가 있어 보내지 않았다. 먼저 저장할 것.",
+                "Not sent: some devices are unsaved. Save first.",
             )
             return
 
@@ -427,7 +427,7 @@ class DeviceTabController(QObject):
     def on_load_csv_requested(self, path: str, release: str = ""):
         if not self.connected:
             self.notifyRequested.emit(
-                "warn", "Database Not Loaded", "먼저 DB를 Load 해야 합니다."
+                "warn", "Database Not Loaded", "Connect to the database first."
             )
             return
         # 끝에서 device 표를 다시 읽어 그 편집을 버린다. 불러오기 전에 묻는다(K36). 탭 편집은
@@ -454,22 +454,22 @@ class DeviceTabController(QObject):
         self.notifyRequested.emit(
             "info",
             "Load CSV",
-            f"device {created}개를 새로 추가했다.\n"
-            "CSV 는 불러올 때마다 새로 쌓인다 — 같은 파일을 다시 넣으면 중복된다.",
+            f"Added {created} device(s).\n"
+            "CSV import always adds new rows - importing the same file again duplicates them.",
         )
         if release:
             self.logRequested.emit(
-                f"Imported CSV: {path} (version {release}, device {created}개 추가)."
+                f"Imported CSV: {path} (version {release}, {created} device(s) added)."
             )
         else:
-            self.logRequested.emit(f"Imported CSV: {path} (device {created}개 추가).")
+            self.logRequested.emit(f"Imported CSV: {path} ({created} device(s) added).")
 
     @Slot()
     @report("Load Failed")
     def on_current_row_changed(self, current: QModelIndex, previous: QModelIndex):
         if not self.connected:
             QMessageBox.warning(
-                self.ui, "Database Not Loaded", "먼저 DB를 Load 해야 합니다."
+                self.ui, "Database Not Loaded", "Connect to the database first."
             )
             self.ui.device_table_view.clearSelection()
             self.parameter_tab._clear_tabs()

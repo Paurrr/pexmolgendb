@@ -24,8 +24,8 @@ CSV_TEXT = "CellType,CdsLibName,InstCellName,InstTerm\nNFET,sf2p,nfet_c,DRN d\n"
 LOAD_CSV_NOTICE = (
     "info",
     "Load CSV",
-    "device 1개를 새로 추가했다.\n"
-    "CSV 는 불러올 때마다 새로 쌓인다 — 같은 파일을 다시 넣으면 중복된다.",
+    "Added 1 device(s).\n"
+    "CSV import always adds new rows - importing the same file again duplicates them.",
 )
 
 
@@ -114,7 +114,7 @@ def test_loading_a_csv_into_a_release_makes_the_pair_and_stays_on_the_current_on
     assert current(ctrl) == before
     assert device_names(ctrl) == ["nfet_a", "nfet_b"]
     assert dialogs.shown == [LOAD_CSV_NOTICE]
-    assert logs[-1] == f"Imported CSV: {path} (version V1, device 1개 추가)."
+    assert logs[-1] == f"Imported CSV: {path} (version V1, 1 device(s) added)."
 
 
 def test_loading_a_csv_without_a_release_keeps_the_old_lines(
@@ -132,7 +132,7 @@ def test_loading_a_csv_without_a_release_keeps_the_old_lines(
     assert sorted(store.releases.values()) == ["", ""]
     assert sorted(device_names(ctrl)) == ["nfet_a", "nfet_b", "nfet_c"]
     assert dialogs.shown == [LOAD_CSV_NOTICE]
-    assert logs[-1] == f"Imported CSV: {path} (device 1개 추가)."
+    assert logs[-1] == f"Imported CSV: {path} (1 device(s) added)."
 
 
 def test_cancelling_the_release_question_loads_nothing(
@@ -238,7 +238,7 @@ def test_the_release_question_lists_each_release_once_with_no_release_first(
     assert seen.pop("parent") is ctrl.ui
     assert seen == {
         "title": "Load CSV",
-        "label": "불러올 버전 (비우면 버전 없음):",
+        "label": "Version to import (empty = no version):",
         "items": ["(none)", "V1", "V2"],
         "text": "V1",
         "editable": True,
